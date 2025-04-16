@@ -1,0 +1,211 @@
+        ADR PROGRAM
+OUT1
+        TST '*1'
+        BF l0
+        CL 'GN1'
+        OUT
+l0
+        BT l1
+        TST '*2'
+        BF l2
+        CL 'GN2'
+        OUT
+l2
+        BT l1
+        TST '*'
+        BF l3
+        CL 'CI'
+        OUT
+l3
+        BT l1
+        SR
+        BF l4
+        CL 'CL '
+        CI
+        OUT
+l4
+l1
+        R
+OUTPUT
+        TST '.OUT'
+        BF l5
+        TST '('
+        BE
+l6
+        CLL OUT1
+        BT l6
+        SET
+        BE
+        TST ')'
+        BE
+l5
+        BT l7
+        TST '.LABEL'
+        BF l8
+        CL 'LB'
+        OUT
+        CLL OUT1
+        BE
+l8
+l7
+        BF l9
+        CL 'OUT'
+        OUT
+l9
+l10
+        R
+EX3
+        ID
+        BF l11
+        CL 'CLL '
+        CI
+        OUT
+l11
+        BT l12
+        SR
+        BF l13
+        CL 'TST '
+        CI
+        OUT
+l13
+        BT l12
+        TST '.ID'
+        BF l14
+        CL 'ID'
+        OUT
+l14
+        BT l12
+        TST '.NUMBER'
+        BF l15
+        CL 'NUM'
+        OUT
+l15
+        BT l12
+        TST '.STRING'
+        BF l16
+        CL 'SR'
+        OUT
+l16
+        BT l12
+        TST '('
+        BF l17
+        CLL EX1
+        BE
+        TST ')'
+        BE
+l17
+        BT l12
+        TST '.EMPTY'
+        BF l18
+        CL 'SET'
+        OUT
+l18
+        BT l12
+        TST '$'
+        BF l19
+        LB
+        GN1
+        OUT
+        CLL EX3
+        BE
+        CL 'BT '
+        GN1
+        OUT
+        CL 'SET'
+        OUT
+l19
+l12
+        R
+EX2
+        CLL EX3
+        BF l20
+        CL 'BF '
+        GN1
+        OUT
+l20
+        BT l21
+        CLL OUTPUT
+        BF l22
+l22
+l21
+        BF l23
+l24
+        CLL EX3
+        BF l25
+        CL 'BE'
+        OUT
+l25
+        BT l26
+        CLL OUTPUT
+        BF l27
+l27
+l26
+        BT l24
+        SET
+        BE
+        LB
+        GN1
+        OUT
+l23
+l28
+        R
+EX1
+        CLL EX2
+        BF l29
+l30
+        TST '/'
+        BF l31
+        CL 'BT '
+        GN1
+        OUT
+        CLL EX2
+        BE
+l31
+l32
+        BT l30
+        SET
+        BE
+        LB
+        GN1
+        OUT
+l29
+l33
+        R
+ST
+        ID
+        BF l34
+        LB
+        CI
+        OUT
+        TST '='
+        BE
+        CLL EX1
+        BE
+        TST '.,'
+        BE
+        CL 'R'
+        OUT
+l34
+l35
+        R
+PROGRAM
+        TST '.SYNTAX'
+        BF l36
+        ID
+        BE
+        CL 'ADR '
+        CI
+        OUT
+l37
+        CLL ST
+        BT l37
+        SET
+        BE
+        TST '.END'
+        BE
+        CL 'END'
+        OUT
+l36
+l38
+        R
+        END
