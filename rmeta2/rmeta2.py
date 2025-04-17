@@ -6,6 +6,7 @@ from rpython.rlib.rfile import create_stdio
 class Slicer(object):
     i = 0
     def __init__(self, s): self.s = s
+    def get(self): return self.s[self.i]
     def eatWhitespace(self):
         while self.i < len(self.s) and self.s[self.i] in " \n": self.i += 1
     def matches(self, token):
@@ -13,29 +14,6 @@ class Slicer(object):
         if stop > len(self.s): return False
         rv = self.s[self.i:stop] == token
         return rv
-    def matchToken(self):
-        if self.s[self.i] not in ascii_letters: return ""
-        stop = self.i + 1
-        while stop < len(self.s) and (
-                self.s[stop] in (ascii_letters + digits)): stop += 1
-        token = self.s[self.i:stop]
-        self.i = stop
-        return token
-    def matchNum(self):
-        if self.s[self.i] not in digits: return ""
-        stop = self.i + 1
-        while stop < len(self.s) and self.s[stop] in digits: stop += 1
-        token = self.s[self.i:stop]
-        self.i = stop
-        return token
-    def matchString(self):
-        if self.s[self.i] != "'": return ""
-        stop = self.i + 1
-        while stop < len(self.s) and self.s[stop] != "'": stop += 1
-        stop += 1
-        token = self.s[self.i:stop]
-        self.i = stop
-        return token
     def advance(self, i): self.i += i
 
 def parse(program):
@@ -46,8 +24,8 @@ def parse(program):
         if not line: continue
         elif line.startswith(" "):
             instruction = line.strip()
-            if instruction == "END": break
-            elif instruction.startswith("ADR "): adr = instruction[4:].strip()
+            if instruction.lower() == "end": break
+            elif instruction.lower().startswith("adr "): adr = instruction[4:].strip()
             else: instructions.append(instruction)
         else:
             label = line.strip()
@@ -60,87 +38,112 @@ def parse(program):
 def go(i, labels, instructions, slicer):
     unique = 0
     stack = []
-    switch = False
-    l1 = l2 = tokenBuffer = ""
-    outBuffer = " " * 8
+    parseFlag = tokenFlag = False
+    l1 = tokenBuffer = ""
+    margin = 1
+    outBuffer = ""
     while i < len(instructions):
         inst = instructions[i]
         if " " in inst:
             op, params = inst.split(" ", 1)
+            op = op.lower()
             params = params.strip()
         else:
-            op = inst.strip()
+            op = inst.strip().lower()
             params = ""
-        if op == "TST":
+
+        if op == "tft":
+            tokenFlag = True
+            tokenBuffer = ""
+            i += 1
+        elif op == "tff":
+            tokenFlag = False
+            i += 1
+        elif op == "not":
+            parseFlag = not parseFlag
+            i += 1
+        elif op == "scn":
+            if parseFlag:
+                if tokenFlag: tokenBuffer += slicer.get()
+                slicer.advance(1)
+            i += 1
+        elif op == "cge":
+            parseFlag = ord(slicer.get()) >= int(params)
+            i += 1
+        elif op == "cle":
+            parseFlag = ord(slicer.get()) <= int(params)
+            i += 1
+        elif op == "ce":
+            parseFlag = ord(slicer.get()) == int(params)
+            i += 1
+        elif op == "lch":
+            parseFlag = True
+            tokenBuffer = str(ord(slicer.get()))
+            slicer.advance(1)
+            i += 1
+        elif op == "tst":
             slicer.eatWhitespace()
             stop = len(params) - 1
             assert stop >= 0, "magnolia"
             token = params[1:stop]
-            switch = slicer.matches(token)
-            if switch: slicer.advance(len(token))
+            parseFlag = slicer.matches(token)
+            if parseFlag: slicer.advance(len(token))
             i += 1
-        elif op == "ID":
-            slicer.eatWhitespace()
-            token = slicer.matchToken()
-            switch = bool(token)
-            if switch: tokenBuffer = token
-            i += 1
-        elif op == "NUM":
-            slicer.eatWhitespace()
-            token = slicer.matchNum()
-            switch = bool(token)
-            if switch: tokenBuffer = token
-            i += 1
-        elif op == "SR":
-            slicer.eatWhitespace()
-            token = slicer.matchString()
-            switch = bool(token)
-            if switch: tokenBuffer = token
-            i += 1
-        elif op == "CLL":
-            stack.append((l1, l2, i + 1))
-            l1 = l2 = ""
+        elif op == "cll":
+            stack.append((params, l1, i + 1))
+            l1 = ""
             i = labels[params]
-        elif op == "R":
+        elif op == "r":
             if not stack: return 0
-            l1, l2, i = stack.pop()
-        elif op == "SET":
-            switch = True
+            _, l1, i = stack.pop()
+        elif op == "rf":
+            if not parseFlag:
+                if not stack: return 0
+                _, l1, i = stack.pop()
+            else: i += 1
+        elif op == "set":
+            parseFlag = True
             i += 1
-        elif op == "B": i = labels[params]
-        elif op == "BT": i = labels[params] if switch else i + 1
-        elif op == "BF": i = i + 1 if switch else labels[params]
-        elif op == "BE":
+        elif op == "bt": i = labels[params] if parseFlag else i + 1
+        elif op == "bf": i = i + 1 if parseFlag else labels[params]
+        elif op == "be":
             i += 1
-            if not switch:
+            if not parseFlag:
                 print "Error!"
+                print "Input location:", slicer.i
+                print "Backtrace:", " ".join([frame[0] for frame in stack])
                 return 1
-        elif op == "CL":
+        elif op == "cc":
+            outBuffer += chr(int(params))
+            i += 1
+        elif op == "cl":
             stop = len(params) - 1
             assert stop >= 0, "magnolia"
             outBuffer += params[1:stop]
             i += 1
-        elif op == "CI":
+        elif op == "ci":
             outBuffer += tokenBuffer
             i += 1
-        elif op == "GN1":
+        elif op == "gn":
             if not l1:
-                l1 = "l%d" % unique
+                l1 = str(unique)
                 unique += 1
             outBuffer += l1
             i += 1
-        elif op == "GN2":
-            if not l2:
-                l2 = "l%d" % unique
-                unique += 1
-            outBuffer += l2
-            i += 1
-        elif op == "LB":
+        elif op == "lb":
             outBuffer = ""
+            margin = 0
             i += 1
-        elif op == "OUT":
-            print outBuffer
-            outBuffer = " " * 8
+        elif op in ("tb", "lmi"):
+            margin += 1
+            i += 1
+        elif op == "lmd":
+            if margin: margin -= 1
+            i += 1
+        elif op in ("nl", "out"):
+            print " " * margin + outBuffer
+            outBuffer = ""
+            margin = 1
             i += 1
         else:
             print "Unknown opcode %s" % op

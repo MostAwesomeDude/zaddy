@@ -1,0 +1,600 @@
+  adr PROGRAM
+OUT1
+  tst '*'
+  bf l0
+  tb
+  cl 'ci'
+  nl
+l0
+  bt l1
+  cll STRING
+  bf l2
+  tb
+  cl 'cl '
+  cc 39
+  ci
+  cc 39
+  nl
+l2
+  bt l1
+  cll NUMBER
+  bf l3
+  tb
+  cl 'cc '
+  ci
+  nl
+l3
+  bt l1
+  tst '#'
+  bf l4
+  tb
+  cl 'gn'
+  nl
+l4
+  bt l1
+  tst '.nl'
+  bf l5
+  tb
+  cl 'nl'
+  nl
+l5
+  bt l1
+  tst '.lb'
+  bf l6
+  tb
+  cl 'lb'
+  nl
+l6
+  bt l1
+  tst '.tb'
+  bf l7
+  tb
+  cl 'tb'
+  nl
+l7
+  bt l1
+  tst '.lm+'
+  bf l8
+  tb
+  cl 'lmi'
+  nl
+l8
+  bt l1
+  tst '.lm-'
+  bf l9
+  tb
+  cl 'lmd'
+  nl
+l9
+l1
+  r
+OUTPUT
+  tst '.out'
+  bf l10
+  tst '('
+  be
+l11
+  cll OUT1
+  bt l11
+  set
+  be
+  tst ')'
+  be
+l10
+l12
+  r
+CX3
+  cll NUMBER
+  bf l13
+l13
+  bt l14
+  cll SQUOTE
+  bf l15
+  lch
+  be
+l15
+l14
+  r
+CX2
+  cll CX3
+  bf l16
+  tst ':'
+  bf l17
+  tb
+  cl 'cge '
+  ci
+  nl
+  tb
+  cl 'bf d'
+  gn
+  nl
+  cll CX3
+  be
+  tb
+  cl 'cle '
+  ci
+  nl
+  lb
+  cl 'd'
+  gn
+  nl
+l17
+  bt l18
+  set
+  bf l19
+  tb
+  cl 'ce '
+  ci
+  nl
+l19
+l18
+  be
+l16
+l20
+  r
+CX1
+  cll CX2
+  bf l21
+l22
+  tst '!'
+  bf l23
+  tb
+  cl 'bt c'
+  gn
+  nl
+  cll CX2
+  be
+l23
+l24
+  bt l22
+  set
+  be
+  lb
+  cl 'c'
+  gn
+  nl
+l21
+l25
+  r
+TX3
+  tst '.token'
+  bf l26
+  tb
+  cl 'tft'
+  nl
+l26
+  bt l27
+  tst '.tokout'
+  bf l28
+  tb
+  cl 'tff'
+  nl
+l28
+  bt l27
+  tst '$'
+  bf l29
+  lb
+  cl 't'
+  gn
+  nl
+  cll TX3
+  be
+  tb
+  cl 'bt t'
+  gn
+  nl
+l29
+l27
+  bf l30
+  tb
+  cl 'set'
+  nl
+l30
+  bt l31
+  tst '.not('
+  bf l32
+  cll CX1
+  be
+  tst ')'
+  be
+  tb
+  cl 'not'
+  nl
+  tb
+  cl 'scn'
+  nl
+l32
+  bt l31
+  tst '.any('
+  bf l33
+  cll CX1
+  be
+  tst ')'
+  be
+  tb
+  cl 'scn'
+  nl
+l33
+  bt l31
+  cll ID
+  bf l34
+  tb
+  cl 'cll '
+  ci
+  nl
+l34
+  bt l31
+  tst '('
+  bf l35
+  cll TX1
+  be
+  tst ')'
+  be
+l35
+l31
+  r
+TX2
+  cll TX3
+  bf l36
+  tb
+  cl 'bf t'
+  gn
+  nl
+l37
+  cll TX3
+  bf l38
+  tb
+  cl 'rf'
+  nl
+l38
+l39
+  bt l37
+  set
+  be
+  lb
+  cl 't'
+  gn
+  nl
+l36
+l40
+  r
+TX1
+  cll TX2
+  bf l41
+l42
+  tst '/'
+  bf l43
+  tb
+  cl 'bt t'
+  gn
+  nl
+  cll TX2
+  be
+l43
+l44
+  bt l42
+  set
+  be
+  lb
+  cl 't'
+  gn
+  nl
+l41
+l45
+  r
+TR
+  cll ID
+  bf l46
+  lb
+  ci
+  nl
+  tst ':'
+  be
+  cll TX1
+  be
+  tst ';'
+  be
+  tb
+  cl 'r'
+  nl
+l46
+l47
+  r
+EX3
+  cll ID
+  bf l48
+  tb
+  cl 'cll '
+  ci
+  nl
+l48
+  bt l49
+  cll STRING
+  bf l50
+  tb
+  cl 'tst '
+  cc 39
+  ci
+  cc 39
+  nl
+l50
+  bt l49
+  tst '('
+  bf l51
+  cll EX1
+  be
+  tst ')'
+  be
+l51
+  bt l49
+  tst '.empty'
+  bf l52
+  tb
+  cl 'set'
+  nl
+l52
+  bt l49
+  tst '.litchr'
+  bf l53
+  tb
+  cl 'lch'
+  nl
+l53
+  bt l49
+  tst '$'
+  bf l54
+  lb
+  cl 'l'
+  gn
+  nl
+  cll EX3
+  be
+  tb
+  cl 'bt l'
+  gn
+  nl
+  tb
+  cl 'set'
+  nl
+l54
+l49
+  r
+EX2
+  cll EX3
+  bf l55
+  tb
+  cl 'bf l'
+  gn
+  nl
+l55
+  bt l56
+  cll OUTPUT
+  bf l57
+l57
+l56
+  bf l58
+l59
+  cll EX3
+  bf l60
+  tb
+  cl 'be'
+  nl
+l60
+  bt l61
+  cll OUTPUT
+  bf l62
+l62
+l61
+  bt l59
+  set
+  be
+  lb
+  cl 'l'
+  gn
+  nl
+l58
+l63
+  r
+EX1
+  cll EX2
+  bf l64
+l65
+  tst '/'
+  bf l66
+  tb
+  cl 'bt l'
+  gn
+  nl
+  cll EX2
+  be
+l66
+l67
+  bt l65
+  set
+  be
+  lb
+  cl 'l'
+  gn
+  nl
+l64
+l68
+  r
+PR
+  cll ID
+  bf l69
+  lb
+  ci
+  nl
+  tst '='
+  be
+  cll EX1
+  be
+  tst ';'
+  be
+  tb
+  cl 'r'
+  nl
+l69
+l70
+  r
+PROGRAM
+  tst '.syntax'
+  bf l71
+  cll ID
+  be
+  tb
+  cl 'adr '
+  ci
+  nl
+l72
+  cll PR
+  bt l72
+  set
+  be
+  tst '.tokens'
+  be
+l73
+  cll TR
+  bt l73
+  set
+  be
+  tst '.end'
+  be
+  tb
+  cl 'end'
+  nl
+l71
+l74
+  r
+WS
+t75
+  ce 9
+  bt c76
+  ce 10
+  bt c76
+  ce 13
+  bt c76
+  ce 32
+c76
+  scn
+  bt t75
+  set
+  bf t77
+t77
+t78
+  r
+DIGIT
+  cge 48
+  bf d79
+  cle 57
+d79
+c80
+  scn
+  bf t81
+t81
+t82
+  r
+ALPHA
+  cge 65
+  bf d83
+  cle 90
+d83
+  bt c84
+  cge 97
+  bf d85
+  cle 122
+d85
+c84
+  scn
+  bf t86
+t86
+t87
+  r
+SQUOTE
+  cll WS
+  bf t88
+  ce 39
+c89
+  scn
+  rf
+t88
+t90
+  r
+STRING
+  cll WS
+  bf t91
+  ce 39
+c92
+  scn
+  rf
+  tft
+  set
+  rf
+t93
+  ce 10
+  bt c94
+  ce 13
+  bt c94
+  ce 39
+c94
+  not
+  scn
+  bt t93
+  set
+  rf
+  tff
+  set
+  rf
+  ce 39
+c95
+  scn
+  rf
+t91
+t96
+  r
+NUMBER
+  cll WS
+  bf t97
+  tft
+  set
+  rf
+  cll DIGIT
+  rf
+t98
+  cll DIGIT
+  bt t98
+  set
+  rf
+  tff
+  set
+  rf
+t97
+t99
+  r
+ID
+  cll WS
+  bf t100
+  tft
+  set
+  rf
+  cll ALPHA
+  rf
+t101
+  cll ALPHA
+  bf t102
+t102
+  bt t103
+  cll DIGIT
+  bf t104
+t104
+t103
+  bt t101
+  set
+  rf
+  tff
+  set
+  rf
+t100
+t105
+  r
+  end
