@@ -40,7 +40,7 @@ def go(i, labels, instructions, slicer):
     stack = []
     parseFlag = tokenFlag = False
     l1 = tokenBuffer = ""
-    margin = 1
+    margin = 0
     outBuffer = ""
     while i < len(instructions):
         inst = instructions[i]
@@ -130,20 +130,15 @@ def go(i, labels, instructions, slicer):
                 unique += 1
             outBuffer += l1
             i += 1
-        elif op == "lb":
-            outBuffer = ""
-            margin = 0
-            i += 1
-        elif op in ("tb", "lmi"):
+        elif op == "lmi":
             margin += 1
             i += 1
         elif op == "lmd":
             if margin: margin -= 1
             i += 1
-        elif op in ("nl", "out"):
-            print " " * margin + outBuffer
+        elif op == "nl":
+            print " " * (margin * 2) + outBuffer
             outBuffer = ""
-            margin = 1
             i += 1
         else:
             print "Unknown opcode %s" % op

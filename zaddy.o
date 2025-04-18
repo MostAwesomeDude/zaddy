@@ -2,14 +2,12 @@
 OUT1
   tst '*'
   bf l0
-  tb
   cl 'ci'
   nl
 l0
   bt l1
   cll STRING
   bf l2
-  tb
   cl 'cl '
   cc 39
   ci
@@ -19,7 +17,6 @@ l2
   bt l1
   cll NUMBER
   bf l3
-  tb
   cl 'cc '
   ci
   nl
@@ -27,574 +24,538 @@ l3
   bt l1
   tst '#'
   bf l4
-  tb
   cl 'gn'
   nl
 l4
   bt l1
   tst '.nl'
   bf l5
-  tb
   cl 'nl'
   nl
 l5
   bt l1
-  tst '.lb'
+  tst '.lm+'
   bf l6
-  tb
-  cl 'lb'
+  cl 'lmi'
   nl
 l6
   bt l1
-  tst '.tb'
-  bf l7
-  tb
-  cl 'tb'
-  nl
-l7
-  bt l1
-  tst '.lm+'
-  bf l8
-  tb
-  cl 'lmi'
-  nl
-l8
-  bt l1
   tst '.lm-'
-  bf l9
-  tb
+  bf l7
   cl 'lmd'
   nl
-l9
+l7
 l1
   r
 OUTPUT
   tst '.out'
-  bf l10
+  bf l8
   tst '('
   be
-l11
+l9
   cll OUT1
-  bt l11
+  bt l9
   set
   be
   tst ')'
   be
+l8
 l10
-l12
   r
 CX3
   cll NUMBER
-  bf l13
-l13
-  bt l14
+  bf l11
+l11
+  bt l12
   cll SQUOTE
-  bf l15
+  bf l13
   lch
   be
-l15
-l14
+l13
+l12
   r
 CX2
   cll CX3
-  bf l16
+  bf l14
   tst ':'
-  bf l17
-  tb
+  bf l15
   cl 'cge '
   ci
   nl
-  tb
   cl 'bf d'
   gn
   nl
   cll CX3
   be
-  tb
   cl 'cle '
   ci
   nl
-  lb
+  lmd
   cl 'd'
   gn
   nl
-l17
-  bt l18
+  lmi
+l15
+  bt l16
   set
-  bf l19
-  tb
+  bf l17
   cl 'ce '
   ci
   nl
-l19
-l18
-  be
+l17
 l16
-l20
+  be
+l14
+l18
   r
 CX1
   cll CX2
-  bf l21
-l22
+  bf l19
+l20
   tst '!'
-  bf l23
-  tb
+  bf l21
   cl 'bt c'
   gn
   nl
   cll CX2
   be
-l23
-l24
-  bt l22
+l21
+l22
+  bt l20
   set
   be
-  lb
+  lmd
   cl 'c'
   gn
   nl
-l21
-l25
+  lmi
+l19
+l23
   r
 TX3
   tst '.token'
-  bf l26
-  tb
+  bf l24
   cl 'tft'
   nl
-l26
-  bt l27
+l24
+  bt l25
   tst '.tokout'
-  bf l28
-  tb
+  bf l26
   cl 'tff'
   nl
-l28
-  bt l27
+l26
+  bt l25
   tst '$'
-  bf l29
-  lb
+  bf l27
+  lmd
   cl 't'
   gn
   nl
+  lmi
   cll TX3
   be
-  tb
   cl 'bt t'
   gn
   nl
-l29
 l27
-  bf l30
-  tb
+l25
+  bf l28
   cl 'set'
   nl
-l30
-  bt l31
+l28
+  bt l29
   tst '.not('
-  bf l32
+  bf l30
   cll CX1
   be
   tst ')'
   be
-  tb
   cl 'not'
   nl
-  tb
   cl 'scn'
   nl
-l32
-  bt l31
+l30
+  bt l29
   tst '.any('
-  bf l33
+  bf l31
   cll CX1
   be
   tst ')'
   be
-  tb
   cl 'scn'
   nl
-l33
-  bt l31
+l31
+  bt l29
   cll ID
-  bf l34
-  tb
+  bf l32
   cl 'cll '
   ci
   nl
-l34
-  bt l31
+l32
+  bt l29
   tst '('
-  bf l35
+  bf l33
   cll TX1
   be
   tst ')'
   be
-l35
-l31
+l33
+l29
   r
 TX2
   cll TX3
-  bf l36
-  tb
+  bf l34
   cl 'bf t'
   gn
   nl
-l37
+l35
   cll TX3
-  bf l38
-  tb
+  bf l36
   cl 'rf'
   nl
-l38
-l39
-  bt l37
+l36
+l37
+  bt l35
   set
   be
-  lb
+  lmd
   cl 't'
   gn
   nl
-l36
-l40
+  lmi
+l34
+l38
   r
 TX1
   cll TX2
-  bf l41
-l42
+  bf l39
+l40
   tst '/'
-  bf l43
-  tb
+  bf l41
   cl 'bt t'
   gn
   nl
   cll TX2
   be
-l43
-l44
-  bt l42
+l41
+l42
+  bt l40
   set
   be
-  lb
+  lmd
   cl 't'
   gn
   nl
-l41
-l45
+  lmi
+l39
+l43
   r
 TR
   cll ID
-  bf l46
-  lb
+  bf l44
+  lmd
   ci
   nl
+  lmi
   tst ':'
   be
   cll TX1
   be
   tst ';'
   be
-  tb
   cl 'r'
   nl
-l46
-l47
+l44
+l45
   r
 EX3
   cll ID
-  bf l48
-  tb
+  bf l46
   cl 'cll '
   ci
   nl
-l48
-  bt l49
+l46
+  bt l47
   cll STRING
-  bf l50
-  tb
+  bf l48
   cl 'tst '
   cc 39
   ci
   cc 39
   nl
-l50
-  bt l49
+l48
+  bt l47
   tst '('
-  bf l51
+  bf l49
   cll EX1
   be
   tst ')'
   be
-l51
-  bt l49
+l49
+  bt l47
   tst '.empty'
+  bf l50
+  cl 'set'
+  nl
+l50
+  bt l47
+  tst '.litchr'
+  bf l51
+  cl 'lch'
+  nl
+l51
+  bt l47
+  tst '$'
   bf l52
-  tb
+  lmd
+  cl 'l'
+  gn
+  nl
+  lmi
+  cll EX3
+  be
+  cl 'bt l'
+  gn
+  nl
   cl 'set'
   nl
 l52
-  bt l49
-  tst '.litchr'
-  bf l53
-  tb
-  cl 'lch'
-  nl
-l53
-  bt l49
-  tst '$'
-  bf l54
-  lb
-  cl 'l'
-  gn
-  nl
-  cll EX3
-  be
-  tb
-  cl 'bt l'
-  gn
-  nl
-  tb
-  cl 'set'
-  nl
-l54
-l49
+l47
   r
 EX2
   cll EX3
-  bf l55
-  tb
+  bf l53
   cl 'bf l'
   gn
   nl
-l55
-  bt l56
+l53
+  bt l54
   cll OUTPUT
-  bf l57
+  bf l55
+l55
+l54
+  bf l56
 l57
-l56
-  bf l58
-l59
   cll EX3
-  bf l60
-  tb
+  bf l58
   cl 'be'
   nl
-l60
-  bt l61
-  cll OUTPUT
-  bf l62
-l62
-l61
+l58
   bt l59
+  cll OUTPUT
+  bf l60
+l60
+l59
+  bt l57
   set
   be
-  lb
+  lmd
   cl 'l'
   gn
   nl
-l58
-l63
+  lmi
+l56
+l61
   r
 EX1
   cll EX2
-  bf l64
-l65
+  bf l62
+l63
   tst '/'
-  bf l66
-  tb
+  bf l64
   cl 'bt l'
   gn
   nl
   cll EX2
   be
-l66
-l67
-  bt l65
+l64
+l65
+  bt l63
   set
   be
-  lb
+  lmd
   cl 'l'
   gn
   nl
-l64
-l68
+  lmi
+l62
+l66
   r
 PR
   cll ID
-  bf l69
-  lb
+  bf l67
+  lmd
   ci
   nl
+  lmi
   tst '='
   be
   cll EX1
   be
   tst ';'
   be
-  tb
   cl 'r'
   nl
-l69
-l70
+l67
+l68
   r
 PROGRAM
   tst '.syntax'
-  bf l71
+  bf l69
   cll ID
   be
-  tb
+  lmi
   cl 'adr '
   ci
   nl
-l72
+l70
   cll PR
-  bt l72
+  bt l70
   set
   be
   tst '.tokens'
   be
-l73
+l71
   cll TR
-  bt l73
+  bt l71
   set
   be
   tst '.end'
   be
-  tb
   cl 'end'
   nl
-l71
-l74
+l69
+l72
   r
 WS
-t75
+t73
   ce 9
-  bt c76
+  bt c74
   ce 10
-  bt c76
+  bt c74
   ce 13
-  bt c76
+  bt c74
   ce 32
-c76
+c74
   scn
-  bt t75
+  bt t73
   set
-  bf t77
-t77
-t78
+  bf t75
+t75
+t76
   r
 DIGIT
   cge 48
-  bf d79
+  bf d77
   cle 57
-d79
-c80
+d77
+c78
   scn
-  bf t81
-t81
-t82
+  bf t79
+t79
+t80
   r
 ALPHA
   cge 65
-  bf d83
+  bf d81
   cle 90
-d83
-  bt c84
+d81
+  bt c82
   cge 97
-  bf d85
+  bf d83
   cle 122
-d85
-c84
+d83
+c82
   scn
-  bf t86
-t86
-t87
+  bf t84
+t84
+t85
   r
 SQUOTE
   cll WS
-  bf t88
+  bf t86
   ce 39
-c89
+c87
   scn
   rf
+t86
 t88
-t90
   r
 STRING
   cll WS
-  bf t91
+  bf t89
   ce 39
-c92
+c90
   scn
   rf
   tft
   set
   rf
-t93
+t91
   ce 10
-  bt c94
+  bt c92
   ce 13
-  bt c94
+  bt c92
   ce 39
-c94
+c92
   not
   scn
-  bt t93
+  bt t91
   set
   rf
   tff
   set
   rf
   ce 39
-c95
+c93
   scn
   rf
-t91
-t96
+t89
+t94
   r
 NUMBER
   cll WS
-  bf t97
+  bf t95
   tft
   set
   rf
   cll DIGIT
   rf
-t98
+t96
   cll DIGIT
-  bt t98
+  bt t96
   set
   rf
   tff
   set
   rf
+t95
 t97
-t99
   r
 ID
   cll WS
-  bf t100
+  bf t98
   tft
   set
   rf
   cll ALPHA
   rf
-t101
+t99
   cll ALPHA
+  bf t100
+t100
+  bt t101
+  cll DIGIT
   bf t102
 t102
-  bt t103
-  cll DIGIT
-  bf t104
-t104
-t103
-  bt t101
+t101
+  bt t99
   set
   rf
   tff
   set
   rf
-t100
-t105
+t98
+t103
   r
   end

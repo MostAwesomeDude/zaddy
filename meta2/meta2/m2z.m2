@@ -1,49 +1,49 @@
 .syntax PROGRAM
 
-OUT1 = '*'     .out(.tb 'ci' .nl)
-     / STRING  .out(.tb 'cl ' 39 * 39 .nl)
-     / NUMBER  .out(.tb 'cc ' * .nl)
-     / '#'     .out(.tb 'gn' .nl)
-     / '.nl'   .out(.tb 'nl' .nl)
-     / '.lb'   .out(.tb 'lb' .nl)
-     / '.tb'   .out(.tb 'tb' .nl)
-     / '.lm+'  .out(.tb 'lmi' .nl)
-     / '.lm-'  .out(.tb 'lmd' .nl) ;
+OUT1 = '*'     .out('ci' .nl)
+     / STRING  .out('cl ' 39 * 39 .nl)
+     / NUMBER  .out('cc ' * .nl)
+     / '#'     .out('gn' .nl)
+     / '.nl'   .out('nl' .nl)
+     / '.lm+'  .out('lmi' .nl)
+     / '.lm-'  .out('lmd' .nl) ;
 OUTPUT = '.out' '(' $OUT1 ')' ;
 
 CX3 = NUMBER / SQUOTE .litchr ;
-CX2 = CX3 ( ':' .out(.tb 'cge ' * .nl .tb 'bf d'# .nl)
-            CX3 .out(.tb 'cle ' * .nl .lb 'd'# .nl)
-          / .empty .out(.tb 'ce ' * .nl) ) ;
-CX1 = CX2 $( '!' .out(.tb 'bt c'# .nl) CX2 ) .out(.lb 'c'# .nl) ;
+CX2 = CX3 ( ':' .out('cge ' * .nl 'bf d'# .nl)
+            CX3 .out('cle ' * .nl .lm- 'd'# .nl .lm+)
+          / .empty .out('ce ' * .nl) ) ;
+CX1 = CX2 $( '!' .out('bt c'# .nl) CX2 ) .out(.lm- 'c'# .nl .lm+) ;
 
-TX3 = ( '.token' .out(.tb 'tft' .nl)
-      / '.tokout' .out(.tb 'tff' .nl)
-      / '$' .out(.lb 't'# .nl) TX3 .out(.tb 'bt t'# .nl) ) .out(.tb 'set' .nl)
-    / '.not(' CX1 ')' .out(.tb 'not' .nl .tb 'scn' .nl)
-    / '.any(' CX1 ')' .out(.tb 'scn' .nl)
-    / ID .out(.tb 'cll ' * .nl)
+TX3 = ( '.token' .out('tft' .nl)
+      / '.tokout' .out('tff' .nl)
+      / '$' .out(.lm- 't'# .nl .lm+) TX3 .out('bt t'# .nl) ) .out('set' .nl)
+    / '.not(' CX1 ')' .out('not' .nl 'scn' .nl)
+    / '.any(' CX1 ')' .out('scn' .nl)
+    / ID .out('cll ' * .nl)
     / '(' TX1 ')' ;
-TX2 = TX3 .out(.tb 'bf t'# .nl)
-      $( TX3 .out(.tb 'rf' .nl) )
-      .out(.lb 't'# .nl) ;
-TX1 = TX2 $( '/' .out(.tb 'bt t'# .nl) TX2 ) .out(.lb 't'# .nl) ;
-TR = ID .out(.lb * .nl) ':' TX1 ';' .out(.tb 'r' .nl) ;
+TX2 = TX3 .out('bf t'# .nl)
+      $( TX3 .out('rf' .nl) )
+      .out(.lm- 't'# .nl .lm+) ;
+TX1 = TX2 $( '/' .out('bt t'# .nl) TX2 ) .out(.lm- 't'# .nl .lm+) ;
+TR = ID .out(.lm- * .nl .lm+) ':' TX1 ';' .out('r' .nl) ;
 
-EX3 = ID .out(.tb 'cll ' * .nl)
-    / STRING .out(.tb 'tst ' 39 * 39 .nl)
+EX3 = ID .out('cll ' * .nl)
+    / STRING .out('tst ' 39 * 39 .nl)
     / '(' EX1 ')'
-    / '.empty' .out(.tb 'set' .nl)
-    / '.litchr' .out(.tb 'lch' .nl)
-    / '$' .out(.lb 'l'# .nl) EX3 .out(.tb 'bt l'# .nl .tb 'set' .nl) ;
-EX2 = ( EX3 .out(.tb 'bf l'# .nl) / OUTPUT ) $( EX3 .out(.tb 'be' .nl) / OUTPUT ) .out(.lb 'l'# .nl) ;
-EX1 = EX2 $( '/' .out(.tb 'bt l'# .nl) EX2 ) .out(.lb 'l'# .nl) ;
+    / '.empty' .out('set' .nl)
+    / '.litchr' .out('lch' .nl)
+    / '$' .out(.lm- 'l'# .nl .lm+) EX3 .out('bt l'# .nl 'set' .nl) ;
+EX2 = ( EX3 .out('bf l'# .nl) / OUTPUT )
+      $( EX3 .out('be' .nl) / OUTPUT )
+      .out(.lm- 'l'# .nl .lm+) ;
+EX1 = EX2 $( '/' .out('bt l'# .nl) EX2 ) .out(.lm- 'l'# .nl .lm+) ;
 
-PR = ID .out(.lb * .nl) '=' EX1 ';' .out(.tb 'r' .nl) ;
+PR = ID .out(.lm- * .nl .lm+) '=' EX1 ';' .out('r' .nl) ;
 
-PROGRAM = '.syntax' ID .out(.tb 'adr ' * .nl) $PR
+PROGRAM = '.syntax' ID .out(.lm+ 'adr ' * .nl) $PR
           '.tokens' $TR
-          '.end' .out(.tb 'end' .nl) ;
+          '.end' .out('end' .nl) ;
 
 .tokens
 
