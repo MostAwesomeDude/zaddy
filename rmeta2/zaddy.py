@@ -9,10 +9,7 @@ class PROGRAMParser(object):
   def unique(self):
     if not self.l1: self.l1 = str(self.u); self.u += 1
     return self.l1
-  def error(self, i):
-    print "Error at input location:", i
-    print "Backtrace:", " ".join([frame[0] for frame in self.stack])
-    raise ValueError("meh")
+  def error(self, i): raise ValueError("meh")
   def parseOUT1(self, s):
     s.eatWhitespace()
     self.pf = s.matches("*")
@@ -644,20 +641,9 @@ class PROGRAMParser(object):
       print " " * (self.m * 2) + self.ob
       self.ob = ""
       if self.m: self.m -= 1
-      self.ob += 'def error(self, i):'
+      self.ob += 'def error(self, i): raise ValueError("meh")'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
-      self.m += 1
-      self.ob += 'print "Error at input location:", i'
-      print " " * (self.m * 2) + self.ob
-      self.ob = ""
-      self.ob += 'print "Backtrace:", " ".join([frame[0] for frame in self.stack])'
-      print " " * (self.m * 2) + self.ob
-      self.ob = ""
-      self.ob += 'raise ValueError("meh")'
-      print " " * (self.m * 2) + self.ob
-      self.ob = ""
-      if self.m: self.m -= 1
       self.pf = True
       while self.pf:
         self.stack.append(("PR", self.l1))

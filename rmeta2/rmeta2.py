@@ -150,11 +150,14 @@ def go(i, labels, instructions, slicer):
 def main(argv):
     stdin, stdout, stderr = create_stdio()
     parser = PROGRAMParser()
+    slicer = Slicer(stdin.read())
     try:
-        parser.parse(Slicer(stdin.read()))
+        parser.parse(slicer)
         return 0
     except ValueError:
-        stderr.write("Error!")
+        stderr.write("Error at input location: %d\n" % slicer.i)
+        stderr.write("Backtrace: %s\n" %
+                     " ".join([frame[0] for frame in parser.stack]))
         return 1
 
 def target(driver, *args):
