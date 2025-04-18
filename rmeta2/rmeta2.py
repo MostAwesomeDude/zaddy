@@ -3,6 +3,8 @@ import sys
 
 from rpython.rlib.rfile import create_stdio
 
+from zaddy import PROGRAMParser
+
 class Slicer(object):
     i = 0
     def __init__(self, s): self.s = s
@@ -137,7 +139,7 @@ def go(i, labels, instructions, slicer):
             if margin: margin -= 1
             i += 1
         elif op == "nl":
-            print " " * (margin * 2) + outBuffer
+            print " " * (margin * 4) + outBuffer
             outBuffer = ""
             i += 1
         else:
@@ -146,13 +148,14 @@ def go(i, labels, instructions, slicer):
     return 0
 
 def main(argv):
-    if len(argv) != 2:
-        print "Usage:", argv[0], "<program.o>"
-        return 1
-    with open(argv[1], "rb") as handle: program = handle.read()
-    adr, labels, instructions = parse(program)
     stdin, stdout, stderr = create_stdio()
-    return go(adr, labels, instructions, Slicer(stdin.read()))
+    parser = PROGRAMParser()
+    try:
+        parser.parse(Slicer(stdin.read()))
+        return 0
+    except ValueError:
+        stderr.write("Error!")
+        return 1
 
 def target(driver, *args):
     driver.exe_name = "rmeta2"
