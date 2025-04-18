@@ -472,6 +472,15 @@ class PROGRAMParser(object):
         self.ob = ""
     if not self.pf:
       s.eatWhitespace()
+      self.pf = s.matches(".pass")
+      if self.pf: s.advance(len(".pass"))
+      if self.pf:
+        pass
+        self.ob += 's.i = 0'
+        print " " * (self.m * 2) + self.ob
+        self.ob = ""
+    if not self.pf:
+      s.eatWhitespace()
       self.pf = s.matches("$")
       if self.pf: s.advance(len("$"))
       if self.pf:
