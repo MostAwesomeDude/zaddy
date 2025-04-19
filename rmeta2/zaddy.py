@@ -599,6 +599,38 @@ class PROGRAMParser(object):
       if self.pf: s.advance(len(";"))
       if not self.pf: self.error(s.i)
       if self.m: self.m -= 1
+  def parseTY(self, s):
+    s.eatWhitespace()
+    self.pf = s.matches("bool")
+    if self.pf: s.advance(len("bool"))
+    if self.pf:
+      pass
+      self.ob += '0'
+  def parseDR(self, s):
+    self.stack.append(("ID", self.l1))
+    self.l1 = ""
+    self.parseID(s)
+    self.stack.pop()
+    if self.pf:
+      pass
+      s.eatWhitespace()
+      self.pf = s.matches(":")
+      if self.pf: s.advance(len(":"))
+      if not self.pf: self.error(s.i)
+      self.ob += 'a'
+      self.ob += self.tb
+      self.ob += ' = '
+      self.stack.append(("TY", self.l1))
+      self.l1 = ""
+      self.parseTY(s)
+      self.stack.pop()
+      if not self.pf: self.error(s.i)
+      s.eatWhitespace()
+      self.pf = s.matches(";")
+      if self.pf: s.advance(len(";"))
+      if not self.pf: self.error(s.i)
+      print " " * (self.m * 2) + self.ob
+      self.ob = ""
   def parsePROGRAM(self, s):
     s.eatWhitespace()
     self.pf = s.matches(".syntax")
@@ -678,6 +710,14 @@ class PROGRAMParser(object):
       if self.pf: s.advance(len(".domain"))
       if self.pf:
         pass
+        self.pf = True
+        while self.pf:
+          self.stack.append(("DR", self.l1))
+          self.l1 = ""
+          self.parseDR(s)
+          self.stack.pop()
+        self.pf = True
+        if not self.pf: self.error(s.i)
       if not self.pf:
         self.pf = True
         if self.pf:
@@ -819,3 +859,4 @@ class PROGRAMParser(object):
       self.tf = False
       self.pf = True
       if not self.pf: return
+  apf = 0

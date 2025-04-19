@@ -67,6 +67,9 @@ EX1 = EX2 $( '/' .out('if not self.pf:' .nl .lm+) EX2 .out(.lm-) ) ;
 
 PR = ID .out('def parse' * '(self, s):' .nl .lm+) '=' EX1 ';' .out(.lm-) ;
 
+TY = 'bool' .out('0') ;
+DR = ID ':' .out('a' * ' = ') TY ';' .out(.nl) ;
+
 PROGRAM = '.syntax' ID .out(
             'class ' * 'Parser(object):' .nl .lm+
             'u = 0' .nl
@@ -82,7 +85,7 @@ PROGRAM = '.syntax' ID .out(
             'def error(self, i): raise ValueError("meh")' .nl
           )
           $PR '.tokens' $TR
-          ( '.domain' / .empty )
+          ( '.domain' $DR / .empty )
           '.end' ;
 
 .tokens
@@ -94,5 +97,9 @@ SQUOTE : WS .any(39) ;
 STRING : WS .any(39) .token $.not(10!13!39) .tokout .any(39) ;
 NUMBER : WS .token DIGIT $DIGIT .tokout ;
 ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
+
+.domain
+
+pf : bool ;
 
 .end
