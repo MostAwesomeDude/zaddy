@@ -17,11 +17,12 @@ CX2 = CX3 ( ':' .out(* ' <= ord(s.get()) <= ') CX3 .out(*)
           / .empty .out('ord(s.get()) == ' *) ) ;
 CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) .top ;
 
-SCAN = .pre { ~-pf } { .out(
-         'if self.pf:' .nl .lm+
-         'if self.tf: self.tb += s.get()' .nl
-         's.advance(1)' .nl .lm-
-       ) } ;
+SCAN = .pre { ~-pf } {
+         .out('if self.pf:' .nl .lm+)
+         .pre { +tf } { .out('self.tb += s.get()' .nl) }
+         .pre { ~-tf, ~+tf } { .out('if self.tf: self.tb += s.get()' .nl) }
+         .out('s.advance(1)' .nl .lm-)
+       } ;
 SUB = ID .out(
         'self.stack.append(("' * '", self.l1))' .nl
         'self.l1 = ""' .nl
@@ -31,8 +32,11 @@ SUB = ID .out(
 
 SET = .pre { ~pf } { .out('self.pf = True' .nl) } .post { pf } ;
 
-TX3 = ( '.token' .out('self.tf = True' .nl 'self.tb = ""' .nl)
-      / '.tokout' .out('self.tf = False' .nl)
+TX3 = ( '.token'
+        .out('self.tb = ""' .nl)
+        .pre { ~tf } { .out('self.tf = True' .nl) } .post { tf }
+      / '.tokout'
+        .pre { ~-tf } { .out('self.tf = False' .nl) } .post { -tf }
       / '$' SET .out('while self.pf:' .nl .lm+) .post { pf } TX3 .out(.lm-) .post { -pf } ) SET
     / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .top SCAN
     / '.any(' CX1 ')' SCAN
@@ -46,10 +50,12 @@ TX1 = TX2
          TX2 .out(.lm-) .top ) ;
 TR = ID .out('def parse' * '(self, s):' .nl .lm+) ':' .top TX1 ';' .out(.lm-) ;
 
-TVAR = '~' .out('not (') TVAR .out(')')
-     / '-' ID .out('self.a' * ' == 2')
-     / ( '+' / .empty ) ID .out('self.a' * ' == 1') ;
-AVAR = '-' ID .out('self.a' * ' = 2' .nl)
+TVAR = '~' .out('(not ') TVAR .out(')')
+     / '?' ID .out('(self.a' * ' == 0)')
+     / '-' ID .out('(self.a' * ' == 2)')
+     / ( '+' / .empty ) ID .out('(self.a' * ' == 1)') ;
+AVAR = '?' ID .out('self.a' * ' = 0' .nl)
+     / '-' ID .out('self.a' * ' = 2' .nl)
      / ( '+' / .empty ) ID .out('self.a' * ' = 1' .nl) ;
 EX3 = SUB
     / STRING .out(
@@ -94,7 +100,7 @@ PROGRAM = '.syntax' ID .out(
             'm = 0' .nl
             'ob = ""' .nl
             'def __init__(self): self.top(); self.stack = []' .nl
-            'def parse(self, s): return self.parse' * '(s)' .nl
+            'def parse(self, s): self.top(); return self.parse' * '(s)' .nl
             'def unique(self):' .nl .lm+
             'if not self.l1: self.l1 = str(self.u); self.u += 1' .nl
             'return self.l1' .nl .lm-
@@ -117,5 +123,6 @@ ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
 .domain
 
 pf : bool ;
+tf : bool ;
 
 .end
