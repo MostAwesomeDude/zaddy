@@ -93,14 +93,12 @@ class PROGRAMParser(object):
       self.pf = s.matches("(")
       if self.pf: s.advance(len("("))
       if not self.pf: self.error(s.i)
-      self.pf = True
       while self.pf:
         self.stack.append(("OUT1", self.l1))
         self.l1 = ""
         self.parseOUT1(s)
         self.stack.pop()
       self.pf = True
-      if not self.pf: self.error(s.i)
       s.eatWhitespace()
       self.pf = s.matches(")")
       if self.pf: s.advance(len(")"))
@@ -119,10 +117,8 @@ class PROGRAMParser(object):
       self.stack.pop()
       if self.pf:
         pass
-        self.pf = True
         self.tb = str(ord(s.get()))
         s.advance(1)
-        if not self.pf: self.error(s.i)
   def parseCX2(self, s):
     self.stack.append(("CX3", self.l1))
     self.l1 = ""
@@ -159,7 +155,6 @@ class PROGRAMParser(object):
       self.parseCX2(s)
       self.stack.pop()
       if not self.pf: self.error(s.i)
-      self.pf = True
       while self.pf:
         s.eatWhitespace()
         self.pf = s.matches("!")
@@ -173,11 +168,9 @@ class PROGRAMParser(object):
           self.stack.pop()
           if not self.pf: self.error(s.i)
       self.pf = True
-      if not self.pf: self.error(s.i)
       print " " * (self.m * 2) + self.ob
       self.ob = ""
       self.top()
-      if not self.pf: self.error(s.i)
   def parseSCAN(self, s):
     if not (self.apf == 2):
       pass
@@ -219,14 +212,18 @@ class PROGRAMParser(object):
       self.ob += 'self.stack.pop()'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
+      self.top()
   def parseSET(self, s):
-    self.ob += 'self.pf = True'
-    print " " * (self.m * 2) + self.ob
-    self.ob = ""
-    if True:
+    if not (self.apf == 1):
+      pass
+      self.ob += 'self.pf = True'
+      print " " * (self.m * 2) + self.ob
+      self.ob = ""
+      if True:
+        pass
+    if self.pf:
       pass
       self.apf = 1
-      if not self.pf: self.error(s.i)
   def parseTX3(self, s):
     s.eatWhitespace()
     self.pf = s.matches(".token")
@@ -263,12 +260,14 @@ class PROGRAMParser(object):
         print " " * (self.m * 2) + self.ob
         self.ob = ""
         self.m += 1
+        self.apf = 1
         self.stack.append(("TX3", self.l1))
         self.l1 = ""
         self.parseTX3(s)
         self.stack.pop()
         if not self.pf: self.error(s.i)
         if self.m: self.m -= 1
+        self.apf = 2
     if self.pf:
       pass
       self.stack.append(("SET", self.l1))
@@ -295,7 +294,6 @@ class PROGRAMParser(object):
         print " " * (self.m * 2) + self.ob
         self.ob = ""
         self.top()
-        if not self.pf: self.error(s.i)
         self.stack.append(("SCAN", self.l1))
         self.l1 = ""
         self.parseSCAN(s)
@@ -357,7 +355,7 @@ class PROGRAMParser(object):
       self.ob += 'pass'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
-      self.pf = True
+      self.apf = 1
       while self.pf:
         self.stack.append(("TX3", self.l1))
         self.l1 = ""
@@ -365,11 +363,16 @@ class PROGRAMParser(object):
         self.stack.pop()
         if self.pf:
           pass
-          self.ob += 'if not self.pf: return'
-          print " " * (self.m * 2) + self.ob
-          self.ob = ""
+          if not (self.apf == 1):
+            pass
+            self.ob += 'if not self.pf: return'
+            print " " * (self.m * 2) + self.ob
+            self.ob = ""
+            if True:
+              pass
+          if not self.pf: self.error(s.i)
+          self.apf = 1
       self.pf = True
-      if not self.pf: self.error(s.i)
       if self.m: self.m -= 1
   def parseTX1(self, s):
     self.stack.append(("TX2", self.l1))
@@ -378,7 +381,6 @@ class PROGRAMParser(object):
     self.stack.pop()
     if self.pf:
       pass
-      self.pf = True
       while self.pf:
         s.eatWhitespace()
         self.pf = s.matches("/")
@@ -389,14 +391,15 @@ class PROGRAMParser(object):
           print " " * (self.m * 2) + self.ob
           self.ob = ""
           self.m += 1
+          self.apf = 2
           self.stack.append(("TX2", self.l1))
           self.l1 = ""
           self.parseTX2(s)
           self.stack.pop()
           if not self.pf: self.error(s.i)
           if self.m: self.m -= 1
+          self.top()
       self.pf = True
-      if not self.pf: self.error(s.i)
   def parseTR(self, s):
     self.stack.append(("ID", self.l1))
     self.l1 = ""
@@ -414,6 +417,7 @@ class PROGRAMParser(object):
       self.pf = s.matches(":")
       if self.pf: s.advance(len(":"))
       if not self.pf: self.error(s.i)
+      self.top()
       self.stack.append(("TX1", self.l1))
       self.l1 = ""
       self.parseTX1(s)
@@ -452,12 +456,22 @@ class PROGRAMParser(object):
         self.ob += self.tb
         self.ob += ' == 2'
     if not self.pf:
-      self.stack.append(("ID", self.l1))
-      self.l1 = ""
-      self.parseID(s)
-      self.stack.pop()
+      s.eatWhitespace()
+      self.pf = s.matches("+")
+      if self.pf: s.advance(len("+"))
       if self.pf:
         pass
+      if not self.pf:
+        self.pf = True
+        if self.pf:
+          pass
+      if self.pf:
+        pass
+        self.stack.append(("ID", self.l1))
+        self.l1 = ""
+        self.parseID(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
         self.ob += 'self.a'
         self.ob += self.tb
         self.ob += ' == 1'
@@ -478,12 +492,22 @@ class PROGRAMParser(object):
       print " " * (self.m * 2) + self.ob
       self.ob = ""
     if not self.pf:
-      self.stack.append(("ID", self.l1))
-      self.l1 = ""
-      self.parseID(s)
-      self.stack.pop()
+      s.eatWhitespace()
+      self.pf = s.matches("+")
+      if self.pf: s.advance(len("+"))
       if self.pf:
         pass
+      if not self.pf:
+        self.pf = True
+        if self.pf:
+          pass
+      if self.pf:
+        pass
+        self.stack.append(("ID", self.l1))
+        self.l1 = ""
+        self.parseID(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
         self.ob += 'self.a'
         self.ob += self.tb
         self.ob += ' = 1'
@@ -503,8 +527,6 @@ class PROGRAMParser(object):
       self.stack.pop()
       if self.pf:
         pass
-        self.top()
-        if not self.pf: self.error(s.i)
         self.ob += 's.eatWhitespace()'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
@@ -518,6 +540,7 @@ class PROGRAMParser(object):
         self.ob += '"))'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
+        self.top()
     if not self.pf:
       s.eatWhitespace()
       self.pf = s.matches("(")
@@ -549,7 +572,6 @@ class PROGRAMParser(object):
         self.parseTVAR(s)
         self.stack.pop()
         if not self.pf: self.error(s.i)
-        self.pf = True
         while self.pf:
           s.eatWhitespace()
           self.pf = s.matches(",")
@@ -563,7 +585,6 @@ class PROGRAMParser(object):
             self.stack.pop()
             if not self.pf: self.error(s.i)
         self.pf = True
-        if not self.pf: self.error(s.i)
         self.ob += ':'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
@@ -579,9 +600,9 @@ class PROGRAMParser(object):
         self.pf = s.matches("{")
         if self.pf: s.advance(len("{"))
         if not self.pf: self.error(s.i)
-        self.stack.append(("EX2", self.l1))
+        self.stack.append(("EX1", self.l1))
         self.l1 = ""
-        self.parseEX2(s)
+        self.parseEX1(s)
         self.stack.pop()
         if not self.pf: self.error(s.i)
         s.eatWhitespace()
@@ -604,7 +625,6 @@ class PROGRAMParser(object):
         self.parseAVAR(s)
         self.stack.pop()
         if not self.pf: self.error(s.i)
-        self.pf = True
         while self.pf:
           s.eatWhitespace()
           self.pf = s.matches(",")
@@ -617,7 +637,6 @@ class PROGRAMParser(object):
             self.stack.pop()
             if not self.pf: self.error(s.i)
         self.pf = True
-        if not self.pf: self.error(s.i)
         s.eatWhitespace()
         self.pf = s.matches("}")
         if self.pf: s.advance(len("}"))
@@ -695,12 +714,14 @@ class PROGRAMParser(object):
         print " " * (self.m * 2) + self.ob
         self.ob = ""
         self.m += 1
+        self.apf = 1
         self.stack.append(("EX3", self.l1))
         self.l1 = ""
         self.parseEX3(s)
         self.stack.pop()
         if not self.pf: self.error(s.i)
         if self.m: self.m -= 1
+        self.apf = 2
         self.stack.append(("SET", self.l1))
         self.l1 = ""
         self.parseSET(s)
@@ -714,6 +735,7 @@ class PROGRAMParser(object):
     if self.pf:
       pass
       self.ob += 'if self.pf:'
+      self.apf = 1
     if not self.pf:
       self.stack.append(("OUTPUT", self.l1))
       self.l1 = ""
@@ -730,7 +752,6 @@ class PROGRAMParser(object):
       self.ob += 'pass'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
-      self.pf = True
       while self.pf:
         self.stack.append(("EX3", self.l1))
         self.l1 = ""
@@ -738,9 +759,15 @@ class PROGRAMParser(object):
         self.stack.pop()
         if self.pf:
           pass
-          self.ob += 'if not self.pf: self.error(s.i)'
-          print " " * (self.m * 2) + self.ob
-          self.ob = ""
+          if not (self.apf == 1):
+            pass
+            self.ob += 'if not self.pf: self.error(s.i)'
+            print " " * (self.m * 2) + self.ob
+            self.ob = ""
+            if True:
+              pass
+          if not self.pf: self.error(s.i)
+          self.apf = 1
         if not self.pf:
           self.stack.append(("OUTPUT", self.l1))
           self.l1 = ""
@@ -749,8 +776,8 @@ class PROGRAMParser(object):
           if self.pf:
             pass
       self.pf = True
-      if not self.pf: self.error(s.i)
       if self.m: self.m -= 1
+      self.top()
   def parseEX1(self, s):
     self.stack.append(("EX2", self.l1))
     self.l1 = ""
@@ -758,7 +785,6 @@ class PROGRAMParser(object):
     self.stack.pop()
     if self.pf:
       pass
-      self.pf = True
       while self.pf:
         s.eatWhitespace()
         self.pf = s.matches("/")
@@ -776,7 +802,6 @@ class PROGRAMParser(object):
           if not self.pf: self.error(s.i)
           if self.m: self.m -= 1
       self.pf = True
-      if not self.pf: self.error(s.i)
   def parsePR(self, s):
     self.stack.append(("ID", self.l1))
     self.l1 = ""
@@ -794,6 +819,7 @@ class PROGRAMParser(object):
       self.pf = s.matches("=")
       if self.pf: s.advance(len("="))
       if not self.pf: self.error(s.i)
+      self.top()
       self.stack.append(("EX1", self.l1))
       self.l1 = ""
       self.parseEX1(s)
@@ -890,26 +916,22 @@ class PROGRAMParser(object):
       self.ob += 'def error(self, i): raise ValueError("meh")'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
-      self.pf = True
       while self.pf:
         self.stack.append(("PR", self.l1))
         self.l1 = ""
         self.parsePR(s)
         self.stack.pop()
       self.pf = True
-      if not self.pf: self.error(s.i)
       s.eatWhitespace()
       self.pf = s.matches(".tokens")
       if self.pf: s.advance(len(".tokens"))
       if not self.pf: self.error(s.i)
-      self.pf = True
       while self.pf:
         self.stack.append(("TR", self.l1))
         self.l1 = ""
         self.parseTR(s)
         self.stack.pop()
       self.pf = True
-      if not self.pf: self.error(s.i)
       self.ob += 'def top(self):'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
@@ -921,14 +943,12 @@ class PROGRAMParser(object):
       self.pf = s.matches(".domain")
       if self.pf: s.advance(len(".domain"))
       if not self.pf: self.error(s.i)
-      self.pf = True
       while self.pf:
         self.stack.append(("DR", self.l1))
         self.l1 = ""
         self.parseDR(s)
         self.stack.pop()
       self.pf = True
-      if not self.pf: self.error(s.i)
       if self.m: self.m -= 1
       s.eatWhitespace()
       self.pf = s.matches(".end")
@@ -984,9 +1004,6 @@ class PROGRAMParser(object):
       if not self.pf: return
       self.tf = True
       self.tb = ""
-      self.pf = True
-      if not self.pf: return
-      self.pf = True
       while self.pf:
         self.pf = ord(s.get()) == 10 or ord(s.get()) == 13 or ord(s.get()) == 39
         self.pf = not self.pf
@@ -994,10 +1011,7 @@ class PROGRAMParser(object):
           if self.tf: self.tb += s.get()
           s.advance(1)
       self.pf = True
-      if not self.pf: return
       self.tf = False
-      self.pf = True
-      if not self.pf: return
       self.pf = ord(s.get()) == 39
       if self.pf:
         if self.tf: self.tb += s.get()
@@ -1012,24 +1026,18 @@ class PROGRAMParser(object):
       pass
       self.tf = True
       self.tb = ""
-      self.pf = True
-      if not self.pf: return
       self.stack.append(("DIGIT", self.l1))
       self.l1 = ""
       self.parseDIGIT(s)
       self.stack.pop()
       if not self.pf: return
-      self.pf = True
       while self.pf:
         self.stack.append(("DIGIT", self.l1))
         self.l1 = ""
         self.parseDIGIT(s)
         self.stack.pop()
       self.pf = True
-      if not self.pf: return
       self.tf = False
-      self.pf = True
-      if not self.pf: return
   def parseID(self, s):
     self.stack.append(("WS", self.l1))
     self.l1 = ""
@@ -1039,14 +1047,11 @@ class PROGRAMParser(object):
       pass
       self.tf = True
       self.tb = ""
-      self.pf = True
-      if not self.pf: return
       self.stack.append(("ALPHA", self.l1))
       self.l1 = ""
       self.parseALPHA(s)
       self.stack.pop()
       if not self.pf: return
-      self.pf = True
       while self.pf:
         self.stack.append(("ALPHA", self.l1))
         self.l1 = ""
@@ -1062,10 +1067,7 @@ class PROGRAMParser(object):
           if self.pf:
             pass
       self.pf = True
-      if not self.pf: return
       self.tf = False
-      self.pf = True
-      if not self.pf: return
   def top(self):
     pass
     self.apf = 0
