@@ -213,6 +213,14 @@ class PROGRAMParser(object):
       self.ob += 'self.stack.pop()'
       print " " * (self.m * 2) + self.ob
       self.ob = ""
+  def parseSET(self, s):
+    self.ob += 'self.pf = True'
+    print " " * (self.m * 2) + self.ob
+    self.ob = ""
+    if True:
+      pass
+      self.apf = 1
+      if not self.pf: self.error(s.i)
   def parseTX3(self, s):
     s.eatWhitespace()
     self.pf = s.matches(".token")
@@ -240,9 +248,11 @@ class PROGRAMParser(object):
       if self.pf: s.advance(len("$"))
       if self.pf:
         pass
-        self.ob += 'self.pf = True'
-        print " " * (self.m * 2) + self.ob
-        self.ob = ""
+        self.stack.append(("SET", self.l1))
+        self.l1 = ""
+        self.parseSET(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
         self.ob += 'while self.pf:'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
@@ -255,9 +265,11 @@ class PROGRAMParser(object):
         if self.m: self.m -= 1
     if self.pf:
       pass
-      self.ob += 'self.pf = True'
-      print " " * (self.m * 2) + self.ob
-      self.ob = ""
+      self.stack.append(("SET", self.l1))
+      self.l1 = ""
+      self.parseSET(s)
+      self.stack.pop()
+      if not self.pf: self.error(s.i)
     if not self.pf:
       s.eatWhitespace()
       self.pf = s.matches(".not(")
@@ -404,6 +416,71 @@ class PROGRAMParser(object):
       if self.pf: s.advance(len(";"))
       if not self.pf: self.error(s.i)
       if self.m: self.m -= 1
+  def parseTVAR(self, s):
+    s.eatWhitespace()
+    self.pf = s.matches("~")
+    if self.pf: s.advance(len("~"))
+    if self.pf:
+      pass
+      self.ob += 'not ('
+      self.stack.append(("TVAR", self.l1))
+      self.l1 = ""
+      self.parseTVAR(s)
+      self.stack.pop()
+      if not self.pf: self.error(s.i)
+      self.ob += ')'
+    if not self.pf:
+      s.eatWhitespace()
+      self.pf = s.matches("-")
+      if self.pf: s.advance(len("-"))
+      if self.pf:
+        pass
+        self.stack.append(("ID", self.l1))
+        self.l1 = ""
+        self.parseID(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
+        self.ob += 'self.a'
+        self.ob += self.tb
+        self.ob += ' == 2'
+    if not self.pf:
+      self.stack.append(("ID", self.l1))
+      self.l1 = ""
+      self.parseID(s)
+      self.stack.pop()
+      if self.pf:
+        pass
+        self.ob += 'self.a'
+        self.ob += self.tb
+        self.ob += ' == 1'
+  def parseAVAR(self, s):
+    s.eatWhitespace()
+    self.pf = s.matches("-")
+    if self.pf: s.advance(len("-"))
+    if self.pf:
+      pass
+      self.stack.append(("ID", self.l1))
+      self.l1 = ""
+      self.parseID(s)
+      self.stack.pop()
+      if not self.pf: self.error(s.i)
+      self.ob += 'self.a'
+      self.ob += self.tb
+      self.ob += ' = 2'
+      print " " * (self.m * 2) + self.ob
+      self.ob = ""
+    if not self.pf:
+      self.stack.append(("ID", self.l1))
+      self.l1 = ""
+      self.parseID(s)
+      self.stack.pop()
+      if self.pf:
+        pass
+        self.ob += 'self.a'
+        self.ob += self.tb
+        self.ob += ' = 1'
+        print " " * (self.m * 2) + self.ob
+        self.ob = ""
   def parseEX3(self, s):
     self.stack.append(("SUB", self.l1))
     self.l1 = ""
@@ -448,22 +525,125 @@ class PROGRAMParser(object):
         if not self.pf: self.error(s.i)
     if not self.pf:
       s.eatWhitespace()
+      self.pf = s.matches(".pre")
+      if self.pf: s.advance(len(".pre"))
+      if self.pf:
+        pass
+        s.eatWhitespace()
+        self.pf = s.matches("{")
+        if self.pf: s.advance(len("{"))
+        if not self.pf: self.error(s.i)
+        self.ob += 'if '
+        self.stack.append(("TVAR", self.l1))
+        self.l1 = ""
+        self.parseTVAR(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
+        self.pf = True
+        while self.pf:
+          s.eatWhitespace()
+          self.pf = s.matches(",")
+          if self.pf: s.advance(len(","))
+          if self.pf:
+            pass
+            self.ob += ' and '
+            self.stack.append(("TVAR", self.l1))
+            self.l1 = ""
+            self.parseTVAR(s)
+            self.stack.pop()
+            if not self.pf: self.error(s.i)
+            self.ob += ':'
+            print " " * (self.m * 2) + self.ob
+            self.ob = ""
+            self.m += 1
+            self.ob += 'pass'
+            print " " * (self.m * 2) + self.ob
+            self.ob = ""
+        self.pf = True
+        if not self.pf: self.error(s.i)
+        s.eatWhitespace()
+        self.pf = s.matches("}")
+        if self.pf: s.advance(len("}"))
+        if not self.pf: self.error(s.i)
+        self.stack.append(("EX3", self.l1))
+        self.l1 = ""
+        self.parseEX3(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
+        if self.m: self.m -= 1
+    if not self.pf:
+      s.eatWhitespace()
+      self.pf = s.matches(".post")
+      if self.pf: s.advance(len(".post"))
+      if self.pf:
+        pass
+        s.eatWhitespace()
+        self.pf = s.matches("{")
+        if self.pf: s.advance(len("{"))
+        if not self.pf: self.error(s.i)
+        self.stack.append(("AVAR", self.l1))
+        self.l1 = ""
+        self.parseAVAR(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
+        self.pf = True
+        while self.pf:
+          s.eatWhitespace()
+          self.pf = s.matches(",")
+          if self.pf: s.advance(len(","))
+          if self.pf:
+            pass
+            self.stack.append(("AVAR", self.l1))
+            self.l1 = ""
+            self.parseAVAR(s)
+            self.stack.pop()
+            if not self.pf: self.error(s.i)
+        self.pf = True
+        if not self.pf: self.error(s.i)
+        s.eatWhitespace()
+        self.pf = s.matches("}")
+        if self.pf: s.advance(len("}"))
+        if not self.pf: self.error(s.i)
+    if not self.pf:
+      s.eatWhitespace()
+      self.pf = s.matches(".fork")
+      if self.pf: s.advance(len(".fork"))
+      if self.pf:
+        pass
+    if not self.pf:
+      s.eatWhitespace()
+      self.pf = s.matches(".join")
+      if self.pf: s.advance(len(".join"))
+      if self.pf:
+        pass
+    if not self.pf:
+      s.eatWhitespace()
+      self.pf = s.matches(".top")
+      if self.pf: s.advance(len(".top"))
+      if self.pf:
+        pass
+    if not self.pf:
+      s.eatWhitespace()
       self.pf = s.matches(".empty")
       if self.pf: s.advance(len(".empty"))
       if self.pf:
         pass
-        self.ob += 'self.pf = True'
-        print " " * (self.m * 2) + self.ob
-        self.ob = ""
+        self.stack.append(("SET", self.l1))
+        self.l1 = ""
+        self.parseSET(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
     if not self.pf:
       s.eatWhitespace()
       self.pf = s.matches(".litchr")
       if self.pf: s.advance(len(".litchr"))
       if self.pf:
         pass
-        self.ob += 'self.pf = True'
-        print " " * (self.m * 2) + self.ob
-        self.ob = ""
+        self.stack.append(("SET", self.l1))
+        self.l1 = ""
+        self.parseSET(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
         self.ob += 'self.tb = str(ord(s.get()))'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
@@ -485,9 +665,11 @@ class PROGRAMParser(object):
       if self.pf: s.advance(len("$"))
       if self.pf:
         pass
-        self.ob += 'self.pf = True'
-        print " " * (self.m * 2) + self.ob
-        self.ob = ""
+        self.stack.append(("SET", self.l1))
+        self.l1 = ""
+        self.parseSET(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
         self.ob += 'while self.pf:'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
@@ -498,9 +680,11 @@ class PROGRAMParser(object):
         self.stack.pop()
         if not self.pf: self.error(s.i)
         if self.m: self.m -= 1
-        self.ob += 'self.pf = True'
-        print " " * (self.m * 2) + self.ob
-        self.ob = ""
+        self.stack.append(("SET", self.l1))
+        self.l1 = ""
+        self.parseSET(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
   def parseEX2(self, s):
     self.stack.append(("EX3", self.l1))
     self.l1 = ""

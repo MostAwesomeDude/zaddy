@@ -29,10 +29,11 @@ SUB = ID .out(
         'self.stack.pop()' .nl
       ) ;
 
+SET = .out('self.pf = True' .nl) .post { pf } ;
+
 TX3 = ( '.token' .out('self.tf = True' .nl 'self.tb = ""' .nl)
       / '.tokout' .out('self.tf = False' .nl)
-      / '$' .out('self.pf = True' .nl 'while self.pf:' .nl .lm+) TX3 .out(.lm-) )
-        .out('self.pf = True' .nl)
+      / '$' SET .out('while self.pf:' .nl .lm+) TX3 .out(.lm-) ) SET
     / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
@@ -43,6 +44,11 @@ TX2 = TX3 .out('if self.pf:' .nl .lm+ 'pass' .nl)
 TX1 = TX2 $( '/' .out('if not self.pf:' .nl .lm+) TX2 .out(.lm-) ) ;
 TR = ID .out('def parse' * '(self, s):' .nl .lm+) ':' TX1 ';' .out(.lm-) ;
 
+TVAR = '~' .out('not (') TVAR .out(')')
+     / '-' ID .out('self.a' * ' == 2')
+     / ID .out('self.a' * ' == 1') ;
+AVAR = '-' ID .out('self.a' * ' = 2' .nl)
+     / ID .out('self.a' * ' = 1' .nl) ;
 EX3 = SUB
     / STRING .out(
       's.eatWhitespace()' .nl
@@ -50,15 +56,21 @@ EX3 = SUB
       'if self.pf: s.advance(len("' * '"))' .nl
     )
     / '(' EX1 ')'
-    / '.empty' .out('self.pf = True' .nl)
-    / '.litchr' .out(
-      'self.pf = True' .nl
+    / '.pre' '{' .out('if ') TVAR
+      $( ',' .out(' and ') TVAR .out(':' .nl .lm+ 'pass' .nl) ) '}'
+      EX3 .out(.lm-)
+    / '.post' '{' AVAR $( ',' AVAR ) '}'
+    / '.fork'
+    / '.join'
+    / '.top'
+    / '.empty' SET
+    / '.litchr' SET .out(
       'self.tb = str(ord(s.get()))' .nl
       's.advance(1)' .nl
     )
     / '.pass' .out('s.i = 0' .nl)
-    / '$' .out('self.pf = True' .nl 'while self.pf:' .nl .lm+)
-      EX3 .out(.lm- 'self.pf = True' .nl) ;
+    / '$' SET .out('while self.pf:' .nl .lm+)
+      EX3 .out(.lm-) SET ;
 EX2 = ( EX3 .out('if self.pf:') / OUTPUT .out('if True:') )
       .out(.nl .lm+ 'pass' .nl)
       $( EX3 .out('if not self.pf: self.error(s.i)' .nl) / OUTPUT )
