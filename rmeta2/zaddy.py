@@ -674,6 +674,16 @@ class PROGRAMParser(object):
       self.pf = True
       if not self.pf: self.error(s.i)
       s.eatWhitespace()
+      self.pf = s.matches(".domain")
+      if self.pf: s.advance(len(".domain"))
+      if self.pf:
+        pass
+      if not self.pf:
+        self.pf = True
+        if self.pf:
+          pass
+      if not self.pf: self.error(s.i)
+      s.eatWhitespace()
       self.pf = s.matches(".end")
       if self.pf: s.advance(len(".end"))
       if not self.pf: self.error(s.i)
