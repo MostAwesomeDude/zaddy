@@ -15,13 +15,13 @@ OUTPUT = '.out' '(' $OUT1 ')' ;
 CX3 = NUMBER / SQUOTE .litchr ;
 CX2 = CX3 ( ':' .out(* ' <= ord(s.get()) <= ') CX3 .out(*)
           / .empty .out('ord(s.get()) == ' *) ) ;
-CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) ;
+CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) .top ;
 
-SCAN = .out(
+SCAN = .pre { ~-pf } { .out(
          'if self.pf:' .nl .lm+
          'if self.tf: self.tb += s.get()' .nl
          's.advance(1)' .nl .lm-
-       ) ;
+       ) } ;
 SUB = ID .out(
         'self.stack.append(("' * '", self.l1))' .nl
         'self.l1 = ""' .nl
@@ -34,7 +34,7 @@ SET = .out('self.pf = True' .nl) .post { pf } ;
 TX3 = ( '.token' .out('self.tf = True' .nl 'self.tb = ""' .nl)
       / '.tokout' .out('self.tf = False' .nl)
       / '$' SET .out('while self.pf:' .nl .lm+) TX3 .out(.lm-) ) SET
-    / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) SCAN
+    / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .top SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
     / '(' TX1 ')' ;
@@ -50,19 +50,19 @@ TVAR = '~' .out('not (') TVAR .out(')')
 AVAR = '-' ID .out('self.a' * ' = 2' .nl)
      / ID .out('self.a' * ' = 1' .nl) ;
 EX3 = SUB
-    / STRING .out(
+    / STRING .top .out(
       's.eatWhitespace()' .nl
       'self.pf = s.matches("' * '")' .nl
       'if self.pf: s.advance(len("' * '"))' .nl
     )
     / '(' EX1 ')'
     / '.pre' '{' .out('if ') TVAR
-      $( ',' .out(' and ') TVAR .out(':' .nl .lm+ 'pass' .nl) ) '}'
-      EX3 .out(.lm-)
+      $( ',' .out(' and ') TVAR ) .out(':' .nl .lm+ 'pass' .nl) '}'
+      '{' EX2 '}' .out(.lm-)
     / '.post' '{' AVAR $( ',' AVAR ) '}'
     / '.fork'
     / '.join'
-    / '.top'
+    / '.top' .out('self.top()' .nl)
     / '.empty' SET
     / '.litchr' SET .out(
       'self.tb = str(ord(s.get()))' .nl
@@ -80,7 +80,7 @@ EX1 = EX2 $( '/' .out('if not self.pf:' .nl .lm+) EX2 .out(.lm-) ) ;
 PR = ID .out('def parse' * '(self, s):' .nl .lm+) '=' EX1 ';' .out(.lm-) ;
 
 TY = 'bool' .out('0') ;
-DR = ID ':' .out('a' * ' = ') TY ';' .out(.nl) ;
+DR = ID ':' .out('self.a' * ' = ') TY ';' .out(.nl) ;
 
 PROGRAM = '.syntax' ID .out(
             'class ' * 'Parser(object):' .nl .lm+
@@ -89,7 +89,7 @@ PROGRAM = '.syntax' ID .out(
             'l1 = tb = ""' .nl
             'm = 0' .nl
             'ob = ""' .nl
-            'def __init__(self): self.stack = []' .nl
+            'def __init__(self): self.top(); self.stack = []' .nl
             'def parse(self, s): return self.parse' * '(s)' .nl
             'def unique(self):' .nl .lm+
             'if not self.l1: self.l1 = str(self.u); self.u += 1' .nl
@@ -97,7 +97,7 @@ PROGRAM = '.syntax' ID .out(
             'def error(self, i): raise ValueError("meh")' .nl
           )
           $PR '.tokens' $TR
-          ( '.domain' $DR / .empty )
+          .out('def top(self):' .nl .lm+ 'pass' .nl) '.domain' $DR .out(.lm-)
           '.end' ;
 
 .tokens
