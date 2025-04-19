@@ -170,7 +170,7 @@ class PROGRAMParser(object):
       self.pf = True
       print " " * (self.m * 2) + self.ob
       self.ob = ""
-      self.top()
+      self.apf = 0
   def parseSCAN(self, s):
     if (not (self.apf == 2)):
       pass
@@ -318,7 +318,7 @@ class PROGRAMParser(object):
         self.ob += 'self.pf = not self.pf'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
-        self.top()
+        self.apf = 0
         self.stack.append(("SCAN", self.l1))
         self.l1 = ""
         self.parseSCAN(s)
@@ -423,7 +423,7 @@ class PROGRAMParser(object):
           self.stack.pop()
           if not self.pf: self.error(s.i)
           if self.m: self.m -= 1
-          self.top()
+          self.apf = 0
       self.pf = True
   def parseTR(self, s):
     self.stack.append(("ID", self.l1))
@@ -595,7 +595,7 @@ class PROGRAMParser(object):
         self.ob += '"))'
         print " " * (self.m * 2) + self.ob
         self.ob = ""
-        self.top()
+        self.apf = 0
     if not self.pf:
       s.eatWhitespace()
       self.pf = s.matches("(")
@@ -832,7 +832,7 @@ class PROGRAMParser(object):
             pass
       self.pf = True
       if self.m: self.m -= 1
-      self.top()
+      self.apf = 0
   def parseEX1(self, s):
     self.stack.append(("EX2", self.l1))
     self.l1 = ""
@@ -1063,13 +1063,12 @@ class PROGRAMParser(object):
         self.pf = ord(s.get()) == 10 or ord(s.get()) == 13 or ord(s.get()) == 39
         self.pf = not self.pf
         if self.pf:
-          if self.tf: self.tb += s.get()
+          self.tb += s.get()
           s.advance(1)
       self.pf = True
       self.tf = False
       self.pf = ord(s.get()) == 39
       if self.pf:
-        if self.tf: self.tb += s.get()
         s.advance(1)
       if not self.pf: return
   def parseNUMBER(self, s):

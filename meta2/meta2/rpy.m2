@@ -15,7 +15,7 @@ OUTPUT = '.out' '(' $OUT1 ')' ;
 CX3 = NUMBER / SQUOTE .litchr ;
 CX2 = CX3 ( ':' .out(* ' <= ord(s.get()) <= ') CX3 .out(*)
           / .empty .out('ord(s.get()) == ' *) ) ;
-CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) .top ;
+CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) .post { ?pf } ;
 
 SCAN = .pre { ~-pf } {
          .out('if self.pf:' .nl .lm+)
@@ -38,7 +38,7 @@ TX3 = ( '.token'
       / '.tokout'
         .pre { ~-tf } { .out('self.tf = False' .nl) } .post { -tf }
       / '$' SET .out('while self.pf:' .nl .lm+) .post { pf } TX3 .out(.lm-) .post { -pf } ) SET
-    / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .top SCAN
+    / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .post { ?pf } SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
     / '(' TX1 ')' ;
@@ -47,7 +47,7 @@ TX2 = TX3 .out('if self.pf:' .nl .lm+ 'pass' .nl) .post { pf }
       .out(.lm-) ;
 TX1 = TX2
       $( '/' .out('if not self.pf:' .nl .lm+) .post { -pf }
-         TX2 .out(.lm-) .top ) ;
+         TX2 .out(.lm-) .post { ?pf } ) ;
 TR = ID .out('def parse' * '(self, s):' .nl .lm+) ':' .top TX1 ';' .out(.lm-) ;
 
 TVAR = '~' .out('(not ') TVAR .out(')')
@@ -62,7 +62,7 @@ EX3 = SUB
       's.eatWhitespace()' .nl
       'self.pf = s.matches("' * '")' .nl
       'if self.pf: s.advance(len("' * '"))' .nl
-    ) .top
+    ) .post { ?pf }
     / '(' EX1 ')'
     / '.pre' '{' .out('if ') TVAR
       $( ',' .out(' and ') TVAR ) .out(':' .nl .lm+ 'pass' .nl) '}'
@@ -84,7 +84,7 @@ EX2 = ( EX3 .out('if self.pf:') .post { pf } / OUTPUT .out('if True:') )
       $( EX3
          .pre { ~pf } { .out('if not self.pf: self.error(s.i)' .nl) } .post { pf }
          / OUTPUT )
-      .out(.lm-) .top ;
+      .out(.lm-) .post { ?pf } ;
 EX1 = EX2 $( '/' .out('if not self.pf:' .nl .lm+) EX2 .out(.lm-) ) ;
 
 PR = ID .out('def parse' * '(self, s):' .nl .lm+) '=' .top EX1 ';' .out(.lm-) ;
