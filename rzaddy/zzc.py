@@ -36,7 +36,7 @@ def main(argv):
         return 1
 
 def target(driver, *args):
-    driver.exe_name = "rmeta2"
+    driver.exe_name = "zzc"
     return main, None
 
 if __name__ == "__main__": sys.exit(main(sys.argv))
