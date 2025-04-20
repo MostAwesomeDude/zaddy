@@ -7,6 +7,7 @@ from zaddy import PROGRAMParser
 
 class Slicer(object):
     i = 0
+    lastMatch = ""
     def __init__(self, s): self.s = s
     def get(self): return self.s[self.i]
     def eatWhitespace(self):
@@ -15,6 +16,7 @@ class Slicer(object):
         stop = self.i + len(token)
         if stop > len(self.s): return False
         rv = self.s[self.i:stop] == token
+        if rv: self.lastMatch = token
         return rv
     def advance(self, i): self.i += i
 
@@ -30,6 +32,7 @@ def main(argv):
         stderr.write("Error at input location: %d (line %d)\n" % (slicer.i, line))
         stderr.write("Backtrace: %s\n" %
                      " ".join([frame[0] for frame in parser.stack]))
+        stderr.write("Last matching token: '%s'\n" % slicer.lastMatch)
         return 1
 
 def target(driver, *args):

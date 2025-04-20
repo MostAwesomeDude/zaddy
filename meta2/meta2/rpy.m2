@@ -1,17 +1,19 @@
 .syntax PROGRAM
 
-OUT1 = '*'     .out('if self.of: self.ob += self.tb' .nl)
-     / STRING  .out('if self.of: self.ob += ' 39 * 39 .nl)
-     / NUMBER  .out('if self.of: self.ob += chr(' * ')' .nl)
-     / '#'     .out('if self.of: self.ob += self.unique()' .nl)
-     / '.lm+'  .out('if self.of: self.m += 1' .nl)
-     / '.lm-'  .out('if self.of and self.m: self.m -= 1' .nl)
+OUT1 = '*'     .out('self.ob += self.tb' .nl)
+     / STRING  .out('self.ob += ' 39 * 39 .nl)
+     / NUMBER  .out('self.ob += chr(' * ')' .nl)
+     / '#'     .out('self.ob += self.unique()' .nl)
+     / '.lm+'  .out('self.m += 1' .nl)
+     / '.lm-'  .out('if self.m: self.m -= 1' .nl)
      / '.nl'   .out(
-       'if self.of:' .nl .lm+
        'print " " * (self.m * 2) + self.ob' .nl
-       'self.ob = ""' .nl .lm-
+       'self.ob = ""' .nl
      ) ;
-OUTPUT = '.out' '(' $OUT1 ')' ;
+OUTPUT = '.out' '('
+         .pre { ?of } { .out('if self.of:' .nl .lm+) $OUT1 .out(.lm-) }
+         .pre { -of } { .o- $OUT1 .o+ }
+         ')' ;
 
 CX3 = NUMBER / SQUOTE .litchr ;
 CX2 = CX3 ( ':' .out(* ' <= ord(s.get()) <= ') CX3 .out(*)
@@ -82,8 +84,8 @@ EX3 = SUB
       'self.tb = str(ord(s.get()))' .nl
       's.advance(1)' .nl
     )
-    / '.o+' .out('self.of = True' .nl)
-    / '.o-' .out('self.of = False' .nl)
+    / '.o+' .pre { ~+of } { .out('self.of = True' .nl) } .post { +of }
+    / '.o-' .pre { ~-of } { .out('self.of = False' .nl) } .post { -of }
     / '.pass' .out('s.i = 0' .nl)
     / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf }
       EX3 .out(.lm-) .post { -pf } SET ;
@@ -133,5 +135,6 @@ ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
 
 pf : bool ;
 tf : bool ;
+of : bool ;
 
 .end
