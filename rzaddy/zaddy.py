@@ -378,6 +378,17 @@ class PROGRAMParser(object):
       if not self.pf: self.error(s.i)
     if not self.pf:
       s.eatWhitespace()
+      self.pf = s.matches(".empty")
+      if self.pf: s.advance(len(".empty"))
+      if self.pf:
+        pass
+        self.stack.append(("SET", self.l1))
+        self.l1 = ""
+        self.parseSET(s)
+        self.stack.pop()
+        if not self.pf: self.error(s.i)
+    if not self.pf:
+      s.eatWhitespace()
       self.pf = s.matches(".not(")
       if self.pf: s.advance(len(".not("))
       if self.pf:

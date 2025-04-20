@@ -46,6 +46,7 @@ TX3 = ( '.token'
       / '.tokout'
         .pre { ~-tf } { .out('self.tf = False' .nl) } .post { -tf }
       / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf } TX3 .out(.lm-) .post { -pf } ) SET
+    / '.empty' SET
     / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .post { ?pf } SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
