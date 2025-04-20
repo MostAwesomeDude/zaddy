@@ -1,14 +1,15 @@
 .syntax PROGRAM
 
-OUT1 = '*'     .out('self.ob += self.tb' .nl)
-     / STRING  .out('self.ob += ' 39 * 39 .nl)
-     / NUMBER  .out('self.ob += chr(' * ')' .nl)
-     / '#'     .out('self.ob += self.unique()' .nl)
-     / '.lm+'  .out('self.m += 1' .nl)
-     / '.lm-'  .out('if self.m: self.m -= 1' .nl)
+OUT1 = '*'     .out('if self.of: self.ob += self.tb' .nl)
+     / STRING  .out('if self.of: self.ob += ' 39 * 39 .nl)
+     / NUMBER  .out('if self.of: self.ob += chr(' * ')' .nl)
+     / '#'     .out('if self.of: self.ob += self.unique()' .nl)
+     / '.lm+'  .out('if self.of: self.m += 1' .nl)
+     / '.lm-'  .out('if self.of and self.m: self.m -= 1' .nl)
      / '.nl'   .out(
+       'if self.of:' .nl .lm+
        'print " " * (self.m * 2) + self.ob' .nl
-       'self.ob = ""' .nl
+       'self.ob = ""' .nl .lm-
      ) ;
 OUTPUT = '.out' '(' $OUT1 ')' ;
 
@@ -17,10 +18,15 @@ CX2 = CX3 ( ':' .out(* ' <= ord(s.get()) <= ') CX3 .out(*)
           / .empty .out('ord(s.get()) == ' *) ) ;
 CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) .post { ?pf } ;
 
-SCAN = .pre { ~-pf } {
+SCAN = .pre { +pf } {
+         .pre { +tf } { .out('self.tb += s.get()' .nl) }
+         .pre { ?tf } { .out('if self.tf: self.tb += s.get()' .nl) }
+         .out('s.advance(1)' .nl)
+       }
+       .pre { ?pf } {
          .out('if self.pf:' .nl .lm+)
          .pre { +tf } { .out('self.tb += s.get()' .nl) }
-         .pre { ~-tf, ~+tf } { .out('if self.tf: self.tb += s.get()' .nl) }
+         .pre { ?tf } { .out('if self.tf: self.tb += s.get()' .nl) }
          .out('s.advance(1)' .nl .lm-)
        } ;
 SUB = ID .out(
@@ -30,20 +36,20 @@ SUB = ID .out(
         'self.stack.pop()' .nl
       ) .top ;
 
-SET = .pre { ~pf } { .out('self.pf = True' .nl) } .post { pf } ;
+SET = .pre { ~+pf } { .out('self.pf = True' .nl) } .post { +pf } ;
 
 TX3 = ( '.token'
         .out('self.tb = ""' .nl)
-        .pre { ~tf } { .out('self.tf = True' .nl) } .post { tf }
+        .pre { ~+tf } { .out('self.tf = True' .nl) } .post { +tf }
       / '.tokout'
         .pre { ~-tf } { .out('self.tf = False' .nl) } .post { -tf }
-      / '$' SET .out('while self.pf:' .nl .lm+) .post { pf } TX3 .out(.lm-) .post { -pf } ) SET
+      / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf } TX3 .out(.lm-) .post { -pf } ) SET
     / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .post { ?pf } SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
     / '(' TX1 ')' ;
-TX2 = TX3 .out('if self.pf:' .nl .lm+ 'pass' .nl) .post { pf }
-      $( TX3 .pre { ~pf } { .out('if not self.pf: return' .nl) } .post { pf } )
+TX2 = TX3 .out('if self.pf:' .nl .lm+ 'pass' .nl) .post { +pf }
+      $( TX3 .pre { ~+pf } { .out('if not self.pf: return' .nl) } .post { +pf } )
       .out(.lm-) ;
 TX1 = TX2
       $( '/' .out('if not self.pf:' .nl .lm+) .post { -pf }
@@ -52,11 +58,11 @@ TR = ID .out('def parse' * '(self, s):' .nl .lm+) ':' .top TX1 ';' .out(.lm-) ;
 
 TVAR = '~' .out('(not ') TVAR .out(')')
      / '?' ID .out('(self.a' * ' == 0)')
-     / '-' ID .out('(self.a' * ' == 2)')
-     / ( '+' / .empty ) ID .out('(self.a' * ' == 1)') ;
+     / '+' ID .out('(self.a' * ' == 1)')
+     / '-' ID .out('(self.a' * ' == 2)') ;
 AVAR = '?' ID .out('self.a' * ' = 0' .nl)
-     / '-' ID .out('self.a' * ' = 2' .nl)
-     / ( '+' / .empty ) ID .out('self.a' * ' = 1' .nl) ;
+     / '+' ID .out('self.a' * ' = 1' .nl)
+     / '-' ID .out('self.a' * ' = 2' .nl) ;
 EX3 = SUB
     / STRING .out(
       's.eatWhitespace()' .nl
@@ -76,13 +82,15 @@ EX3 = SUB
       'self.tb = str(ord(s.get()))' .nl
       's.advance(1)' .nl
     )
+    / '.o+' .out('self.of = True' .nl)
+    / '.o-' .out('self.of = False' .nl)
     / '.pass' .out('s.i = 0' .nl)
-    / '$' SET .out('while self.pf:' .nl .lm+) .post { pf }
+    / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf }
       EX3 .out(.lm-) .post { -pf } SET ;
-EX2 = ( EX3 .out('if self.pf:') .post { pf } / OUTPUT .out('if True:') )
+EX2 = ( EX3 .out('if self.pf:') .post { +pf } / OUTPUT .out('if True:') )
       .out(.nl .lm+ 'pass' .nl)
       $( EX3
-         .pre { ~pf } { .out('if not self.pf: self.error(s.i)' .nl) } .post { pf }
+         .pre { ~+pf } { .out('if not self.pf: self.error(s.i)' .nl) } .post { +pf }
          / OUTPUT )
       .out(.lm-) .post { ?pf } ;
 EX1 = EX2 $( '/' .out('if not self.pf:' .nl .lm+) EX2 .out(.lm-) ) ;
@@ -96,6 +104,7 @@ PROGRAM = '.syntax' ID .out(
             'class ' * 'Parser(object):' .nl .lm+
             'u = 0' .nl
             'pf = tf = False' .nl
+            'of = True' .nl
             'l1 = tb = ""' .nl
             'm = 0' .nl
             'ob = ""' .nl
