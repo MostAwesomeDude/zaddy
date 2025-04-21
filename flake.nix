@@ -49,6 +49,7 @@
         default = zaddyc;
         zaddyc = mk "zaddy.zaddy" "zaddyc";
         jsonc = mk "json.zaddy" "jsonc";
+        sexpc = mk "sexp.zaddy" "sexpc";
       };
       devShells.default = pkgs.mkShell {
         packages = [ ];

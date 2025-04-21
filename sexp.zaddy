@@ -1,0 +1,21 @@
+.syntax SEXP
+
+SEXP = .out('def parseSExpOntoDomain(d):' .nl .lm+ 'return ') EXP .out(.nl) ;
+
+EXP = LIST / ATOM .out('d.atom("' * '")') ;
+LIST = OPEN
+       ( CLOSE .out('d.sexp([])')
+       / .out('d.sexp([' .nl .lm+)
+         $( EXP .out(',' .nl) )
+         CLOSE .out(.lm- '])') ) ;
+
+.tokens
+
+ATOM  : WS .token CHAR $CHAR .tokout ;
+OPEN  : WS .any('() ;
+CLOSE : WS .any(')) ;
+CHAR  : .any('a:'z) ;
+WS    : $.any(10!13!' ) ;
+
+.domain
+.end
