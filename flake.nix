@@ -17,7 +17,7 @@
     flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = nixpkgs.legacyPackages.${system};
-      zaddy = rpypkgs.lib.${system}.mkRPythonDerivation {
+      bootstrap = rpypkgs.lib.${system}.mkRPythonDerivation {
         entrypoint = "zaddy.py";
         binName = "zaddyc";
         optLevel = "2";
@@ -32,7 +32,7 @@
           src = ./.;
           installPhase = ''
             mkdir $out/
-            ${zaddy}/bin/zaddy < ${desc} > $out/src.py
+            ${bootstrap}/bin/zaddyc < ${desc} > $out/src.py
           '';
         };
       in rpypkgs.lib.${system}.mkRPythonDerivation {
@@ -45,9 +45,9 @@
         inherit src;
       };
     in {
-      packages = {
-        inherit zaddy;
-        default = zaddy;
+      packages = rec {
+        default = zaddyc;
+        zaddyc = mk "zaddy.zaddy" "zaddyc";
         jsonc = mk "json.zaddy" "jsonc";
       };
       devShells.default = pkgs.mkShell {
