@@ -28,7 +28,8 @@ ELEMENT = WS VALUE WS ;
 
 NUMBER = INTEGER
          ( '.' .out('d.fraction(math.ldexp(' * '.')
-           DIGITS .out(* ', ') E SIGN DIGITS .out(* '))')
+           DIGITS .out(* ', ')
+           ( E SIGN DIGITS .out(*) / .empty .out('0') ) .out('))')
          / .empty .out('d.number(' * ')') ) ;
 
 .tokens
@@ -38,7 +39,7 @@ ESCAPE  : .any('"!'\!'/!'b!'f!'n!'r!'t) / .any('u) HEX4 ;
 HEX4    : .any('0:'9!'A:'F!'a:'f) .any('0:'9!'A:'F!'a:'f)
           .any('0:'9!'A:'F!'a:'f) .any('0:'9!'A:'F!'a:'f) ;
 
-INTEGER : .token ( .any('-) / .empty ) ( DIGIT / ONENINE DIGIT $DIGIT ) .tokout ;
+INTEGER : .token ( .any('-) / .empty ) ( ONENINE $DIGIT / DIGIT ) .tokout ;
 DIGITS  : .token DIGIT $DIGIT .tokout ;
 DIGIT   : .any('0) / ONENINE ;
 ONENINE : .any('1:'9) ;
