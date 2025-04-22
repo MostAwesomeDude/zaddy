@@ -50,6 +50,7 @@
         zaddyc = mk "zaddy.zaddy" "zaddyc";
         jsonc = mk "json.zaddy" "jsonc";
         sexpc = mk "sexp.zaddy" "sexpc";
+        bfc = mk "bf.zaddy" "bfc";
       };
       devShells.default = pkgs.mkShell {
         packages = [ ];

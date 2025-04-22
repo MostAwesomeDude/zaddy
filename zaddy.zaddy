@@ -18,7 +18,8 @@ OUTPUT = '.out' '('
 CX3 = NUMBER / SQUOTE .litchr ;
 CX2 = CX3 ( ':' .out(* ' <= ord(self.s[self.i]) <= ') CX3 .out(*)
           / .empty .out('ord(self.s[self.i]) == ' *) ) ;
-CX1 = .out('self.pf = ') CX2 $( '!' .out(' or ') CX2 ) .out(.nl) .post { ?pf } ;
+CX1 = .out('self.pf = (self.i < len(self.s)) and ') CX2
+      $( '!' .out(' or ') CX2 ) .out(.nl) .post { ?pf } ;
 
 SCAN = .pre { +pf } {
          .pre { +tf } { .out('self.tb += self.s[self.i]' .nl) }
@@ -47,7 +48,7 @@ TX3 = ( '.token'
         .pre { ~-tf } { .out('self.tf = False' .nl) } .post { -tf }
       / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf } TX3 .out(.lm-) .post { -pf } ) SET
     / '.empty' SET
-    / '.not(' CX1 ')' .out('self.pf = not self.pf' .nl) .post { ?pf } SCAN
+    / '.not(' CX1 ')' .out('self.pf = (self.i < len(self.s)) and not self.pf' .nl) .post { ?pf } SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
     / '(' TX1 ')' ;

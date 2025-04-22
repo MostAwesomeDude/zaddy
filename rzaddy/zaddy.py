@@ -209,7 +209,7 @@ class ZADDYParser(object):
             if not self.pf: self.error()
     def parseCX1(self):
         if self.of:
-            self.ob += 'self.pf = '
+            self.ob += 'self.pf = (self.i < len(self.s)) and '
         if True:
             pass
             self.stack.append(("CX2", self.l1))
@@ -428,7 +428,7 @@ class ZADDYParser(object):
                 if self.pf: self.i += len(")")
                 if not self.pf: self.error()
                 if self.of:
-                    self.ob += 'self.pf = not self.pf'
+                    self.ob += 'self.pf = (self.i < len(self.s)) and not self.pf'
                     print " " * (self.m * 4) + self.ob
                     self.ob = ""
                 self.apf = 0
@@ -1283,7 +1283,7 @@ class ZADDYParser(object):
     def parseWS(self):
         self.pf = True
         while self.pf:
-            self.pf = ord(self.s[self.i]) == 9 or ord(self.s[self.i]) == 10 or ord(self.s[self.i]) == 13 or ord(self.s[self.i]) == 32
+            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 9 or ord(self.s[self.i]) == 10 or ord(self.s[self.i]) == 13 or ord(self.s[self.i]) == 32
             if self.pf:
                 if self.tf: self.tb += self.s[self.i]
                 self.i += 1
@@ -1291,14 +1291,14 @@ class ZADDYParser(object):
         if self.pf:
             pass
     def parseDIGIT(self):
-        self.pf = 48 <= ord(self.s[self.i]) <= 57
+        self.pf = (self.i < len(self.s)) and 48 <= ord(self.s[self.i]) <= 57
         if self.pf:
             if self.tf: self.tb += self.s[self.i]
             self.i += 1
         if self.pf:
             pass
     def parseALPHA(self):
-        self.pf = 65 <= ord(self.s[self.i]) <= 90 or 97 <= ord(self.s[self.i]) <= 122
+        self.pf = (self.i < len(self.s)) and 65 <= ord(self.s[self.i]) <= 90 or 97 <= ord(self.s[self.i]) <= 122
         if self.pf:
             if self.tf: self.tb += self.s[self.i]
             self.i += 1
@@ -1311,7 +1311,7 @@ class ZADDYParser(object):
         self.stack.pop()
         if self.pf:
             pass
-            self.pf = ord(self.s[self.i]) == 39
+            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 39
             if self.pf:
                 if self.tf: self.tb += self.s[self.i]
                 self.i += 1
@@ -1323,7 +1323,7 @@ class ZADDYParser(object):
         self.stack.pop()
         if self.pf:
             pass
-            self.pf = ord(self.s[self.i]) == 39
+            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 39
             if self.pf:
                 if self.tf: self.tb += self.s[self.i]
                 self.i += 1
@@ -1331,14 +1331,14 @@ class ZADDYParser(object):
             self.tb = ""
             self.tf = True
             while self.pf:
-                self.pf = ord(self.s[self.i]) == 10 or ord(self.s[self.i]) == 13 or ord(self.s[self.i]) == 39
-                self.pf = not self.pf
+                self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 10 or ord(self.s[self.i]) == 13 or ord(self.s[self.i]) == 39
+                self.pf = (self.i < len(self.s)) and not self.pf
                 if self.pf:
                     self.tb += self.s[self.i]
                     self.i += 1
             self.pf = True
             self.tf = False
-            self.pf = ord(self.s[self.i]) == 39
+            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 39
             if self.pf:
                 self.i += 1
             if not self.pf: return
