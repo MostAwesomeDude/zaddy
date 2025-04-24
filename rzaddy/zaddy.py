@@ -2,1399 +2,1475 @@ from rpython.rlib.rfile import create_stdio
 def target(driver, *args):
     driver.exe_name = "ZADDY".lower() + "c"
     return main, None
+class ParseError(Exception):
+    def __init__(self, i): self.i = i
 def main(argv):
     stdin, stdout, stderr = create_stdio()
     parser = ZADDYParser(stdin.read())
     try:
-        parser.parse()
+        _, _, _, _, _, _, _, lb = parser.parse()
+        stdout.write(lb)
         return 0
-    except ValueError:
-        line = parser.s.count(chr(10), 0, parser.i) + 1
-        stderr.write(("Error at input location: %d (line %d)" % (parser.i, line)) + chr(10))
-        stderr.write(("Backtrace: %s" % " ".join([frame[0] for frame in parser.stack])) + chr(10))
+    except ParseError as pe:
+        line = parser.s.count(chr(10), 0, pe.i) + 1
+        stderr.write(("Error at input location: %d (line %d)" % (pe.i, line)) + chr(10))
+        stderr.write(("Backtrace: %s" % " ".join(parser.stack)) + chr(10))
         stderr.write(("Last matching token: '%s'" % parser.lastMatch) + chr(10))
         return 1
 class ZADDYParser(object):
     u = 0
-    pf = tf = False
-    of = True
-    l1 = tb = ""
-    m = 0
-    ob = ""
-    i = 0
     lastMatch = ""
     def __init__(self, s): self.s = s; self.stack = []; self.top()
-    def parse(self): self.top(); return self.parseZADDY()
-    def unique(self):
-        if not self.l1: self.l1 = str(self.u); self.u += 1
-        return self.l1
-    def error(self): raise ValueError("meh")
-    def eatWhitespace(self):
-        while self.i < len(self.s) and self.s[self.i] in (" " + chr(10)): self.i += 1
-    def matches(self, token):
-        stop = self.i + len(token)
-        if stop > len(self.s): self.pf = False
-        else: self.pf = self.s[self.i:stop] == token
-        if self.pf: self.lastMatch = token
-    def parseOUT1(self):
-        self.eatWhitespace()
-        self.matches("*")
-        if self.pf: self.i += len("*")
-        if self.pf:
+    def parse(self):
+        self.top()
+        # i, pf, tf, of, m, tb, ob, lb
+        return self.parseZADDY(0, False, False, True, 0, "", "", "")
+    def parseOUT1(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len("*")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == "*"
+        if pf: self.lastMatch = "*"; i = stop
+        if pf:
             pass
-            if self.of:
-                self.ob += 'self.ob += self.tb'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-        if not self.pf:
-            self.stack.append(("STRING", self.l1))
-            self.l1 = ""
-            self.parseSTRING()
+            if of:
+                ob += 'ob += tb'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+        if not pf:
+            self.stack.append("STRING")
+            i, pf, tf, of, m, tb, ob, lb = self.parseSTRING(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if self.pf:
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.ob += '
-                    self.ob += chr(39)
-                    self.ob += self.tb
-                    self.ob += chr(39)
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.stack.append(("NUMBER", self.l1))
-            self.l1 = ""
-            self.parseNUMBER()
+                if of:
+                    ob += 'ob += '
+                    ob += chr(39)
+                    ob += tb
+                    ob += chr(39)
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            self.stack.append("NUMBER")
+            i, pf, tf, of, m, tb, ob, lb = self.parseNUMBER(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if self.pf:
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.ob += chr('
-                    self.ob += self.tb
-                    self.ob += ')'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("#")
-            if self.pf: self.i += len("#")
-            if self.pf:
+                if of:
+                    ob += 'ob += chr('
+                    ob += tb
+                    ob += ')'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("#")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "#"
+            if pf: self.lastMatch = "#"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.ob += self.unique()'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".lm+")
-            if self.pf: self.i += len(".lm+")
-            if self.pf:
+                if (self.al1 == 0):
+                    pass
+                    if of:
+                        ob += 'l1 = str(self.u); self.u += 1'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
+                    if True:
+                        pass
+                if not pf: raise ParseError(i)
+                self.al1 = 1
+                if of:
+                    ob += 'ob += l1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".lm+")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".lm+"
+            if pf: self.lastMatch = ".lm+"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.m += 1'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".lm-")
-            if self.pf: self.i += len(".lm-")
-            if self.pf:
+                if of:
+                    ob += 'm += 1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".lm-")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".lm-"
+            if pf: self.lastMatch = ".lm-"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'if self.m: self.m -= 1'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".nl")
-            if self.pf: self.i += len(".nl")
-            if self.pf:
+                if of:
+                    ob += 'if m: m -= 1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".nl")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".nl"
+            if pf: self.lastMatch = ".nl"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'print " " * (self.m * 4) + self.ob'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.ob += 'self.ob = ""'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-    def parseOUTPUT(self):
-        self.eatWhitespace()
-        self.matches(".out")
-        if self.pf: self.i += len(".out")
-        if self.pf:
+                if of:
+                    ob += 'lb += " " * (m * 4) + ob + chr(10)'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    ob += 'ob = ""'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseOUTPUT(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len(".out")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == ".out"
+        if pf: self.lastMatch = ".out"; i = stop
+        if pf:
             pass
-            self.eatWhitespace()
-            self.matches("(")
-            if self.pf: self.i += len("(")
-            if not self.pf: self.error()
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("(")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "("
+            if pf: self.lastMatch = "("; i = stop
+            if not pf: raise ParseError(i)
             if (self.aof == 0):
                 pass
-                if self.of:
-                    self.ob += 'if self.of:'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.m += 1
+                if of:
+                    ob += 'if of:'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    m += 1
                 if True:
                     pass
-                    while self.pf:
-                        self.stack.append(("OUT1", self.l1))
-                        self.l1 = ""
-                        self.parseOUT1()
+                    while pf:
+                        self.stack.append("OUT1")
+                        i, pf, tf, of, m, tb, ob, lb = self.parseOUT1(i, pf, tf, of, m, tb, ob, lb)
                         self.stack.pop()
-                    self.pf = True
-                    if self.of:
-                        if self.m: self.m -= 1
-            if not self.pf: self.error()
+                    pf = True
+                    if of:
+                        if m: m -= 1
+            if not pf: raise ParseError(i)
             if (self.aof == 2):
                 pass
-                self.of = False
-                if self.pf:
+                of = False
+                if pf:
                     pass
-                    while self.pf:
-                        self.stack.append(("OUT1", self.l1))
-                        self.l1 = ""
-                        self.parseOUT1()
+                    while pf:
+                        self.stack.append("OUT1")
+                        i, pf, tf, of, m, tb, ob, lb = self.parseOUT1(i, pf, tf, of, m, tb, ob, lb)
                         self.stack.pop()
-                    self.pf = True
-                    self.of = True
-            if not self.pf: self.error()
-            self.eatWhitespace()
-            self.matches(")")
-            if self.pf: self.i += len(")")
-            if not self.pf: self.error()
-    def parseCX3(self):
-        self.stack.append(("NUMBER", self.l1))
-        self.l1 = ""
-        self.parseNUMBER()
+                    pf = True
+                    of = True
+            if not pf: raise ParseError(i)
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(")")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ")"
+            if pf: self.lastMatch = ")"; i = stop
+            if not pf: raise ParseError(i)
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseCX3(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("NUMBER")
+        i, pf, tf, of, m, tb, ob, lb = self.parseNUMBER(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-        if not self.pf:
-            self.stack.append(("SQUOTE", self.l1))
-            self.l1 = ""
-            self.parseSQUOTE()
+        if not pf:
+            self.stack.append("SQUOTE")
+            i, pf, tf, of, m, tb, ob, lb = self.parseSQUOTE(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if self.pf:
+            if pf:
                 pass
-                self.tb = str(ord(self.s[self.i]))
-                self.i += 1
-    def parseCX2(self):
-        self.stack.append(("CX3", self.l1))
-        self.l1 = ""
-        self.parseCX3()
+                tb = str(ord(self.s[i]))
+                i += 1
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseCX2(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("CX3")
+        i, pf, tf, of, m, tb, ob, lb = self.parseCX3(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            self.eatWhitespace()
-            self.matches(":")
-            if self.pf: self.i += len(":")
-            if self.pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(":")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ":"
+            if pf: self.lastMatch = ":"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += self.tb
-                    self.ob += ' <= ord(self.s[self.i]) <= '
-                self.stack.append(("CX3", self.l1))
-                self.l1 = ""
-                self.parseCX3()
+                if of:
+                    ob += tb
+                    ob += ' <= ord(self.s[i]) <= '
+                self.stack.append("CX3")
+                i, pf, tf, of, m, tb, ob, lb = self.parseCX3(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += self.tb
-            if not self.pf:
-                self.pf = True
-                if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += tb
+            if not pf:
+                pf = True
+                if pf:
                     pass
-                    if self.of:
-                        self.ob += 'ord(self.s[self.i]) == '
-                        self.ob += self.tb
-            if not self.pf: self.error()
-    def parseCX1(self):
-        if self.of:
-            self.ob += 'self.pf = (self.i < len(self.s)) and '
+                    if of:
+                        ob += 'ord(self.s[i]) == '
+                        ob += tb
+            if not pf: raise ParseError(i)
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseCX1(self, i, pf, tf, of, m, tb, ob, lb):
+        if of:
+            ob += 'pf = (i < len(self.s)) and '
         if True:
             pass
-            self.stack.append(("CX2", self.l1))
-            self.l1 = ""
-            self.parseCX2()
+            self.stack.append("CX2")
+            i, pf, tf, of, m, tb, ob, lb = self.parseCX2(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            while self.pf:
-                self.eatWhitespace()
-                self.matches("!")
-                if self.pf: self.i += len("!")
-                if self.pf:
+            if not pf: raise ParseError(i)
+            while pf:
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("!")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "!"
+                if pf: self.lastMatch = "!"; i = stop
+                if pf:
                     pass
-                    if self.of:
-                        self.ob += ' or '
-                    self.stack.append(("CX2", self.l1))
-                    self.l1 = ""
-                    self.parseCX2()
+                    if of:
+                        ob += ' or '
+                    self.stack.append("CX2")
+                    i, pf, tf, of, m, tb, ob, lb = self.parseCX2(i, pf, tf, of, m, tb, ob, lb)
                     self.stack.pop()
-                    if not self.pf: self.error()
-            self.pf = True
-            if self.of:
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
+                    if not pf: raise ParseError(i)
+            pf = True
+            if of:
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
             self.apf = 0
-    def parseSCAN(self):
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseSCAN(self, i, pf, tf, of, m, tb, ob, lb):
         if (self.apf == 1):
             pass
             if (self.atf == 1):
                 pass
-                if self.of:
-                    self.ob += 'self.tb += self.s[self.i]'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
+                if of:
+                    ob += 'tb += self.s[i]'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
                 if True:
                     pass
-            if self.pf:
+            if pf:
                 pass
                 if (self.atf == 0):
                     pass
-                    if self.of:
-                        self.ob += 'if self.tf: self.tb += self.s[self.i]'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
+                    if of:
+                        ob += 'if tf: tb += self.s[i]'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
                     if True:
                         pass
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'self.i += 1'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'i += 1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if pf:
             pass
             if (self.apf == 0):
                 pass
-                if self.of:
-                    self.ob += 'if self.pf:'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.m += 1
+                if of:
+                    ob += 'if pf:'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    m += 1
                 if True:
                     pass
                     if (self.atf == 1):
                         pass
-                        if self.of:
-                            self.ob += 'self.tb += self.s[self.i]'
-                            print " " * (self.m * 4) + self.ob
-                            self.ob = ""
+                        if of:
+                            ob += 'tb += self.s[i]'
+                            lb += " " * (m * 4) + ob + chr(10)
+                            ob = ""
                         if True:
                             pass
-                    if not self.pf: self.error()
+                    if not pf: raise ParseError(i)
                     if (self.atf == 0):
                         pass
-                        if self.of:
-                            self.ob += 'if self.tf: self.tb += self.s[self.i]'
-                            print " " * (self.m * 4) + self.ob
-                            self.ob = ""
+                        if of:
+                            ob += 'if tf: tb += self.s[i]'
+                            lb += " " * (m * 4) + ob + chr(10)
+                            ob = ""
                         if True:
                             pass
-                    if not self.pf: self.error()
-                    if self.of:
-                        self.ob += 'self.i += 1'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
-                        if self.m: self.m -= 1
-            if not self.pf: self.error()
-    def parseSUB(self):
-        self.stack.append(("ID", self.l1))
-        self.l1 = ""
-        self.parseID()
+                    if not pf: raise ParseError(i)
+                    if of:
+                        ob += 'i += 1'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
+                        if m: m -= 1
+            if not pf: raise ParseError(i)
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseSUB(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("ID")
+        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            if self.of:
-                self.ob += 'self.stack.append(("'
-                self.ob += self.tb
-                self.ob += '", self.l1))'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'self.l1 = ""'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'self.parse'
-                self.ob += self.tb
-                self.ob += '()'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'self.stack.pop()'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
+            if of:
+                ob += 'self.stack.append("'
+                ob += tb
+                ob += '")'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'i, pf, tf, of, m, tb, ob, lb = self.parse'
+                ob += tb
+                ob += '(i, pf, tf, of, m, tb, ob, lb)'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'self.stack.pop()'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
             self.top()
-    def parseSET(self):
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseSET(self, i, pf, tf, of, m, tb, ob, lb):
         if (not (self.apf == 1)):
             pass
-            if self.of:
-                self.ob += 'self.pf = True'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
+            if of:
+                ob += 'pf = True'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
             if True:
                 pass
-        if self.pf:
+        if pf:
             pass
             self.apf = 1
-    def parseTX3(self):
-        self.eatWhitespace()
-        self.matches(".token")
-        if self.pf: self.i += len(".token")
-        if self.pf:
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseTX3(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len(".token")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == ".token"
+        if pf: self.lastMatch = ".token"; i = stop
+        if pf:
             pass
-            if self.of:
-                self.ob += 'self.tb = ""'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
+            if of:
+                ob += 'tb = ""'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
             if (not (self.atf == 1)):
                 pass
-                if self.of:
-                    self.ob += 'self.tf = True'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
+                if of:
+                    ob += 'tf = True'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
                 if True:
                     pass
-            if not self.pf: self.error()
+            if not pf: raise ParseError(i)
             self.atf = 1
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".tokout")
-            if self.pf: self.i += len(".tokout")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".tokout")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".tokout"
+            if pf: self.lastMatch = ".tokout"; i = stop
+            if pf:
                 pass
                 if (not (self.atf == 2)):
                     pass
-                    if self.of:
-                        self.ob += 'self.tf = False'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
+                    if of:
+                        ob += 'tf = False'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
                     if True:
                         pass
-                if not self.pf: self.error()
+                if not pf: raise ParseError(i)
                 self.atf = 2
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("$")
-            if self.pf: self.i += len("$")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("$")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "$"
+            if pf: self.lastMatch = "$"; i = stop
+            if pf:
                 pass
-                self.stack.append(("SET", self.l1))
-                self.l1 = ""
-                self.parseSET()
+                self.stack.append("SET")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'while self.pf:'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.m += 1
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'while pf:'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    m += 1
                 self.apf = 1
-                self.stack.append(("TX3", self.l1))
-                self.l1 = ""
-                self.parseTX3()
+                self.stack.append("TX3")
+                i, pf, tf, of, m, tb, ob, lb = self.parseTX3(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    if self.m: self.m -= 1
+                if not pf: raise ParseError(i)
+                if of:
+                    if m: m -= 1
                 self.apf = 2
-        if self.pf:
+        if pf:
             pass
-            self.stack.append(("SET", self.l1))
-            self.l1 = ""
-            self.parseSET()
+            self.stack.append("SET")
+            i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".empty")
-            if self.pf: self.i += len(".empty")
-            if self.pf:
+            if not pf: raise ParseError(i)
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".empty")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".empty"
+            if pf: self.lastMatch = ".empty"; i = stop
+            if pf:
                 pass
-                self.stack.append(("SET", self.l1))
-                self.l1 = ""
-                self.parseSET()
+                self.stack.append("SET")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".not(")
-            if self.pf: self.i += len(".not(")
-            if self.pf:
+                if not pf: raise ParseError(i)
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".not(")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".not("
+            if pf: self.lastMatch = ".not("; i = stop
+            if pf:
                 pass
-                self.stack.append(("CX1", self.l1))
-                self.l1 = ""
-                self.parseCX1()
+                self.stack.append("CX1")
+                i, pf, tf, of, m, tb, ob, lb = self.parseCX1(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                self.eatWhitespace()
-                self.matches(")")
-                if self.pf: self.i += len(")")
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'self.pf = (self.i < len(self.s)) and not self.pf'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
+                if not pf: raise ParseError(i)
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(")")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ")"
+                if pf: self.lastMatch = ")"; i = stop
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'pf = (i < len(self.s)) and not pf'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
                 self.apf = 0
-                self.stack.append(("SCAN", self.l1))
-                self.l1 = ""
-                self.parseSCAN()
+                self.stack.append("SCAN")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSCAN(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".any(")
-            if self.pf: self.i += len(".any(")
-            if self.pf:
+                if not pf: raise ParseError(i)
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".any(")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".any("
+            if pf: self.lastMatch = ".any("; i = stop
+            if pf:
                 pass
-                self.stack.append(("CX1", self.l1))
-                self.l1 = ""
-                self.parseCX1()
+                self.stack.append("CX1")
+                i, pf, tf, of, m, tb, ob, lb = self.parseCX1(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                self.eatWhitespace()
-                self.matches(")")
-                if self.pf: self.i += len(")")
-                if not self.pf: self.error()
-                self.stack.append(("SCAN", self.l1))
-                self.l1 = ""
-                self.parseSCAN()
+                if not pf: raise ParseError(i)
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(")")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ")"
+                if pf: self.lastMatch = ")"; i = stop
+                if not pf: raise ParseError(i)
+                self.stack.append("SCAN")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSCAN(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-        if not self.pf:
-            self.stack.append(("SUB", self.l1))
-            self.l1 = ""
-            self.parseSUB()
+                if not pf: raise ParseError(i)
+        if not pf:
+            self.stack.append("SUB")
+            i, pf, tf, of, m, tb, ob, lb = self.parseSUB(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if self.pf:
+            if pf:
                 pass
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("(")
-            if self.pf: self.i += len("(")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("(")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "("
+            if pf: self.lastMatch = "("; i = stop
+            if pf:
                 pass
-                self.stack.append(("TX1", self.l1))
-                self.l1 = ""
-                self.parseTX1()
+                self.stack.append("TX1")
+                i, pf, tf, of, m, tb, ob, lb = self.parseTX1(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                self.eatWhitespace()
-                self.matches(")")
-                if self.pf: self.i += len(")")
-                if not self.pf: self.error()
-    def parseTX2(self):
-        self.stack.append(("TX3", self.l1))
-        self.l1 = ""
-        self.parseTX3()
+                if not pf: raise ParseError(i)
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(")")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ")"
+                if pf: self.lastMatch = ")"; i = stop
+                if not pf: raise ParseError(i)
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseTX2(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("TX3")
+        i, pf, tf, of, m, tb, ob, lb = self.parseTX3(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            if self.of:
-                self.ob += 'if self.pf:'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'pass'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
+            if of:
+                ob += 'if pf:'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'pass'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
             self.apf = 1
-            while self.pf:
-                self.stack.append(("TX3", self.l1))
-                self.l1 = ""
-                self.parseTX3()
+            while pf:
+                self.stack.append("TX3")
+                i, pf, tf, of, m, tb, ob, lb = self.parseTX3(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if self.pf:
+                if pf:
                     pass
-                    if (not (self.apf == 1)):
+                    if (self.apf == 0):
                         pass
-                        if self.of:
-                            self.ob += 'if not self.pf: return'
-                            print " " * (self.m * 4) + self.ob
-                            self.ob = ""
+                        if of:
+                            ob += 'if not pf: return i, pf, tf, of, m, tb, ob, lb'
+                            lb += " " * (m * 4) + ob + chr(10)
+                            ob = ""
                         if True:
                             pass
-                    if not self.pf: self.error()
+                    if not pf: raise ParseError(i)
+                    if (self.apf == 2):
+                        pass
+                        if of:
+                            ob += 'return i, pf, tf, of, m, tb, ob, lb'
+                            lb += " " * (m * 4) + ob + chr(10)
+                            ob = ""
+                        if True:
+                            pass
+                    if not pf: raise ParseError(i)
                     self.apf = 1
-            self.pf = True
-            if self.of:
-                if self.m: self.m -= 1
-    def parseTX1(self):
-        self.stack.append(("TX2", self.l1))
-        self.l1 = ""
-        self.parseTX2()
+            pf = True
+            if of:
+                if m: m -= 1
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseTX1(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("TX2")
+        i, pf, tf, of, m, tb, ob, lb = self.parseTX2(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            while self.pf:
-                self.eatWhitespace()
-                self.matches("/")
-                if self.pf: self.i += len("/")
-                if self.pf:
+            while pf:
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("/")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "/"
+                if pf: self.lastMatch = "/"; i = stop
+                if pf:
                     pass
-                    if self.of:
-                        self.ob += 'if not self.pf:'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
-                        self.m += 1
+                    if of:
+                        ob += 'if not pf:'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
+                        m += 1
                     self.apf = 2
-                    self.stack.append(("TX2", self.l1))
-                    self.l1 = ""
-                    self.parseTX2()
+                    self.stack.append("TX2")
+                    i, pf, tf, of, m, tb, ob, lb = self.parseTX2(i, pf, tf, of, m, tb, ob, lb)
                     self.stack.pop()
-                    if not self.pf: self.error()
-                    if self.of:
-                        if self.m: self.m -= 1
+                    if not pf: raise ParseError(i)
                     self.apf = 0
-            self.pf = True
-    def parseTR(self):
-        self.stack.append(("ID", self.l1))
-        self.l1 = ""
-        self.parseID()
+                    if of:
+                        if m: m -= 1
+            pf = True
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseTR(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("ID")
+        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            if self.of:
-                self.ob += 'def parse'
-                self.ob += self.tb
-                self.ob += '(self):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-            self.eatWhitespace()
-            self.matches(":")
-            if self.pf: self.i += len(":")
-            if not self.pf: self.error()
+            if of:
+                ob += 'def parse'
+                ob += tb
+                ob += '(self, i, pf, tf, of, m, tb, ob, lb):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(":")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ":"
+            if pf: self.lastMatch = ":"; i = stop
+            if not pf: raise ParseError(i)
             self.top()
-            self.stack.append(("TX1", self.l1))
-            self.l1 = ""
-            self.parseTX1()
+            self.stack.append("TX1")
+            i, pf, tf, of, m, tb, ob, lb = self.parseTX1(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            self.eatWhitespace()
-            self.matches(";")
-            if self.pf: self.i += len(";")
-            if not self.pf: self.error()
-            if self.of:
-                if self.m: self.m -= 1
-    def parseTVAR(self):
-        self.eatWhitespace()
-        self.matches("~")
-        if self.pf: self.i += len("~")
-        if self.pf:
+            if not pf: raise ParseError(i)
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(";")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ";"
+            if pf: self.lastMatch = ";"; i = stop
+            if not pf: raise ParseError(i)
+            if of:
+                ob += 'return i, pf, tf, of, m, tb, ob, lb'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseTVAR(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len("~")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == "~"
+        if pf: self.lastMatch = "~"; i = stop
+        if pf:
             pass
-            if self.of:
-                self.ob += '(not '
-            self.stack.append(("TVAR", self.l1))
-            self.l1 = ""
-            self.parseTVAR()
+            if of:
+                ob += '(not '
+            self.stack.append("TVAR")
+            i, pf, tf, of, m, tb, ob, lb = self.parseTVAR(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            if self.of:
-                self.ob += ')'
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("?")
-            if self.pf: self.i += len("?")
-            if self.pf:
+            if not pf: raise ParseError(i)
+            if of:
+                ob += ')'
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("?")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "?"
+            if pf: self.lastMatch = "?"; i = stop
+            if pf:
                 pass
-                self.stack.append(("ID", self.l1))
-                self.l1 = ""
-                self.parseID()
+                self.stack.append("ID")
+                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += '(self.a'
-                    self.ob += self.tb
-                    self.ob += ' == 0)'
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("+")
-            if self.pf: self.i += len("+")
-            if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += '(self.a'
+                    ob += tb
+                    ob += ' == 0)'
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("+")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "+"
+            if pf: self.lastMatch = "+"; i = stop
+            if pf:
                 pass
-                self.stack.append(("ID", self.l1))
-                self.l1 = ""
-                self.parseID()
+                self.stack.append("ID")
+                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += '(self.a'
-                    self.ob += self.tb
-                    self.ob += ' == 1)'
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("-")
-            if self.pf: self.i += len("-")
-            if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += '(self.a'
+                    ob += tb
+                    ob += ' == 1)'
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("-")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "-"
+            if pf: self.lastMatch = "-"; i = stop
+            if pf:
                 pass
-                self.stack.append(("ID", self.l1))
-                self.l1 = ""
-                self.parseID()
+                self.stack.append("ID")
+                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += '(self.a'
-                    self.ob += self.tb
-                    self.ob += ' == 2)'
-    def parseAVAR(self):
-        self.eatWhitespace()
-        self.matches("?")
-        if self.pf: self.i += len("?")
-        if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += '(self.a'
+                    ob += tb
+                    ob += ' == 2)'
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseAVAR(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len("?")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == "?"
+        if pf: self.lastMatch = "?"; i = stop
+        if pf:
             pass
-            self.stack.append(("ID", self.l1))
-            self.l1 = ""
-            self.parseID()
+            self.stack.append("ID")
+            i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            if self.of:
-                self.ob += 'self.a'
-                self.ob += self.tb
-                self.ob += ' = 0'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("+")
-            if self.pf: self.i += len("+")
-            if self.pf:
+            if not pf: raise ParseError(i)
+            if of:
+                ob += 'self.a'
+                ob += tb
+                ob += ' = 0'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("+")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "+"
+            if pf: self.lastMatch = "+"; i = stop
+            if pf:
                 pass
-                self.stack.append(("ID", self.l1))
-                self.l1 = ""
-                self.parseID()
+                self.stack.append("ID")
+                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'self.a'
-                    self.ob += self.tb
-                    self.ob += ' = 1'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("-")
-            if self.pf: self.i += len("-")
-            if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'self.a'
+                    ob += tb
+                    ob += ' = 1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("-")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "-"
+            if pf: self.lastMatch = "-"; i = stop
+            if pf:
                 pass
-                self.stack.append(("ID", self.l1))
-                self.l1 = ""
-                self.parseID()
+                self.stack.append("ID")
+                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'self.a'
-                    self.ob += self.tb
-                    self.ob += ' = 2'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-    def parseEX3(self):
-        self.stack.append(("SUB", self.l1))
-        self.l1 = ""
-        self.parseSUB()
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'self.a'
+                    ob += tb
+                    ob += ' = 2'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseEX3(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("SUB")
+        i, pf, tf, of, m, tb, ob, lb = self.parseSUB(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-        if not self.pf:
-            self.stack.append(("STRING", self.l1))
-            self.l1 = ""
-            self.parseSTRING()
+        if not pf:
+            self.stack.append("STRING")
+            i, pf, tf, of, m, tb, ob, lb = self.parseSTRING(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if self.pf:
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.eatWhitespace()'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.ob += 'self.matches("'
-                    self.ob += self.tb
-                    self.ob += '")'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.ob += 'if self.pf: self.i += len("'
-                    self.ob += self.tb
-                    self.ob += '")'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
+                if of:
+                    ob += 'while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    ob += 'stop = i + len("'
+                    ob += tb
+                    ob += '")'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    ob += 'if stop > len(self.s): pf = False'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    ob += 'else: pf = self.s[i:stop] == "'
+                    ob += tb
+                    ob += '"'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    ob += 'if pf: self.lastMatch = "'
+                    ob += tb
+                    ob += '"; i = stop'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
                 self.apf = 0
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("(")
-            if self.pf: self.i += len("(")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("(")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "("
+            if pf: self.lastMatch = "("; i = stop
+            if pf:
                 pass
-                self.stack.append(("EX1", self.l1))
-                self.l1 = ""
-                self.parseEX1()
+                self.stack.append("EX1")
+                i, pf, tf, of, m, tb, ob, lb = self.parseEX1(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                self.eatWhitespace()
-                self.matches(")")
-                if self.pf: self.i += len(")")
-                if not self.pf: self.error()
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".pre")
-            if self.pf: self.i += len(".pre")
-            if self.pf:
+                if not pf: raise ParseError(i)
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(")")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ")"
+                if pf: self.lastMatch = ")"; i = stop
+                if not pf: raise ParseError(i)
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".pre")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".pre"
+            if pf: self.lastMatch = ".pre"; i = stop
+            if pf:
                 pass
-                self.eatWhitespace()
-                self.matches("{")
-                if self.pf: self.i += len("{")
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'if '
-                self.stack.append(("TVAR", self.l1))
-                self.l1 = ""
-                self.parseTVAR()
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("{")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "{"
+                if pf: self.lastMatch = "{"; i = stop
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'if '
+                self.stack.append("TVAR")
+                i, pf, tf, of, m, tb, ob, lb = self.parseTVAR(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                while self.pf:
-                    self.eatWhitespace()
-                    self.matches(",")
-                    if self.pf: self.i += len(",")
-                    if self.pf:
+                if not pf: raise ParseError(i)
+                while pf:
+                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                    stop = i + len(",")
+                    if stop > len(self.s): pf = False
+                    else: pf = self.s[i:stop] == ","
+                    if pf: self.lastMatch = ","; i = stop
+                    if pf:
                         pass
-                        if self.of:
-                            self.ob += ' and '
-                        self.stack.append(("TVAR", self.l1))
-                        self.l1 = ""
-                        self.parseTVAR()
+                        if of:
+                            ob += ' and '
+                        self.stack.append("TVAR")
+                        i, pf, tf, of, m, tb, ob, lb = self.parseTVAR(i, pf, tf, of, m, tb, ob, lb)
                         self.stack.pop()
-                        if not self.pf: self.error()
-                self.pf = True
-                if self.of:
-                    self.ob += ':'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.m += 1
-                    self.ob += 'pass'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                self.eatWhitespace()
-                self.matches("}")
-                if self.pf: self.i += len("}")
-                if not self.pf: self.error()
-                self.eatWhitespace()
-                self.matches("{")
-                if self.pf: self.i += len("{")
-                if not self.pf: self.error()
-                self.stack.append(("EX1", self.l1))
-                self.l1 = ""
-                self.parseEX1()
+                        if not pf: raise ParseError(i)
+                pf = True
+                if of:
+                    ob += ':'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    m += 1
+                    ob += 'pass'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("}")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "}"
+                if pf: self.lastMatch = "}"; i = stop
+                if not pf: raise ParseError(i)
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("{")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "{"
+                if pf: self.lastMatch = "{"; i = stop
+                if not pf: raise ParseError(i)
+                self.stack.append("EX1")
+                i, pf, tf, of, m, tb, ob, lb = self.parseEX1(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                self.eatWhitespace()
-                self.matches("}")
-                if self.pf: self.i += len("}")
-                if not self.pf: self.error()
-                if self.of:
-                    if self.m: self.m -= 1
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".post")
-            if self.pf: self.i += len(".post")
-            if self.pf:
+                if not pf: raise ParseError(i)
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("}")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "}"
+                if pf: self.lastMatch = "}"; i = stop
+                if not pf: raise ParseError(i)
+                if of:
+                    if m: m -= 1
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".post")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".post"
+            if pf: self.lastMatch = ".post"; i = stop
+            if pf:
                 pass
-                self.eatWhitespace()
-                self.matches("{")
-                if self.pf: self.i += len("{")
-                if not self.pf: self.error()
-                self.stack.append(("AVAR", self.l1))
-                self.l1 = ""
-                self.parseAVAR()
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("{")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "{"
+                if pf: self.lastMatch = "{"; i = stop
+                if not pf: raise ParseError(i)
+                self.stack.append("AVAR")
+                i, pf, tf, of, m, tb, ob, lb = self.parseAVAR(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                while self.pf:
-                    self.eatWhitespace()
-                    self.matches(",")
-                    if self.pf: self.i += len(",")
-                    if self.pf:
+                if not pf: raise ParseError(i)
+                while pf:
+                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                    stop = i + len(",")
+                    if stop > len(self.s): pf = False
+                    else: pf = self.s[i:stop] == ","
+                    if pf: self.lastMatch = ","; i = stop
+                    if pf:
                         pass
-                        self.stack.append(("AVAR", self.l1))
-                        self.l1 = ""
-                        self.parseAVAR()
+                        self.stack.append("AVAR")
+                        i, pf, tf, of, m, tb, ob, lb = self.parseAVAR(i, pf, tf, of, m, tb, ob, lb)
                         self.stack.pop()
-                        if not self.pf: self.error()
-                self.pf = True
-                self.eatWhitespace()
-                self.matches("}")
-                if self.pf: self.i += len("}")
-                if not self.pf: self.error()
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".fork")
-            if self.pf: self.i += len(".fork")
-            if self.pf:
+                        if not pf: raise ParseError(i)
+                pf = True
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("}")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "}"
+                if pf: self.lastMatch = "}"; i = stop
+                if not pf: raise ParseError(i)
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".fork")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".fork"
+            if pf: self.lastMatch = ".fork"; i = stop
+            if pf:
                 pass
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".join")
-            if self.pf: self.i += len(".join")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".join")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".join"
+            if pf: self.lastMatch = ".join"; i = stop
+            if pf:
                 pass
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".top")
-            if self.pf: self.i += len(".top")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".top")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".top"
+            if pf: self.lastMatch = ".top"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.top()'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".empty")
-            if self.pf: self.i += len(".empty")
-            if self.pf:
+                if of:
+                    ob += 'self.top()'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".empty")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".empty"
+            if pf: self.lastMatch = ".empty"; i = stop
+            if pf:
                 pass
-                self.stack.append(("SET", self.l1))
-                self.l1 = ""
-                self.parseSET()
+                self.stack.append("SET")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".litchr")
-            if self.pf: self.i += len(".litchr")
-            if self.pf:
+                if not pf: raise ParseError(i)
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".litchr")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".litchr"
+            if pf: self.lastMatch = ".litchr"; i = stop
+            if pf:
                 pass
-                self.stack.append(("SET", self.l1))
-                self.l1 = ""
-                self.parseSET()
+                self.stack.append("SET")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'self.tb = str(ord(self.s[self.i]))'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.ob += 'self.i += 1'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".o+")
-            if self.pf: self.i += len(".o+")
-            if self.pf:
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'tb = str(ord(self.s[i]))'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    ob += 'i += 1'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".o+")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".o+"
+            if pf: self.lastMatch = ".o+"; i = stop
+            if pf:
                 pass
                 if (not (self.aof == 1)):
                     pass
-                    if self.of:
-                        self.ob += 'self.of = True'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
+                    if of:
+                        ob += 'of = True'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
                     if True:
                         pass
-                if not self.pf: self.error()
+                if not pf: raise ParseError(i)
                 self.aof = 1
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".o-")
-            if self.pf: self.i += len(".o-")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".o-")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".o-"
+            if pf: self.lastMatch = ".o-"; i = stop
+            if pf:
                 pass
                 if (not (self.aof == 2)):
                     pass
-                    if self.of:
-                        self.ob += 'self.of = False'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
+                    if of:
+                        ob += 'of = False'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
                     if True:
                         pass
-                if not self.pf: self.error()
+                if not pf: raise ParseError(i)
                 self.aof = 2
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches(".pass")
-            if self.pf: self.i += len(".pass")
-            if self.pf:
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".pass")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".pass"
+            if pf: self.lastMatch = ".pass"; i = stop
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'self.i = 0'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-        if not self.pf:
-            self.eatWhitespace()
-            self.matches("$")
-            if self.pf: self.i += len("$")
-            if self.pf:
+                if of:
+                    ob += 'i = 0'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("$")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "$"
+            if pf: self.lastMatch = "$"; i = stop
+            if pf:
                 pass
-                self.stack.append(("SET", self.l1))
-                self.l1 = ""
-                self.parseSET()
+                self.stack.append("SET")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    self.ob += 'while self.pf:'
-                    print " " * (self.m * 4) + self.ob
-                    self.ob = ""
-                    self.m += 1
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'while pf:'
+                    lb += " " * (m * 4) + ob + chr(10)
+                    ob = ""
+                    m += 1
                 self.apf = 1
-                self.stack.append(("EX3", self.l1))
-                self.l1 = ""
-                self.parseEX3()
+                self.stack.append("EX3")
+                i, pf, tf, of, m, tb, ob, lb = self.parseEX3(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-                if self.of:
-                    if self.m: self.m -= 1
+                if not pf: raise ParseError(i)
+                if of:
+                    if m: m -= 1
                 self.apf = 2
-                self.stack.append(("SET", self.l1))
-                self.l1 = ""
-                self.parseSET()
+                self.stack.append("SET")
+                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if not self.pf: self.error()
-    def parseEX2(self):
-        self.stack.append(("EX3", self.l1))
-        self.l1 = ""
-        self.parseEX3()
+                if not pf: raise ParseError(i)
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseEX2(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("EX3")
+        i, pf, tf, of, m, tb, ob, lb = self.parseEX3(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            if self.of:
-                self.ob += 'if self.pf:'
+            if of:
+                ob += 'if pf:'
             self.apf = 1
-        if not self.pf:
-            self.stack.append(("OUTPUT", self.l1))
-            self.l1 = ""
-            self.parseOUTPUT()
+        if not pf:
+            self.stack.append("OUTPUT")
+            i, pf, tf, of, m, tb, ob, lb = self.parseOUTPUT(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if self.pf:
+            if pf:
                 pass
-                if self.of:
-                    self.ob += 'if True:'
-        if self.pf:
+                if of:
+                    ob += 'if True:'
+        if pf:
             pass
-            if self.of:
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'pass'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-            while self.pf:
-                self.stack.append(("EX3", self.l1))
-                self.l1 = ""
-                self.parseEX3()
+            if of:
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'pass'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+            while pf:
+                self.stack.append("EX3")
+                i, pf, tf, of, m, tb, ob, lb = self.parseEX3(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if self.pf:
+                if pf:
                     pass
-                    if (not (self.apf == 1)):
+                    if (self.apf == 2):
                         pass
-                        if self.of:
-                            self.ob += 'if not self.pf: self.error()'
-                            print " " * (self.m * 4) + self.ob
-                            self.ob = ""
+                        if of:
+                            ob += 'raise ParseError(i)'
+                            lb += " " * (m * 4) + ob + chr(10)
+                            ob = ""
                         if True:
                             pass
-                    if not self.pf: self.error()
+                    if not pf: raise ParseError(i)
+                    if (self.apf == 0):
+                        pass
+                        if of:
+                            ob += 'if not pf: raise ParseError(i)'
+                            lb += " " * (m * 4) + ob + chr(10)
+                            ob = ""
+                        if True:
+                            pass
+                    if not pf: raise ParseError(i)
                     self.apf = 1
-                if not self.pf:
-                    self.stack.append(("OUTPUT", self.l1))
-                    self.l1 = ""
-                    self.parseOUTPUT()
+                if not pf:
+                    self.stack.append("OUTPUT")
+                    i, pf, tf, of, m, tb, ob, lb = self.parseOUTPUT(i, pf, tf, of, m, tb, ob, lb)
                     self.stack.pop()
-                    if self.pf:
+                    if pf:
                         pass
-            self.pf = True
-            if self.of:
-                if self.m: self.m -= 1
+            pf = True
+            if of:
+                if m: m -= 1
             self.apf = 0
-    def parseEX1(self):
-        self.stack.append(("EX2", self.l1))
-        self.l1 = ""
-        self.parseEX2()
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseEX1(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("EX2")
+        i, pf, tf, of, m, tb, ob, lb = self.parseEX2(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            while self.pf:
-                self.eatWhitespace()
-                self.matches("/")
-                if self.pf: self.i += len("/")
-                if self.pf:
+            while pf:
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len("/")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "/"
+                if pf: self.lastMatch = "/"; i = stop
+                if pf:
                     pass
-                    if self.of:
-                        self.ob += 'if not self.pf:'
-                        print " " * (self.m * 4) + self.ob
-                        self.ob = ""
-                        self.m += 1
-                    self.stack.append(("EX2", self.l1))
-                    self.l1 = ""
-                    self.parseEX2()
+                    if of:
+                        ob += 'if not pf:'
+                        lb += " " * (m * 4) + ob + chr(10)
+                        ob = ""
+                        m += 1
+                    self.apf = 2
+                    self.stack.append("EX2")
+                    i, pf, tf, of, m, tb, ob, lb = self.parseEX2(i, pf, tf, of, m, tb, ob, lb)
                     self.stack.pop()
-                    if not self.pf: self.error()
-                    if self.of:
-                        if self.m: self.m -= 1
-            self.pf = True
-    def parsePR(self):
-        self.stack.append(("ID", self.l1))
-        self.l1 = ""
-        self.parseID()
+                    if not pf: raise ParseError(i)
+                    self.apf = 0
+                    if of:
+                        if m: m -= 1
+            pf = True
+        return i, pf, tf, of, m, tb, ob, lb
+    def parsePR(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("ID")
+        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            if self.of:
-                self.ob += 'def parse'
-                self.ob += self.tb
-                self.ob += '(self):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-            self.eatWhitespace()
-            self.matches("=")
-            if self.pf: self.i += len("=")
-            if not self.pf: self.error()
+            if of:
+                ob += 'def parse'
+                ob += tb
+                ob += '(self, i, pf, tf, of, m, tb, ob, lb):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("=")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "="
+            if pf: self.lastMatch = "="; i = stop
+            if not pf: raise ParseError(i)
             self.top()
-            self.stack.append(("EX1", self.l1))
-            self.l1 = ""
-            self.parseEX1()
+            self.stack.append("EX1")
+            i, pf, tf, of, m, tb, ob, lb = self.parseEX1(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            self.eatWhitespace()
-            self.matches(";")
-            if self.pf: self.i += len(";")
-            if not self.pf: self.error()
-            if self.of:
-                if self.m: self.m -= 1
-    def parseTY(self):
-        self.eatWhitespace()
-        self.matches("bool")
-        if self.pf: self.i += len("bool")
-        if self.pf:
+            if not pf: raise ParseError(i)
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(";")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ";"
+            if pf: self.lastMatch = ";"; i = stop
+            if not pf: raise ParseError(i)
+            if of:
+                ob += 'return i, pf, tf, of, m, tb, ob, lb'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseTY(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len("bool")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == "bool"
+        if pf: self.lastMatch = "bool"; i = stop
+        if pf:
             pass
-            if self.of:
-                self.ob += '0'
-    def parseDR(self):
-        self.stack.append(("ID", self.l1))
-        self.l1 = ""
-        self.parseID()
+            if of:
+                ob += '0'
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseDR(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("ID")
+        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            self.eatWhitespace()
-            self.matches(":")
-            if self.pf: self.i += len(":")
-            if not self.pf: self.error()
-            if self.of:
-                self.ob += 'self.a'
-                self.ob += self.tb
-                self.ob += ' = '
-            self.stack.append(("TY", self.l1))
-            self.l1 = ""
-            self.parseTY()
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(":")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ":"
+            if pf: self.lastMatch = ":"; i = stop
+            if not pf: raise ParseError(i)
+            if of:
+                ob += 'self.a'
+                ob += tb
+                ob += ' = '
+            self.stack.append("TY")
+            i, pf, tf, of, m, tb, ob, lb = self.parseTY(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            self.eatWhitespace()
-            self.matches(";")
-            if self.pf: self.i += len(";")
-            if not self.pf: self.error()
-            if self.of:
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-    def parseZADDY(self):
-        self.eatWhitespace()
-        self.matches(".syntax")
-        if self.pf: self.i += len(".syntax")
-        if self.pf:
+            if not pf: raise ParseError(i)
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(";")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ";"
+            if pf: self.lastMatch = ";"; i = stop
+            if not pf: raise ParseError(i)
+            if of:
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseZADDY(self, i, pf, tf, of, m, tb, ob, lb):
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len(".syntax")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == ".syntax"
+        if pf: self.lastMatch = ".syntax"; i = stop
+        if pf:
             pass
-            self.stack.append(("ID", self.l1))
-            self.l1 = ""
-            self.parseID()
+            self.stack.append("ID")
+            i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: self.error()
-            if self.of:
-                self.ob += 'from rpython.rlib.rfile import create_stdio'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'def target(driver, *args):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'driver.exe_name = "'
-                self.ob += self.tb
-                self.ob += '".lower() + "c"'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'return main, None'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                if self.m: self.m -= 1
-                self.ob += 'def main(argv):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'stdin, stdout, stderr = create_stdio()'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'parser = '
-                self.ob += self.tb
-                self.ob += 'Parser(stdin.read())'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'try:'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'parser.parse()'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'return 0'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                if self.m: self.m -= 1
-                self.ob += 'except ValueError:'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'line = parser.s.count(chr(10), 0, parser.i) + 1'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'stderr.write(("Error at input location: %d (line %d)" % (parser.i, line)) + chr(10))'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'stderr.write(("Backtrace: %s" % " ".join([frame[0] for frame in parser.stack])) + chr(10))'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'stderr.write(("Last matching token: '
-                self.ob += chr(39)
-                self.ob += '%s'
-                self.ob += chr(39)
-                self.ob += '" % parser.lastMatch) + chr(10))'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'return 1'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                if self.m: self.m -= 1
-                if self.m: self.m -= 1
-                self.ob += 'class '
-                self.ob += self.tb
-                self.ob += 'Parser(object):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'u = 0'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'pf = tf = False'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'of = True'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'l1 = tb = ""'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'm = 0'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'ob = ""'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'i = 0'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'lastMatch = ""'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'def __init__(self, s): self.s = s; self.stack = []; self.top()'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'def parse(self): self.top(); return self.parse'
-                self.ob += self.tb
-                self.ob += '()'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'def unique(self):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'if not self.l1: self.l1 = str(self.u); self.u += 1'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'return self.l1'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                if self.m: self.m -= 1
-                self.ob += 'def error(self): raise ValueError("meh")'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'def eatWhitespace(self):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'while self.i < len(self.s) and self.s[self.i] in (" " + chr(10)): self.i += 1'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                if self.m: self.m -= 1
-                self.ob += 'def matches(self, token):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'stop = self.i + len(token)'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'if stop > len(self.s): self.pf = False'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'else: self.pf = self.s[self.i:stop] == token'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.ob += 'if self.pf: self.lastMatch = token'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                if self.m: self.m -= 1
-            while self.pf:
-                self.stack.append(("PR", self.l1))
-                self.l1 = ""
-                self.parsePR()
+            if not pf: raise ParseError(i)
+            if of:
+                ob += 'from rpython.rlib.rfile import create_stdio'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'def target(driver, *args):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'driver.exe_name = "'
+                ob += tb
+                ob += '".lower() + "c"'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'return main, None'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+                ob += 'class ParseError(Exception):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'def __init__(self, i): self.i = i'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+                ob += 'def main(argv):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'stdin, stdout, stderr = create_stdio()'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'parser = '
+                ob += tb
+                ob += 'Parser(stdin.read())'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'try:'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += '_, _, _, _, _, _, _, lb = parser.parse()'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'stdout.write(lb)'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'return 0'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+                ob += 'except ParseError as pe:'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'line = parser.s.count(chr(10), 0, pe.i) + 1'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'stderr.write(("Error at input location: %d (line %d)" % (pe.i, line)) + chr(10))'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'stderr.write(("Backtrace: %s" % " ".join(parser.stack)) + chr(10))'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'stderr.write(("Last matching token: '
+                ob += chr(39)
+                ob += '%s'
+                ob += chr(39)
+                ob += '" % parser.lastMatch) + chr(10))'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'return 1'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+                if m: m -= 1
+                ob += 'class '
+                ob += tb
+                ob += 'Parser(object):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'u = 0'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'lastMatch = ""'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'def __init__(self, s): self.s = s; self.stack = []; self.top()'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'def parse(self):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'self.top()'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += '# i, pf, tf, of, m, tb, ob, lb'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                ob += 'return self.parse'
+                ob += tb
+                ob += '(0, False, False, True, 0, "", "", "")'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                if m: m -= 1
+            while pf:
+                self.stack.append("PR")
+                i, pf, tf, of, m, tb, ob, lb = self.parsePR(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-            self.pf = True
-            self.eatWhitespace()
-            self.matches(".tokens")
-            if self.pf: self.i += len(".tokens")
-            if not self.pf: self.error()
-            while self.pf:
-                self.stack.append(("TR", self.l1))
-                self.l1 = ""
-                self.parseTR()
+            pf = True
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".tokens")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".tokens"
+            if pf: self.lastMatch = ".tokens"; i = stop
+            if not pf: raise ParseError(i)
+            while pf:
+                self.stack.append("TR")
+                i, pf, tf, of, m, tb, ob, lb = self.parseTR(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-            self.pf = True
-            if self.of:
-                self.ob += 'def top(self):'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-                self.m += 1
-                self.ob += 'pass'
-                print " " * (self.m * 4) + self.ob
-                self.ob = ""
-            self.eatWhitespace()
-            self.matches(".domain")
-            if self.pf: self.i += len(".domain")
-            if not self.pf: self.error()
-            while self.pf:
-                self.stack.append(("DR", self.l1))
-                self.l1 = ""
-                self.parseDR()
+            pf = True
+            if of:
+                ob += 'def top(self):'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+                m += 1
+                ob += 'pass'
+                lb += " " * (m * 4) + ob + chr(10)
+                ob = ""
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".domain")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".domain"
+            if pf: self.lastMatch = ".domain"; i = stop
+            if not pf: raise ParseError(i)
+            while pf:
+                self.stack.append("DR")
+                i, pf, tf, of, m, tb, ob, lb = self.parseDR(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-            self.pf = True
-            if self.of:
-                if self.m: self.m -= 1
-            self.eatWhitespace()
-            self.matches(".end")
-            if self.pf: self.i += len(".end")
-            if not self.pf: self.error()
-    def parseWS(self):
-        self.pf = True
-        while self.pf:
-            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 9 or ord(self.s[self.i]) == 10 or ord(self.s[self.i]) == 13 or ord(self.s[self.i]) == 32
-            if self.pf:
-                if self.tf: self.tb += self.s[self.i]
-                self.i += 1
-        self.pf = True
-        if self.pf:
+            pf = True
+            if of:
+                if m: m -= 1
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".end")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".end"
+            if pf: self.lastMatch = ".end"; i = stop
+            if not pf: raise ParseError(i)
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseWS(self, i, pf, tf, of, m, tb, ob, lb):
+        pf = True
+        while pf:
+            pf = (i < len(self.s)) and ord(self.s[i]) == 9 or ord(self.s[i]) == 10 or ord(self.s[i]) == 13 or ord(self.s[i]) == 32
+            if pf:
+                if tf: tb += self.s[i]
+                i += 1
+        pf = True
+        if pf:
             pass
-    def parseDIGIT(self):
-        self.pf = (self.i < len(self.s)) and 48 <= ord(self.s[self.i]) <= 57
-        if self.pf:
-            if self.tf: self.tb += self.s[self.i]
-            self.i += 1
-        if self.pf:
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseDIGIT(self, i, pf, tf, of, m, tb, ob, lb):
+        pf = (i < len(self.s)) and 48 <= ord(self.s[i]) <= 57
+        if pf:
+            if tf: tb += self.s[i]
+            i += 1
+        if pf:
             pass
-    def parseALPHA(self):
-        self.pf = (self.i < len(self.s)) and 65 <= ord(self.s[self.i]) <= 90 or 97 <= ord(self.s[self.i]) <= 122
-        if self.pf:
-            if self.tf: self.tb += self.s[self.i]
-            self.i += 1
-        if self.pf:
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseALPHA(self, i, pf, tf, of, m, tb, ob, lb):
+        pf = (i < len(self.s)) and 65 <= ord(self.s[i]) <= 90 or 97 <= ord(self.s[i]) <= 122
+        if pf:
+            if tf: tb += self.s[i]
+            i += 1
+        if pf:
             pass
-    def parseSQUOTE(self):
-        self.stack.append(("WS", self.l1))
-        self.l1 = ""
-        self.parseWS()
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseSQUOTE(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("WS")
+        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 39
-            if self.pf:
-                if self.tf: self.tb += self.s[self.i]
-                self.i += 1
-            if not self.pf: return
-    def parseSTRING(self):
-        self.stack.append(("WS", self.l1))
-        self.l1 = ""
-        self.parseWS()
+            pf = (i < len(self.s)) and ord(self.s[i]) == 39
+            if pf:
+                if tf: tb += self.s[i]
+                i += 1
+            if not pf: return i, pf, tf, of, m, tb, ob, lb
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseSTRING(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("WS")
+        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 39
-            if self.pf:
-                if self.tf: self.tb += self.s[self.i]
-                self.i += 1
-            if not self.pf: return
-            self.tb = ""
-            self.tf = True
-            while self.pf:
-                self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 10 or ord(self.s[self.i]) == 13 or ord(self.s[self.i]) == 39
-                self.pf = (self.i < len(self.s)) and not self.pf
-                if self.pf:
-                    self.tb += self.s[self.i]
-                    self.i += 1
-            self.pf = True
-            self.tf = False
-            self.pf = (self.i < len(self.s)) and ord(self.s[self.i]) == 39
-            if self.pf:
-                self.i += 1
-            if not self.pf: return
-    def parseNUMBER(self):
-        self.stack.append(("WS", self.l1))
-        self.l1 = ""
-        self.parseWS()
+            pf = (i < len(self.s)) and ord(self.s[i]) == 39
+            if pf:
+                if tf: tb += self.s[i]
+                i += 1
+            if not pf: return i, pf, tf, of, m, tb, ob, lb
+            tb = ""
+            tf = True
+            while pf:
+                pf = (i < len(self.s)) and ord(self.s[i]) == 10 or ord(self.s[i]) == 13 or ord(self.s[i]) == 39
+                pf = (i < len(self.s)) and not pf
+                if pf:
+                    tb += self.s[i]
+                    i += 1
+            pf = True
+            tf = False
+            pf = (i < len(self.s)) and ord(self.s[i]) == 39
+            if pf:
+                i += 1
+            if not pf: return i, pf, tf, of, m, tb, ob, lb
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseNUMBER(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("WS")
+        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            self.tb = ""
-            self.tf = True
-            self.stack.append(("DIGIT", self.l1))
-            self.l1 = ""
-            self.parseDIGIT()
+            tb = ""
+            tf = True
+            self.stack.append("DIGIT")
+            i, pf, tf, of, m, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: return
-            while self.pf:
-                self.stack.append(("DIGIT", self.l1))
-                self.l1 = ""
-                self.parseDIGIT()
+            if not pf: return i, pf, tf, of, m, tb, ob, lb
+            while pf:
+                self.stack.append("DIGIT")
+                i, pf, tf, of, m, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-            self.pf = True
-            self.tf = False
-    def parseID(self):
-        self.stack.append(("WS", self.l1))
-        self.l1 = ""
-        self.parseWS()
+            pf = True
+            tf = False
+        return i, pf, tf, of, m, tb, ob, lb
+    def parseID(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("WS")
+        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
         self.stack.pop()
-        if self.pf:
+        if pf:
             pass
-            self.tb = ""
-            self.tf = True
-            self.stack.append(("ALPHA", self.l1))
-            self.l1 = ""
-            self.parseALPHA()
+            tb = ""
+            tf = True
+            self.stack.append("ALPHA")
+            i, pf, tf, of, m, tb, ob, lb = self.parseALPHA(i, pf, tf, of, m, tb, ob, lb)
             self.stack.pop()
-            if not self.pf: return
-            while self.pf:
-                self.stack.append(("ALPHA", self.l1))
-                self.l1 = ""
-                self.parseALPHA()
+            if not pf: return i, pf, tf, of, m, tb, ob, lb
+            while pf:
+                self.stack.append("ALPHA")
+                i, pf, tf, of, m, tb, ob, lb = self.parseALPHA(i, pf, tf, of, m, tb, ob, lb)
                 self.stack.pop()
-                if self.pf:
+                if pf:
                     pass
-                if not self.pf:
-                    self.stack.append(("DIGIT", self.l1))
-                    self.l1 = ""
-                    self.parseDIGIT()
+                if not pf:
+                    self.stack.append("DIGIT")
+                    i, pf, tf, of, m, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, m, tb, ob, lb)
                     self.stack.pop()
-                    if self.pf:
+                    if pf:
                         pass
-            self.pf = True
-            self.tf = False
+            pf = True
+            tf = False
+        return i, pf, tf, of, m, tb, ob, lb
     def top(self):
         pass
         self.apf = 0
         self.atf = 0
         self.aof = 0
+        self.al1 = 0

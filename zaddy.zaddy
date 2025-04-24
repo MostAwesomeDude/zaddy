@@ -1,64 +1,71 @@
 .syntax ZADDY
 
-OUT1 = '*'     .out('self.ob += self.tb' .nl)
-     / STRING  .out('self.ob += ' 39 * 39 .nl)
-     / NUMBER  .out('self.ob += chr(' * ')' .nl)
-     / '#'     .out('self.ob += self.unique()' .nl)
-     / '.lm+'  .out('self.m += 1' .nl)
-     / '.lm-'  .out('if self.m: self.m -= 1' .nl)
+OUT1 = '*'     .out('ob += tb' .nl)
+     / STRING  .out('ob += ' 39 * 39 .nl)
+     / NUMBER  .out('ob += chr(' * ')' .nl)
+     / '#'     .pre { ?l1 } { .out('l1 = str(self.u); self.u += 1' .nl) } .post { +l1 }
+               .out('ob += l1' .nl)
+     / '.lm+'  .out('m += 1' .nl)
+     / '.lm-'  .out('if m: m -= 1' .nl)
      / '.nl'   .out(
-       'print " " * (self.m * 4) + self.ob' .nl
-       'self.ob = ""' .nl
+       'lb += " " * (m * 4) + ob + chr(10)' .nl
+       'ob = ""' .nl
      ) ;
 OUTPUT = '.out' '('
-         .pre { ?of } { .out('if self.of:' .nl .lm+) $OUT1 .out(.lm-) }
+         .pre { ?of } { .out('if of:' .nl .lm+) $OUT1 .out(.lm-) }
          .pre { -of } { .o- $OUT1 .o+ }
          ')' ;
 
 CX3 = NUMBER / SQUOTE .litchr ;
-CX2 = CX3 ( ':' .out(* ' <= ord(self.s[self.i]) <= ') CX3 .out(*)
-          / .empty .out('ord(self.s[self.i]) == ' *) ) ;
-CX1 = .out('self.pf = (self.i < len(self.s)) and ') CX2
+CX2 = CX3 ( ':' .out(* ' <= ord(self.s[i]) <= ') CX3 .out(*)
+          / .empty .out('ord(self.s[i]) == ' *) ) ;
+CX1 = .out('pf = (i < len(self.s)) and ') CX2
       $( '!' .out(' or ') CX2 ) .out(.nl) .post { ?pf } ;
 
 SCAN = .pre { +pf } {
-         .pre { +tf } { .out('self.tb += self.s[self.i]' .nl) }
-         .pre { ?tf } { .out('if self.tf: self.tb += self.s[self.i]' .nl) }
-         .out('self.i += 1' .nl)
+         .pre { +tf } { .out('tb += self.s[i]' .nl) }
+         .pre { ?tf } { .out('if tf: tb += self.s[i]' .nl) }
+         .out('i += 1' .nl)
        }
        .pre { ?pf } {
-         .out('if self.pf:' .nl .lm+)
-         .pre { +tf } { .out('self.tb += self.s[self.i]' .nl) }
-         .pre { ?tf } { .out('if self.tf: self.tb += self.s[self.i]' .nl) }
-         .out('self.i += 1' .nl .lm-)
+         .out('if pf:' .nl .lm+)
+         .pre { +tf } { .out('tb += self.s[i]' .nl) }
+         .pre { ?tf } { .out('if tf: tb += self.s[i]' .nl) }
+         .out('i += 1' .nl .lm-)
        } ;
 SUB = ID .out(
-        'self.stack.append(("' * '", self.l1))' .nl
-        'self.l1 = ""' .nl
-        'self.parse' * '()' .nl
+        'self.stack.append("' * '")' .nl
+        'i, pf, tf, of, m, tb, ob, lb = self.parse' * '(i, pf, tf, of, m, tb, ob, lb)' .nl
         'self.stack.pop()' .nl
       ) .top ;
 
-SET = .pre { ~+pf } { .out('self.pf = True' .nl) } .post { +pf } ;
+SET = .pre { ~+pf } { .out('pf = True' .nl) } .post { +pf } ;
 
 TX3 = ( '.token'
-        .out('self.tb = ""' .nl)
-        .pre { ~+tf } { .out('self.tf = True' .nl) } .post { +tf }
+        .out('tb = ""' .nl)
+        .pre { ~+tf } { .out('tf = True' .nl) } .post { +tf }
       / '.tokout'
-        .pre { ~-tf } { .out('self.tf = False' .nl) } .post { -tf }
-      / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf } TX3 .out(.lm-) .post { -pf } ) SET
+        .pre { ~-tf } { .out('tf = False' .nl) } .post { -tf }
+      / '$' SET .out('while pf:' .nl .lm+) .post { +pf } TX3 .out(.lm-) .post { -pf } ) SET
     / '.empty' SET
-    / '.not(' CX1 ')' .out('self.pf = (self.i < len(self.s)) and not self.pf' .nl) .post { ?pf } SCAN
+    / '.not(' CX1 ')' .out('pf = (i < len(self.s)) and not pf' .nl) .post { ?pf } SCAN
     / '.any(' CX1 ')' SCAN
     / SUB
     / '(' TX1 ')' ;
-TX2 = TX3 .out('if self.pf:' .nl .lm+ 'pass' .nl) .post { +pf }
-      $( TX3 .pre { ~+pf } { .out('if not self.pf: return' .nl) } .post { +pf } )
+TX2 = TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
+      $( TX3
+         .pre { ?pf } { .out('if not pf: return i, pf, tf, of, m, tb, ob, lb' .nl) }
+         .pre { -pf } { .out('return i, pf, tf, of, m, tb, ob, lb' .nl) }
+         .post { +pf }
+      )
       .out(.lm-) ;
 TX1 = TX2
-      $( '/' .out('if not self.pf:' .nl .lm+) .post { -pf }
-         TX2 .out(.lm-) .post { ?pf } ) ;
-TR = ID .out('def parse' * '(self):' .nl .lm+) ':' .top TX1 ';' .out(.lm-) ;
+      $( '/' .out('if not pf:' .nl .lm+) .post { -pf } TX2 .post { ?pf } .out(.lm-) ) ;
+TR = ID .out(
+       'def parse' * '(self, i, pf, tf, of, m, tb, ob, lb):' .nl .lm+
+     )
+     ':' .top TX1 ';'
+     .out('return i, pf, tf, of, m, tb, ob, lb' .nl .lm-) ;
 
 TVAR = '~' .out('(not ') TVAR .out(')')
      / '?' ID .out('(self.a' * ' == 0)')
@@ -69,9 +76,11 @@ AVAR = '?' ID .out('self.a' * ' = 0' .nl)
      / '-' ID .out('self.a' * ' = 2' .nl) ;
 EX3 = SUB
     / STRING .out(
-      'self.eatWhitespace()' .nl
-      'self.matches("' * '")' .nl
-      'if self.pf: self.i += len("' * '")' .nl
+      'while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1' .nl
+      'stop = i + len("' * '")' .nl
+      'if stop > len(self.s): pf = False' .nl
+      'else: pf = self.s[i:stop] == "' * '"' .nl
+      'if pf: self.lastMatch = "' * '"; i = stop' .nl
     ) .post { ?pf }
     / '(' EX1 ')'
     / '.pre' '{' .out('if ') TVAR
@@ -83,23 +92,30 @@ EX3 = SUB
     / '.top' .out('self.top()' .nl)
     / '.empty' SET
     / '.litchr' SET .out(
-      'self.tb = str(ord(self.s[self.i]))' .nl
-      'self.i += 1' .nl
+      'tb = str(ord(self.s[i]))' .nl
+      'i += 1' .nl
     )
-    / '.o+' .pre { ~+of } { .out('self.of = True' .nl) } .post { +of }
-    / '.o-' .pre { ~-of } { .out('self.of = False' .nl) } .post { -of }
-    / '.pass' .out('self.i = 0' .nl)
-    / '$' SET .out('while self.pf:' .nl .lm+) .post { +pf }
+    / '.o+' .pre { ~+of } { .out('of = True' .nl) } .post { +of }
+    / '.o-' .pre { ~-of } { .out('of = False' .nl) } .post { -of }
+    / '.pass' .out('i = 0' .nl)
+    / '$' SET .out('while pf:' .nl .lm+) .post { +pf }
       EX3 .out(.lm-) .post { -pf } SET ;
-EX2 = ( EX3 .out('if self.pf:') .post { +pf } / OUTPUT .out('if True:') )
+EX2 = ( EX3 .out('if pf:') .post { +pf } / OUTPUT .out('if True:') )
       .out(.nl .lm+ 'pass' .nl)
       $( EX3
-         .pre { ~+pf } { .out('if not self.pf: self.error()' .nl) } .post { +pf }
+         .pre { -pf } { .out('raise ParseError(i)' .nl) }
+         .pre { ?pf } { .out('if not pf: raise ParseError(i)' .nl) }
+         .post { +pf }
          / OUTPUT )
       .out(.lm-) .post { ?pf } ;
-EX1 = EX2 $( '/' .out('if not self.pf:' .nl .lm+) EX2 .out(.lm-) ) ;
+EX1 = EX2
+      $( '/' .out('if not pf:' .nl .lm+) .post { -pf } EX2 .post { ?pf } .out(.lm-) ) ;
 
-PR = ID .out('def parse' * '(self):' .nl .lm+) '=' .top EX1 ';' .out(.lm-) ;
+PR = ID .out(
+       'def parse' * '(self, i, pf, tf, of, m, tb, ob, lb):' .nl .lm+
+     )
+     '=' .top EX1 ';'
+     .out('return i, pf, tf, of, m, tb, ob, lb' .nl .lm-) ;
 
 TY = 'bool' .out('0') ;
 DR = ID ':' .out('self.a' * ' = ') TY ';' .out(.nl) ;
@@ -109,40 +125,29 @@ ZADDY = '.syntax' ID .out(
           'def target(driver, *args):' .nl .lm+
           'driver.exe_name = "' * '".lower() + "c"' .nl
           'return main, None' .nl .lm-
+          'class ParseError(Exception):' .nl .lm+
+          'def __init__(self, i): self.i = i' .nl .lm-
           'def main(argv):' .nl .lm+
           'stdin, stdout, stderr = create_stdio()' .nl
           'parser = ' * 'Parser(stdin.read())' .nl
           'try:' .nl .lm+
-          'parser.parse()' .nl
+          '_, _, _, _, _, _, _, lb = parser.parse()' .nl
+          'stdout.write(lb)' .nl
           'return 0' .nl .lm-
-          'except ValueError:' .nl .lm+
-          'line = parser.s.count(chr(10), 0, parser.i) + 1' .nl
-          'stderr.write(("Error at input location: %d (line %d)" % (parser.i, line)) + chr(10))' .nl
-          'stderr.write(("Backtrace: %s" % " ".join([frame[0] for frame in parser.stack])) + chr(10))' .nl
+          'except ParseError as pe:' .nl .lm+
+          'line = parser.s.count(chr(10), 0, pe.i) + 1' .nl
+          'stderr.write(("Error at input location: %d (line %d)" % (pe.i, line)) + chr(10))' .nl
+          'stderr.write(("Backtrace: %s" % " ".join(parser.stack)) + chr(10))' .nl
           'stderr.write(("Last matching token: ' 39 '%s' 39 '" % parser.lastMatch) + chr(10))' .nl
           'return 1' .nl .lm- .lm-
           'class ' * 'Parser(object):' .nl .lm+
           'u = 0' .nl
-          'pf = tf = False' .nl
-          'of = True' .nl
-          'l1 = tb = ""' .nl
-          'm = 0' .nl
-          'ob = ""' .nl
-          'i = 0' .nl
           'lastMatch = ""' .nl
           'def __init__(self, s): self.s = s; self.stack = []; self.top()' .nl
-          'def parse(self): self.top(); return self.parse' * '()' .nl
-          'def unique(self):' .nl .lm+
-          'if not self.l1: self.l1 = str(self.u); self.u += 1' .nl
-          'return self.l1' .nl .lm-
-          'def error(self): raise ValueError("meh")' .nl
-          'def eatWhitespace(self):' .nl .lm+
-          'while self.i < len(self.s) and self.s[self.i] in (" " + chr(10)): self.i += 1' .nl .lm-
-          'def matches(self, token):' .nl .lm+
-          'stop = self.i + len(token)' .nl
-          'if stop > len(self.s): self.pf = False' .nl
-          'else: self.pf = self.s[self.i:stop] == token' .nl
-          'if self.pf: self.lastMatch = token' .nl .lm-
+          'def parse(self):' .nl .lm+
+          'self.top()' .nl
+          '# i, pf, tf, of, m, tb, ob, lb' .nl
+          'return self.parse' * '(0, False, False, True, 0, "", "", "")' .nl .lm-
         )
         $PR '.tokens' $TR
         .out('def top(self):' .nl .lm+ 'pass' .nl) '.domain' $DR .out(.lm-)
@@ -163,5 +168,6 @@ ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
 pf : bool ;
 tf : bool ;
 of : bool ;
+l1 : bool ;
 
 .end
