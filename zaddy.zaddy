@@ -5,10 +5,12 @@ OUT1 = '*'     .out('ob += tb' .nl)
      / NUMBER  .out('ob += chr(' * ')' .nl)
      / '#'     .pre { ?l1 } { .out('l1 = str(self.u); self.u += 1' .nl) } .post { +l1 }
                .out('ob += l1' .nl)
-     / '.lm+'  .out('m += 1' .nl)
-     / '.lm-'  .out('if m: m -= 1' .nl)
+     / '.lm+'  .out('ms[-1] += 1' .nl)
+     / '.lm-'  .out('if ms[-1]: ms[-1] -= 1' .nl)
+     / '.lm?'  .out('ms.append(ms[-1])' .nl)
+     / '.lm!'  .out('ms.pop()' .nl)
      / '.nl'   .out(
-       'lb += " " * (m * 4) + ob + chr(10)' .nl
+       'lb += " " * (ms[-1] * 4) + ob + chr(10)' .nl
        'ob = ""' .nl
      ) ;
 OUTPUT = '.out' '('
@@ -35,7 +37,7 @@ SCAN = .pre { +pf } {
        } ;
 SUB = ID .out(
         'self.stack.append("' * '")' .nl
-        'i, pf, tf, of, m, tb, ob, lb = self.parse' * '(i, pf, tf, of, m, tb, ob, lb)' .nl
+        'i, pf, tf, of, ms, tb, ob, lb = self.parse' * '(i, pf, tf, of, ms[:], tb, ob, lb)' .nl
         'self.stack.pop()' .nl
       ) .top ;
 
@@ -54,18 +56,18 @@ TX3 = ( '.token'
     / '(' TX1 ')' ;
 TX2 = TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
       $( TX3
-         .pre { ?pf } { .out('if not pf: return i, pf, tf, of, m, tb, ob, lb' .nl) }
-         .pre { -pf } { .out('return i, pf, tf, of, m, tb, ob, lb' .nl) }
+         .pre { ?pf } { .out('if not pf: return i, pf, tf, of, ms, tb, ob, lb' .nl) }
+         .pre { -pf } { .out('return i, pf, tf, of, ms, tb, ob, lb' .nl) }
          .post { +pf }
       )
       .out(.lm-) ;
 TX1 = TX2
       $( '/' .out('if not pf:' .nl .lm+) .post { -pf } TX2 .post { ?pf } .out(.lm-) ) ;
 TR = ID .out(
-       'def parse' * '(self, i, pf, tf, of, m, tb, ob, lb):' .nl .lm+
+       'def parse' * '(self, i, pf, tf, of, ms, tb, ob, lb):' .nl .lm+
      )
      ':' .top TX1 ';'
-     .out('return i, pf, tf, of, m, tb, ob, lb' .nl .lm-) ;
+     .out('return i, pf, tf, of, ms, tb, ob, lb' .nl .lm-) ;
 
 TVAR = '~' .out('(not ') TVAR .out(')')
      / '?' ID .out('(self.a' * ' == 0)')
@@ -100,22 +102,22 @@ EX3 = SUB
     / '.pass' .out('i = 0' .nl)
     / '$' SET .out('while pf:' .nl .lm+) .post { +pf }
       EX3 .out(.lm-) .post { -pf } SET ;
-EX2 = ( EX3 .out('if pf:') .post { +pf } / OUTPUT .out('if True:') )
-      .out(.nl .lm+ 'pass' .nl)
+EX2 = ( EX3 .out(.lm? 'if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
+      / OUTPUT .out(.lm?) )
       $( EX3
          .pre { -pf } { .out('raise ParseError(i)' .nl) }
          .pre { ?pf } { .out('if not pf: raise ParseError(i)' .nl) }
          .post { +pf }
          / OUTPUT )
-      .out(.lm-) .post { ?pf } ;
+      .out(.lm!) .post { ?pf } ;
 EX1 = EX2
       $( '/' .out('if not pf:' .nl .lm+) .post { -pf } EX2 .post { ?pf } .out(.lm-) ) ;
 
 PR = ID .out(
-       'def parse' * '(self, i, pf, tf, of, m, tb, ob, lb):' .nl .lm+
+       'def parse' * '(self, i, pf, tf, of, ms, tb, ob, lb):' .nl .lm+
      )
      '=' .top EX1 ';'
-     .out('return i, pf, tf, of, m, tb, ob, lb' .nl .lm-) ;
+     .out('return i, pf, tf, of, ms, tb, ob, lb' .nl .lm-) ;
 
 TY = 'bool' .out('0') ;
 DR = ID ':' .out('self.a' * ' = ') TY ';' .out(.nl) ;
@@ -146,8 +148,8 @@ ZADDY = '.syntax' ID .out(
           'def __init__(self, s): self.s = s; self.stack = []; self.top()' .nl
           'def parse(self):' .nl .lm+
           'self.top()' .nl
-          '# i, pf, tf, of, m, tb, ob, lb' .nl
-          'return self.parse' * '(0, False, False, True, 0, "", "", "")' .nl .lm-
+          '# i, pf, tf, of, ms, tb, ob, lb' .nl
+          'return self.parse' * '(0, False, False, True, [0], "", "", "")' .nl .lm-
         )
         $PR '.tokens' $TR
         .out('def top(self):' .nl .lm+ 'pass' .nl) '.domain' $DR .out(.lm-)

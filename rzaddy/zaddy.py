@@ -23,9 +23,9 @@ class ZADDYParser(object):
     def __init__(self, s): self.s = s; self.stack = []; self.top()
     def parse(self):
         self.top()
-        # i, pf, tf, of, m, tb, ob, lb
-        return self.parseZADDY(0, False, False, True, 0, "", "", "")
-    def parseOUT1(self, i, pf, tf, of, m, tb, ob, lb):
+        # i, pf, tf, of, ms, tb, ob, lb
+        return self.parseZADDY(0, False, False, True, [0], "", "", "")
+    def parseOUT1(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len("*")
         if stop > len(self.s): pf = False
@@ -35,11 +35,11 @@ class ZADDYParser(object):
             pass
             if of:
                 ob += 'ob += tb'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
         if not pf:
             self.stack.append("STRING")
-            i, pf, tf, of, m, tb, ob, lb = self.parseSTRING(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseSTRING(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if pf:
                 pass
@@ -48,11 +48,11 @@ class ZADDYParser(object):
                     ob += chr(39)
                     ob += tb
                     ob += chr(39)
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             self.stack.append("NUMBER")
-            i, pf, tf, of, m, tb, ob, lb = self.parseNUMBER(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseNUMBER(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if pf:
                 pass
@@ -60,7 +60,7 @@ class ZADDYParser(object):
                     ob += 'ob += chr('
                     ob += tb
                     ob += ')'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -74,15 +74,13 @@ class ZADDYParser(object):
                     pass
                     if of:
                         ob += 'l1 = str(self.u); self.u += 1'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                    if True:
-                        pass
                 if not pf: raise ParseError(i)
                 self.al1 = 1
                 if of:
                     ob += 'ob += l1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -93,8 +91,8 @@ class ZADDYParser(object):
             if pf:
                 pass
                 if of:
-                    ob += 'm += 1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    ob += 'ms[-1] += 1'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -105,8 +103,32 @@ class ZADDYParser(object):
             if pf:
                 pass
                 if of:
-                    ob += 'if m: m -= 1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    ob += 'if ms[-1]: ms[-1] -= 1'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".lm?")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".lm?"
+            if pf: self.lastMatch = ".lm?"; i = stop
+            if pf:
+                pass
+                if of:
+                    ob += 'ms.append(ms[-1])'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                    ob = ""
+        if not pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".lm!")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".lm!"
+            if pf: self.lastMatch = ".lm!"; i = stop
+            if pf:
+                pass
+                if of:
+                    ob += 'ms.pop()'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -117,14 +139,14 @@ class ZADDYParser(object):
             if pf:
                 pass
                 if of:
-                    ob += 'lb += " " * (m * 4) + ob + chr(10)'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    ob += 'lb += " " * (ms[-1] * 4) + ob + chr(10)'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                     ob += 'ob = ""'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseOUTPUT(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseOUTPUT(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len(".out")
         if stop > len(self.s): pf = False
@@ -142,18 +164,16 @@ class ZADDYParser(object):
                 pass
                 if of:
                     ob += 'if of:'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                    m += 1
-                if True:
-                    pass
-                    while pf:
-                        self.stack.append("OUT1")
-                        i, pf, tf, of, m, tb, ob, lb = self.parseOUT1(i, pf, tf, of, m, tb, ob, lb)
-                        self.stack.pop()
-                    pf = True
-                    if of:
-                        if m: m -= 1
+                    ms[-1] += 1
+                while pf:
+                    self.stack.append("OUT1")
+                    i, pf, tf, of, ms, tb, ob, lb = self.parseOUT1(i, pf, tf, of, ms[:], tb, ob, lb)
+                    self.stack.pop()
+                pf = True
+                if of:
+                    if ms[-1]: ms[-1] -= 1
             if not pf: raise ParseError(i)
             if (self.aof == 2):
                 pass
@@ -162,7 +182,7 @@ class ZADDYParser(object):
                     pass
                     while pf:
                         self.stack.append("OUT1")
-                        i, pf, tf, of, m, tb, ob, lb = self.parseOUT1(i, pf, tf, of, m, tb, ob, lb)
+                        i, pf, tf, of, ms, tb, ob, lb = self.parseOUT1(i, pf, tf, of, ms[:], tb, ob, lb)
                         self.stack.pop()
                     pf = True
                     of = True
@@ -173,25 +193,25 @@ class ZADDYParser(object):
             else: pf = self.s[i:stop] == ")"
             if pf: self.lastMatch = ")"; i = stop
             if not pf: raise ParseError(i)
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseCX3(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseCX3(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("NUMBER")
-        i, pf, tf, of, m, tb, ob, lb = self.parseNUMBER(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseNUMBER(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
         if not pf:
             self.stack.append("SQUOTE")
-            i, pf, tf, of, m, tb, ob, lb = self.parseSQUOTE(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseSQUOTE(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if pf:
                 pass
                 tb = str(ord(self.s[i]))
                 i += 1
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseCX2(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseCX2(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("CX3")
-        i, pf, tf, of, m, tb, ob, lb = self.parseCX3(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseCX3(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -206,7 +226,7 @@ class ZADDYParser(object):
                     ob += tb
                     ob += ' <= ord(self.s[i]) <= '
                 self.stack.append("CX3")
-                i, pf, tf, of, m, tb, ob, lb = self.parseCX3(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseCX3(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
@@ -219,61 +239,55 @@ class ZADDYParser(object):
                         ob += 'ord(self.s[i]) == '
                         ob += tb
             if not pf: raise ParseError(i)
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseCX1(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseCX1(self, i, pf, tf, of, ms, tb, ob, lb):
         if of:
             ob += 'pf = (i < len(self.s)) and '
-        if True:
-            pass
-            self.stack.append("CX2")
-            i, pf, tf, of, m, tb, ob, lb = self.parseCX2(i, pf, tf, of, m, tb, ob, lb)
-            self.stack.pop()
-            if not pf: raise ParseError(i)
-            while pf:
-                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                stop = i + len("!")
-                if stop > len(self.s): pf = False
-                else: pf = self.s[i:stop] == "!"
-                if pf: self.lastMatch = "!"; i = stop
-                if pf:
-                    pass
-                    if of:
-                        ob += ' or '
-                    self.stack.append("CX2")
-                    i, pf, tf, of, m, tb, ob, lb = self.parseCX2(i, pf, tf, of, m, tb, ob, lb)
-                    self.stack.pop()
-                    if not pf: raise ParseError(i)
-            pf = True
-            if of:
-                lb += " " * (m * 4) + ob + chr(10)
-                ob = ""
-            self.apf = 0
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseSCAN(self, i, pf, tf, of, m, tb, ob, lb):
+        self.stack.append("CX2")
+        i, pf, tf, of, ms, tb, ob, lb = self.parseCX2(i, pf, tf, of, ms[:], tb, ob, lb)
+        self.stack.pop()
+        if not pf: raise ParseError(i)
+        while pf:
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("!")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "!"
+            if pf: self.lastMatch = "!"; i = stop
+            if pf:
+                pass
+                if of:
+                    ob += ' or '
+                self.stack.append("CX2")
+                i, pf, tf, of, ms, tb, ob, lb = self.parseCX2(i, pf, tf, of, ms[:], tb, ob, lb)
+                self.stack.pop()
+                if not pf: raise ParseError(i)
+        pf = True
+        if of:
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+        self.apf = 0
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseSCAN(self, i, pf, tf, of, ms, tb, ob, lb):
         if (self.apf == 1):
             pass
             if (self.atf == 1):
                 pass
                 if of:
                     ob += 'tb += self.s[i]'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                if True:
-                    pass
             if pf:
                 pass
                 if (self.atf == 0):
                     pass
                     if of:
                         ob += 'if tf: tb += self.s[i]'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                    if True:
-                        pass
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'i += 1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if pf:
             pass
@@ -281,39 +295,33 @@ class ZADDYParser(object):
                 pass
                 if of:
                     ob += 'if pf:'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                    m += 1
-                if True:
+                    ms[-1] += 1
+                if (self.atf == 1):
                     pass
-                    if (self.atf == 1):
-                        pass
-                        if of:
-                            ob += 'tb += self.s[i]'
-                            lb += " " * (m * 4) + ob + chr(10)
-                            ob = ""
-                        if True:
-                            pass
-                    if not pf: raise ParseError(i)
-                    if (self.atf == 0):
-                        pass
-                        if of:
-                            ob += 'if tf: tb += self.s[i]'
-                            lb += " " * (m * 4) + ob + chr(10)
-                            ob = ""
-                        if True:
-                            pass
-                    if not pf: raise ParseError(i)
                     if of:
-                        ob += 'i += 1'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        ob += 'tb += self.s[i]'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                        if m: m -= 1
+                if not pf: raise ParseError(i)
+                if (self.atf == 0):
+                    pass
+                    if of:
+                        ob += 'if tf: tb += self.s[i]'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                if not pf: raise ParseError(i)
+                if of:
+                    ob += 'i += 1'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                    ob = ""
+                    if ms[-1]: ms[-1] -= 1
             if not pf: raise ParseError(i)
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseSUB(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseSUB(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("ID")
-        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -321,32 +329,30 @@ class ZADDYParser(object):
                 ob += 'self.stack.append("'
                 ob += tb
                 ob += '")'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                ob += 'i, pf, tf, of, m, tb, ob, lb = self.parse'
+                ob += 'i, pf, tf, of, ms, tb, ob, lb = self.parse'
                 ob += tb
-                ob += '(i, pf, tf, of, m, tb, ob, lb)'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += '(i, pf, tf, of, ms[:], tb, ob, lb)'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'self.stack.pop()'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
             self.top()
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseSET(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseSET(self, i, pf, tf, of, ms, tb, ob, lb):
         if (not (self.apf == 1)):
             pass
             if of:
                 ob += 'pf = True'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-            if True:
-                pass
         if pf:
             pass
             self.apf = 1
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseTX3(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseTX3(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len(".token")
         if stop > len(self.s): pf = False
@@ -356,16 +362,14 @@ class ZADDYParser(object):
             pass
             if of:
                 ob += 'tb = ""'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
             if (not (self.atf == 1)):
                 pass
                 if of:
                     ob += 'tf = True'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                if True:
-                    pass
             if not pf: raise ParseError(i)
             self.atf = 1
         if not pf:
@@ -380,10 +384,8 @@ class ZADDYParser(object):
                     pass
                     if of:
                         ob += 'tf = False'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                    if True:
-                        pass
                 if not pf: raise ParseError(i)
                 self.atf = 2
         if not pf:
@@ -395,26 +397,26 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("SET")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'while pf:'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                    m += 1
+                    ms[-1] += 1
                 self.apf = 1
                 self.stack.append("TX3")
-                i, pf, tf, of, m, tb, ob, lb = self.parseTX3(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseTX3(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
-                    if m: m -= 1
+                    if ms[-1]: ms[-1] -= 1
                 self.apf = 2
         if pf:
             pass
             self.stack.append("SET")
-            i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
         if not pf:
@@ -426,7 +428,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("SET")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
         if not pf:
@@ -438,7 +440,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("CX1")
-                i, pf, tf, of, m, tb, ob, lb = self.parseCX1(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseCX1(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -449,11 +451,11 @@ class ZADDYParser(object):
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'pf = (i < len(self.s)) and not pf'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                 self.apf = 0
                 self.stack.append("SCAN")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSCAN(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSCAN(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
         if not pf:
@@ -465,7 +467,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("CX1")
-                i, pf, tf, of, m, tb, ob, lb = self.parseCX1(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseCX1(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -475,12 +477,12 @@ class ZADDYParser(object):
                 if pf: self.lastMatch = ")"; i = stop
                 if not pf: raise ParseError(i)
                 self.stack.append("SCAN")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSCAN(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSCAN(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
         if not pf:
             self.stack.append("SUB")
-            i, pf, tf, of, m, tb, ob, lb = self.parseSUB(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseSUB(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if pf:
                 pass
@@ -493,7 +495,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("TX1")
-                i, pf, tf, of, m, tb, ob, lb = self.parseTX1(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseTX1(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -502,54 +504,50 @@ class ZADDYParser(object):
                 else: pf = self.s[i:stop] == ")"
                 if pf: self.lastMatch = ")"; i = stop
                 if not pf: raise ParseError(i)
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseTX2(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseTX2(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("TX3")
-        i, pf, tf, of, m, tb, ob, lb = self.parseTX3(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseTX3(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
             if of:
                 ob += 'if pf:'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'pass'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
             self.apf = 1
             while pf:
                 self.stack.append("TX3")
-                i, pf, tf, of, m, tb, ob, lb = self.parseTX3(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseTX3(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if pf:
                     pass
                     if (self.apf == 0):
                         pass
                         if of:
-                            ob += 'if not pf: return i, pf, tf, of, m, tb, ob, lb'
-                            lb += " " * (m * 4) + ob + chr(10)
+                            ob += 'if not pf: return i, pf, tf, of, ms, tb, ob, lb'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
                             ob = ""
-                        if True:
-                            pass
                     if not pf: raise ParseError(i)
                     if (self.apf == 2):
                         pass
                         if of:
-                            ob += 'return i, pf, tf, of, m, tb, ob, lb'
-                            lb += " " * (m * 4) + ob + chr(10)
+                            ob += 'return i, pf, tf, of, ms, tb, ob, lb'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
                             ob = ""
-                        if True:
-                            pass
                     if not pf: raise ParseError(i)
                     self.apf = 1
             pf = True
             if of:
-                if m: m -= 1
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseTX1(self, i, pf, tf, of, m, tb, ob, lb):
+                if ms[-1]: ms[-1] -= 1
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseTX1(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("TX2")
-        i, pf, tf, of, m, tb, ob, lb = self.parseTX2(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseTX2(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -563,32 +561,32 @@ class ZADDYParser(object):
                     pass
                     if of:
                         ob += 'if not pf:'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                        m += 1
+                        ms[-1] += 1
                     self.apf = 2
                     self.stack.append("TX2")
-                    i, pf, tf, of, m, tb, ob, lb = self.parseTX2(i, pf, tf, of, m, tb, ob, lb)
+                    i, pf, tf, of, ms, tb, ob, lb = self.parseTX2(i, pf, tf, of, ms[:], tb, ob, lb)
                     self.stack.pop()
                     if not pf: raise ParseError(i)
                     self.apf = 0
                     if of:
-                        if m: m -= 1
+                        if ms[-1]: ms[-1] -= 1
             pf = True
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseTR(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseTR(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("ID")
-        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
             if of:
                 ob += 'def parse'
                 ob += tb
-                ob += '(self, i, pf, tf, of, m, tb, ob, lb):'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += '(self, i, pf, tf, of, ms, tb, ob, lb):'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + len(":")
             if stop > len(self.s): pf = False
@@ -597,7 +595,7 @@ class ZADDYParser(object):
             if not pf: raise ParseError(i)
             self.top()
             self.stack.append("TX1")
-            i, pf, tf, of, m, tb, ob, lb = self.parseTX1(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseTX1(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -607,12 +605,12 @@ class ZADDYParser(object):
             if pf: self.lastMatch = ";"; i = stop
             if not pf: raise ParseError(i)
             if of:
-                ob += 'return i, pf, tf, of, m, tb, ob, lb'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += 'return i, pf, tf, of, ms, tb, ob, lb'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseTVAR(self, i, pf, tf, of, m, tb, ob, lb):
+                if ms[-1]: ms[-1] -= 1
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseTVAR(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len("~")
         if stop > len(self.s): pf = False
@@ -623,7 +621,7 @@ class ZADDYParser(object):
             if of:
                 ob += '(not '
             self.stack.append("TVAR")
-            i, pf, tf, of, m, tb, ob, lb = self.parseTVAR(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseTVAR(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
             if of:
@@ -637,7 +635,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("ID")
-                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
@@ -653,7 +651,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("ID")
-                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
@@ -669,15 +667,15 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("ID")
-                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
                     ob += '(self.a'
                     ob += tb
                     ob += ' == 2)'
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseAVAR(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseAVAR(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len("?")
         if stop > len(self.s): pf = False
@@ -686,14 +684,14 @@ class ZADDYParser(object):
         if pf:
             pass
             self.stack.append("ID")
-            i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
             if of:
                 ob += 'self.a'
                 ob += tb
                 ob += ' = 0'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -704,14 +702,14 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("ID")
-                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'self.a'
                     ob += tb
                     ob += ' = 1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -722,49 +720,49 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("ID")
-                i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'self.a'
                     ob += tb
                     ob += ' = 2'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseEX3(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseEX3(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("SUB")
-        i, pf, tf, of, m, tb, ob, lb = self.parseSUB(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseSUB(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
         if not pf:
             self.stack.append("STRING")
-            i, pf, tf, of, m, tb, ob, lb = self.parseSTRING(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseSTRING(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if pf:
                 pass
                 if of:
                     ob += 'while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                     ob += 'stop = i + len("'
                     ob += tb
                     ob += '")'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                     ob += 'if stop > len(self.s): pf = False'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                     ob += 'else: pf = self.s[i:stop] == "'
                     ob += tb
                     ob += '"'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                     ob += 'if pf: self.lastMatch = "'
                     ob += tb
                     ob += '"; i = stop'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                 self.apf = 0
         if not pf:
@@ -776,7 +774,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("EX1")
-                i, pf, tf, of, m, tb, ob, lb = self.parseEX1(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseEX1(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -802,7 +800,7 @@ class ZADDYParser(object):
                 if of:
                     ob += 'if '
                 self.stack.append("TVAR")
-                i, pf, tf, of, m, tb, ob, lb = self.parseTVAR(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseTVAR(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while pf:
@@ -816,17 +814,17 @@ class ZADDYParser(object):
                         if of:
                             ob += ' and '
                         self.stack.append("TVAR")
-                        i, pf, tf, of, m, tb, ob, lb = self.parseTVAR(i, pf, tf, of, m, tb, ob, lb)
+                        i, pf, tf, of, ms, tb, ob, lb = self.parseTVAR(i, pf, tf, of, ms[:], tb, ob, lb)
                         self.stack.pop()
                         if not pf: raise ParseError(i)
                 pf = True
                 if of:
                     ob += ':'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                    m += 1
+                    ms[-1] += 1
                     ob += 'pass'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
                 stop = i + len("}")
@@ -841,7 +839,7 @@ class ZADDYParser(object):
                 if pf: self.lastMatch = "{"; i = stop
                 if not pf: raise ParseError(i)
                 self.stack.append("EX1")
-                i, pf, tf, of, m, tb, ob, lb = self.parseEX1(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseEX1(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -851,7 +849,7 @@ class ZADDYParser(object):
                 if pf: self.lastMatch = "}"; i = stop
                 if not pf: raise ParseError(i)
                 if of:
-                    if m: m -= 1
+                    if ms[-1]: ms[-1] -= 1
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + len(".post")
@@ -867,7 +865,7 @@ class ZADDYParser(object):
                 if pf: self.lastMatch = "{"; i = stop
                 if not pf: raise ParseError(i)
                 self.stack.append("AVAR")
-                i, pf, tf, of, m, tb, ob, lb = self.parseAVAR(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseAVAR(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 while pf:
@@ -879,7 +877,7 @@ class ZADDYParser(object):
                     if pf:
                         pass
                         self.stack.append("AVAR")
-                        i, pf, tf, of, m, tb, ob, lb = self.parseAVAR(i, pf, tf, of, m, tb, ob, lb)
+                        i, pf, tf, of, ms, tb, ob, lb = self.parseAVAR(i, pf, tf, of, ms[:], tb, ob, lb)
                         self.stack.pop()
                         if not pf: raise ParseError(i)
                 pf = True
@@ -915,7 +913,7 @@ class ZADDYParser(object):
                 pass
                 if of:
                     ob += 'self.top()'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -926,7 +924,7 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("SET")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
         if not pf:
@@ -938,15 +936,15 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("SET")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'tb = str(ord(self.s[i]))'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
                     ob += 'i += 1'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -960,10 +958,8 @@ class ZADDYParser(object):
                     pass
                     if of:
                         ob += 'of = True'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                    if True:
-                        pass
                 if not pf: raise ParseError(i)
                 self.aof = 1
         if not pf:
@@ -978,10 +974,8 @@ class ZADDYParser(object):
                     pass
                     if of:
                         ob += 'of = False'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                    if True:
-                        pass
                 if not pf: raise ParseError(i)
                 self.aof = 2
         if not pf:
@@ -994,7 +988,7 @@ class ZADDYParser(object):
                 pass
                 if of:
                     ob += 'i = 0'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
         if not pf:
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -1005,56 +999,56 @@ class ZADDYParser(object):
             if pf:
                 pass
                 self.stack.append("SET")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
                     ob += 'while pf:'
-                    lb += " " * (m * 4) + ob + chr(10)
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
-                    m += 1
+                    ms[-1] += 1
                 self.apf = 1
                 self.stack.append("EX3")
-                i, pf, tf, of, m, tb, ob, lb = self.parseEX3(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseEX3(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
                 if of:
-                    if m: m -= 1
+                    if ms[-1]: ms[-1] -= 1
                 self.apf = 2
                 self.stack.append("SET")
-                i, pf, tf, of, m, tb, ob, lb = self.parseSET(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseSET(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if not pf: raise ParseError(i)
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseEX2(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseEX2(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("EX3")
-        i, pf, tf, of, m, tb, ob, lb = self.parseEX3(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseEX3(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
             if of:
+                ms.append(ms[-1])
                 ob += 'if pf:'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+                ms[-1] += 1
+                ob += 'pass'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
             self.apf = 1
         if not pf:
             self.stack.append("OUTPUT")
-            i, pf, tf, of, m, tb, ob, lb = self.parseOUTPUT(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseOUTPUT(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if pf:
                 pass
                 if of:
-                    ob += 'if True:'
+                    ms.append(ms[-1])
         if pf:
             pass
-            if of:
-                lb += " " * (m * 4) + ob + chr(10)
-                ob = ""
-                m += 1
-                ob += 'pass'
-                lb += " " * (m * 4) + ob + chr(10)
-                ob = ""
             while pf:
                 self.stack.append("EX3")
-                i, pf, tf, of, m, tb, ob, lb = self.parseEX3(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseEX3(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if pf:
                     pass
@@ -1062,35 +1056,31 @@ class ZADDYParser(object):
                         pass
                         if of:
                             ob += 'raise ParseError(i)'
-                            lb += " " * (m * 4) + ob + chr(10)
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
                             ob = ""
-                        if True:
-                            pass
                     if not pf: raise ParseError(i)
                     if (self.apf == 0):
                         pass
                         if of:
                             ob += 'if not pf: raise ParseError(i)'
-                            lb += " " * (m * 4) + ob + chr(10)
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
                             ob = ""
-                        if True:
-                            pass
                     if not pf: raise ParseError(i)
                     self.apf = 1
                 if not pf:
                     self.stack.append("OUTPUT")
-                    i, pf, tf, of, m, tb, ob, lb = self.parseOUTPUT(i, pf, tf, of, m, tb, ob, lb)
+                    i, pf, tf, of, ms, tb, ob, lb = self.parseOUTPUT(i, pf, tf, of, ms[:], tb, ob, lb)
                     self.stack.pop()
                     if pf:
                         pass
             pf = True
             if of:
-                if m: m -= 1
+                ms.pop()
             self.apf = 0
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseEX1(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseEX1(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("EX2")
-        i, pf, tf, of, m, tb, ob, lb = self.parseEX2(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseEX2(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -1104,32 +1094,32 @@ class ZADDYParser(object):
                     pass
                     if of:
                         ob += 'if not pf:'
-                        lb += " " * (m * 4) + ob + chr(10)
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                        m += 1
+                        ms[-1] += 1
                     self.apf = 2
                     self.stack.append("EX2")
-                    i, pf, tf, of, m, tb, ob, lb = self.parseEX2(i, pf, tf, of, m, tb, ob, lb)
+                    i, pf, tf, of, ms, tb, ob, lb = self.parseEX2(i, pf, tf, of, ms[:], tb, ob, lb)
                     self.stack.pop()
                     if not pf: raise ParseError(i)
                     self.apf = 0
                     if of:
-                        if m: m -= 1
+                        if ms[-1]: ms[-1] -= 1
             pf = True
-        return i, pf, tf, of, m, tb, ob, lb
-    def parsePR(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parsePR(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("ID")
-        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
             if of:
                 ob += 'def parse'
                 ob += tb
-                ob += '(self, i, pf, tf, of, m, tb, ob, lb):'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += '(self, i, pf, tf, of, ms, tb, ob, lb):'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + len("=")
             if stop > len(self.s): pf = False
@@ -1138,7 +1128,7 @@ class ZADDYParser(object):
             if not pf: raise ParseError(i)
             self.top()
             self.stack.append("EX1")
-            i, pf, tf, of, m, tb, ob, lb = self.parseEX1(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseEX1(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -1148,12 +1138,12 @@ class ZADDYParser(object):
             if pf: self.lastMatch = ";"; i = stop
             if not pf: raise ParseError(i)
             if of:
-                ob += 'return i, pf, tf, of, m, tb, ob, lb'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += 'return i, pf, tf, of, ms, tb, ob, lb'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseTY(self, i, pf, tf, of, m, tb, ob, lb):
+                if ms[-1]: ms[-1] -= 1
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseTY(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len("bool")
         if stop > len(self.s): pf = False
@@ -1163,10 +1153,10 @@ class ZADDYParser(object):
             pass
             if of:
                 ob += '0'
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseDR(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseDR(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("ID")
-        i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -1181,7 +1171,7 @@ class ZADDYParser(object):
                 ob += tb
                 ob += ' = '
             self.stack.append("TY")
-            i, pf, tf, of, m, tb, ob, lb = self.parseTY(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseTY(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -1191,10 +1181,10 @@ class ZADDYParser(object):
             if pf: self.lastMatch = ";"; i = stop
             if not pf: raise ParseError(i)
             if of:
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseZADDY(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseZADDY(self, i, pf, tf, of, ms, tb, ob, lb):
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len(".syntax")
         if stop > len(self.s): pf = False
@@ -1203,119 +1193,119 @@ class ZADDYParser(object):
         if pf:
             pass
             self.stack.append("ID")
-            i, pf, tf, of, m, tb, ob, lb = self.parseID(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseID(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
             if not pf: raise ParseError(i)
             if of:
                 ob += 'from rpython.rlib.rfile import create_stdio'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'def target(driver, *args):'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'driver.exe_name = "'
                 ob += tb
                 ob += '".lower() + "c"'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'return main, None'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
+                if ms[-1]: ms[-1] -= 1
                 ob += 'class ParseError(Exception):'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'def __init__(self, i): self.i = i'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
+                if ms[-1]: ms[-1] -= 1
                 ob += 'def main(argv):'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'stdin, stdout, stderr = create_stdio()'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'parser = '
                 ob += tb
                 ob += 'Parser(stdin.read())'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'try:'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += '_, _, _, _, _, _, _, lb = parser.parse()'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'stdout.write(lb)'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'return 0'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
+                if ms[-1]: ms[-1] -= 1
                 ob += 'except ParseError as pe:'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'line = parser.s.count(chr(10), 0, pe.i) + 1'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'stderr.write(("Error at input location: %d (line %d)" % (pe.i, line)) + chr(10))'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'stderr.write(("Backtrace: %s" % " ".join(parser.stack)) + chr(10))'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'stderr.write(("Last matching token: '
                 ob += chr(39)
                 ob += '%s'
                 ob += chr(39)
                 ob += '" % parser.lastMatch) + chr(10))'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'return 1'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
-                if m: m -= 1
+                if ms[-1]: ms[-1] -= 1
+                if ms[-1]: ms[-1] -= 1
                 ob += 'class '
                 ob += tb
                 ob += 'Parser(object):'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'u = 0'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'lastMatch = ""'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'def __init__(self, s): self.s = s; self.stack = []; self.top()'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'def parse(self):'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'self.top()'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                ob += '# i, pf, tf, of, m, tb, ob, lb'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += '# i, pf, tf, of, ms, tb, ob, lb'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
                 ob += 'return self.parse'
                 ob += tb
-                ob += '(0, False, False, True, 0, "", "", "")'
-                lb += " " * (m * 4) + ob + chr(10)
+                ob += '(0, False, False, True, [0], "", "", "")'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                if m: m -= 1
+                if ms[-1]: ms[-1] -= 1
             while pf:
                 self.stack.append("PR")
-                i, pf, tf, of, m, tb, ob, lb = self.parsePR(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parsePR(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
             pf = True
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -1326,16 +1316,16 @@ class ZADDYParser(object):
             if not pf: raise ParseError(i)
             while pf:
                 self.stack.append("TR")
-                i, pf, tf, of, m, tb, ob, lb = self.parseTR(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseTR(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
             pf = True
             if of:
                 ob += 'def top(self):'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
-                m += 1
+                ms[-1] += 1
                 ob += 'pass'
-                lb += " " * (m * 4) + ob + chr(10)
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + len(".domain")
@@ -1345,19 +1335,19 @@ class ZADDYParser(object):
             if not pf: raise ParseError(i)
             while pf:
                 self.stack.append("DR")
-                i, pf, tf, of, m, tb, ob, lb = self.parseDR(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseDR(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
             pf = True
             if of:
-                if m: m -= 1
+                if ms[-1]: ms[-1] -= 1
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + len(".end")
             if stop > len(self.s): pf = False
             else: pf = self.s[i:stop] == ".end"
             if pf: self.lastMatch = ".end"; i = stop
             if not pf: raise ParseError(i)
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseWS(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseWS(self, i, pf, tf, of, ms, tb, ob, lb):
         pf = True
         while pf:
             pf = (i < len(self.s)) and ord(self.s[i]) == 9 or ord(self.s[i]) == 10 or ord(self.s[i]) == 13 or ord(self.s[i]) == 32
@@ -1367,26 +1357,26 @@ class ZADDYParser(object):
         pf = True
         if pf:
             pass
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseDIGIT(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseDIGIT(self, i, pf, tf, of, ms, tb, ob, lb):
         pf = (i < len(self.s)) and 48 <= ord(self.s[i]) <= 57
         if pf:
             if tf: tb += self.s[i]
             i += 1
         if pf:
             pass
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseALPHA(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseALPHA(self, i, pf, tf, of, ms, tb, ob, lb):
         pf = (i < len(self.s)) and 65 <= ord(self.s[i]) <= 90 or 97 <= ord(self.s[i]) <= 122
         if pf:
             if tf: tb += self.s[i]
             i += 1
         if pf:
             pass
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseSQUOTE(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseSQUOTE(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("WS")
-        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseWS(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -1394,11 +1384,11 @@ class ZADDYParser(object):
             if pf:
                 if tf: tb += self.s[i]
                 i += 1
-            if not pf: return i, pf, tf, of, m, tb, ob, lb
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseSTRING(self, i, pf, tf, of, m, tb, ob, lb):
+            if not pf: return i, pf, tf, of, ms, tb, ob, lb
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseSTRING(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("WS")
-        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseWS(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
@@ -1406,7 +1396,7 @@ class ZADDYParser(object):
             if pf:
                 if tf: tb += self.s[i]
                 i += 1
-            if not pf: return i, pf, tf, of, m, tb, ob, lb
+            if not pf: return i, pf, tf, of, ms, tb, ob, lb
             tb = ""
             tf = True
             while pf:
@@ -1420,54 +1410,54 @@ class ZADDYParser(object):
             pf = (i < len(self.s)) and ord(self.s[i]) == 39
             if pf:
                 i += 1
-            if not pf: return i, pf, tf, of, m, tb, ob, lb
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseNUMBER(self, i, pf, tf, of, m, tb, ob, lb):
+            if not pf: return i, pf, tf, of, ms, tb, ob, lb
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseNUMBER(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("WS")
-        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseWS(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
             tb = ""
             tf = True
             self.stack.append("DIGIT")
-            i, pf, tf, of, m, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
-            if not pf: return i, pf, tf, of, m, tb, ob, lb
+            if not pf: return i, pf, tf, of, ms, tb, ob, lb
             while pf:
                 self.stack.append("DIGIT")
-                i, pf, tf, of, m, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
             pf = True
             tf = False
-        return i, pf, tf, of, m, tb, ob, lb
-    def parseID(self, i, pf, tf, of, m, tb, ob, lb):
+        return i, pf, tf, of, ms, tb, ob, lb
+    def parseID(self, i, pf, tf, of, ms, tb, ob, lb):
         self.stack.append("WS")
-        i, pf, tf, of, m, tb, ob, lb = self.parseWS(i, pf, tf, of, m, tb, ob, lb)
+        i, pf, tf, of, ms, tb, ob, lb = self.parseWS(i, pf, tf, of, ms[:], tb, ob, lb)
         self.stack.pop()
         if pf:
             pass
             tb = ""
             tf = True
             self.stack.append("ALPHA")
-            i, pf, tf, of, m, tb, ob, lb = self.parseALPHA(i, pf, tf, of, m, tb, ob, lb)
+            i, pf, tf, of, ms, tb, ob, lb = self.parseALPHA(i, pf, tf, of, ms[:], tb, ob, lb)
             self.stack.pop()
-            if not pf: return i, pf, tf, of, m, tb, ob, lb
+            if not pf: return i, pf, tf, of, ms, tb, ob, lb
             while pf:
                 self.stack.append("ALPHA")
-                i, pf, tf, of, m, tb, ob, lb = self.parseALPHA(i, pf, tf, of, m, tb, ob, lb)
+                i, pf, tf, of, ms, tb, ob, lb = self.parseALPHA(i, pf, tf, of, ms[:], tb, ob, lb)
                 self.stack.pop()
                 if pf:
                     pass
                 if not pf:
                     self.stack.append("DIGIT")
-                    i, pf, tf, of, m, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, m, tb, ob, lb)
+                    i, pf, tf, of, ms, tb, ob, lb = self.parseDIGIT(i, pf, tf, of, ms[:], tb, ob, lb)
                     self.stack.pop()
                     if pf:
                         pass
             pf = True
             tf = False
-        return i, pf, tf, of, m, tb, ob, lb
+        return i, pf, tf, of, ms, tb, ob, lb
     def top(self):
         pass
         self.apf = 0
