@@ -18,7 +18,6 @@ def main(argv):
         stderr.write(("Last matching token: '%s'" % parser.lastMatch) + chr(10))
         return 1
 class ZADDYParser(object):
-    u = 0
     lastMatch = ""
     def __init__(self, s): self.s = s; self.stack = []; self.top()
     def parse(self):
@@ -57,24 +56,6 @@ class ZADDYParser(object):
                 ob += 'ob += chr('
                 ob += tb
                 ob += ')'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-        if not pf:
-            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-            stop = i + len("#")
-            if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == "#"
-            if pf: self.lastMatch = "#"; i = stop
-            if pf:
-                pass
-                if (self.al1 == 0):
-                    pass
-                    ob += 'l1 = str(self.u); self.u += 1'
-                    lb += " " * (ms[-1] * 4) + ob + chr(10)
-                    ob = ""
-                if not pf: raise ParseError(i)
-                self.al1 = 1
-                ob += 'ob += l1'
                 lb += " " * (ms[-1] * 4) + ob + chr(10)
                 ob = ""
         if not pf:
@@ -1154,9 +1135,6 @@ class ZADDYParser(object):
             lb += " " * (ms[-1] * 4) + ob + chr(10)
             ob = ""
             ms[-1] += 1
-            ob += 'u = 0'
-            lb += " " * (ms[-1] * 4) + ob + chr(10)
-            ob = ""
             ob += 'lastMatch = ""'
             lb += " " * (ms[-1] * 4) + ob + chr(10)
             ob = ""
@@ -1336,4 +1314,3 @@ class ZADDYParser(object):
         pass
         self.apf = 0
         self.atf = 0
-        self.al1 = 0

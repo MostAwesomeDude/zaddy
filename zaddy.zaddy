@@ -3,8 +3,6 @@
 OUT1 = '*'     .out('ob += tb' .nl)
      / STRING  .out('ob += ' 39 * 39 .nl)
      / NUMBER  .out('ob += chr(' * ')' .nl)
-     / '#'     .pre { ?l1 } { .out('l1 = str(self.u); self.u += 1' .nl) } .post { +l1 }
-               .out('ob += l1' .nl)
      / '.lm+'  .out('ms[-1] += 1' .nl)
      / '.lm-'  .out('if ms[-1]: ms[-1] -= 1' .nl)
      / '.lm?'  .out('ms.append(ms[-1])' .nl)
@@ -138,7 +136,6 @@ ZADDY = '.syntax' ID .out(
           'stderr.write(("Last matching token: ' 39 '%s' 39 '" % parser.lastMatch) + chr(10))' .nl
           'return 1' .nl .lm- .lm-
           'class ' * 'Parser(object):' .nl .lm+
-          'u = 0' .nl
           'lastMatch = ""' .nl
           'def __init__(self, s): self.s = s; self.stack = []; self.top()' .nl
           'def parse(self):' .nl .lm+
@@ -164,6 +161,5 @@ ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
 
 pf : bool ;
 tf : bool ;
-l1 : bool ;
 
 .end
