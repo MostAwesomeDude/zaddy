@@ -144,7 +144,10 @@ ZADDY = '.syntax' ID .out(
           'return self.parse' * '(0, False, False, [0], "", "", "")' .nl .lm-
         )
         $PR '.tokens' $TR
-        .out('def top(self):' .nl .lm+ 'pass' .nl) '.domain' $DR .out(.lm-)
+        .out('def top(self):' .nl .lm+ 'pass' .nl)
+        '.domain' $DR .out(.lm-)
+        ( '.semantics' / .empty )
+        ( '.tiles' / .empty )
         '.end' ;
 
 .tokens

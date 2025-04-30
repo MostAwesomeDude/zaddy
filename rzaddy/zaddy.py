@@ -1181,6 +1181,30 @@ class ZADDYParser(object):
             lb += " " * (ms[-1] * 4) + ob + chr(10)
             ob = ""
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".semantics")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".semantics"
+            if pf: self.lastMatch = ".semantics"; i = stop
+            if pf:
+                pass
+            if not pf:
+                pf = True
+                if pf:
+                    pass
+            if not pf: raise ParseError(i)
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".tiles")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".tiles"
+            if pf: self.lastMatch = ".tiles"; i = stop
+            if pf:
+                pass
+            if not pf:
+                pf = True
+                if pf:
+                    pass
+            if not pf: raise ParseError(i)
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + len(".domain")
             if stop > len(self.s): pf = False
             else: pf = self.s[i:stop] == ".domain"
