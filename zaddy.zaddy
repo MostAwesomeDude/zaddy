@@ -32,11 +32,17 @@ SCAN = .pre { +pf } {
        } ;
 SUB = ID .out(
         'self.stack.append("' * '")' .nl
-        'i, pf, tf, ms, tb, ob, lb = self.parse' * '(i, pf, tf, ms[:], tb, ob, lb)' .nl
+        'rv = self.parse' * '(i, tf, ms[:], tb, ob, lb)' .nl
+        'pf = rv is not failed' .nl
+        'if pf: i, ms[-1], tb, ob, lb = rv.t' .nl
         'self.stack.pop()' .nl
       ) .top ;
 
 SET = .pre { ~+pf } { .out('pf = True' .nl) } .post { +pf } ;
+
+SAVE = .out('saved.append((i, tf, ms[-1], tb, ob, lb))' .nl) ;
+BACKUP = .out('i, tf, ms[-1], tb, ob, lb = saved[-1]' .nl) ;
+COMMIT = .out('saved.pop()' .nl) ;
 
 TX3 = ( '.token'
         .out('tb = ""' .nl)
@@ -49,20 +55,26 @@ TX3 = ( '.token'
     / '.any(' CX1 ')' SCAN
     / SUB
     / '(' TX1 ')' ;
-TX2 = TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
-      $( TX3
-         .pre { ?pf } { .out('if not pf: return i, pf, tf, ms, tb, ob, lb' .nl) }
-         .pre { -pf } { .out('return i, pf, tf, ms, tb, ob, lb' .nl) }
-         .post { +pf }
-      )
-      .out(.lm-) ;
-TX1 = TX2
-      $( '/' .out('if not pf:' .nl .lm+) .post { -pf } TX2 .post { ?pf } .out(.lm-) ) ;
+TX2 = .out(.lm?) TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
+      $( TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf } )
+      .out(.lm!) ;
+TX1 = SAVE TX2
+      $( '/' .out('if not pf:' .nl .lm+) .post { -pf }
+         BACKUP TX2 .post { ?pf } .out(.lm-) ) COMMIT ;
 TR = ID .out(
-       'def parse' * '(self, i, pf, tf, ms, tb, ob, lb):' .nl .lm+
+       'def parse' * '(self, i, tf, ms, tb, ob, lb):' .nl .lm+
+       'k = "' * '", i, tf, ms[-1], tb, ob, lb' .nl
+       'if k in self.cache: return self.cache[k]' .nl
+       'self.cache[k] = failed' .nl
+       'saved = []' .nl
      )
-     ':' .top TX1 ';'
-     .out('return i, pf, tf, ms, tb, ob, lb' .nl .lm-) ;
+     ':' .top SET TX1 ';'
+     .out(
+       'if pf:' .nl .lm+
+       'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))' .nl
+       'self.lastMatch = k[0], k[1]' .nl .lm-
+       'return self.cache[k]' .nl .lm-
+     ) ;
 
 TVAR = '~' .out('(not ') TVAR .out(')')
      / '?' ID .out('(self.a' * ' == 0)')
@@ -77,7 +89,7 @@ EX3 = SUB
       'stop = i + len("' * '")' .nl
       'if stop > len(self.s): pf = False' .nl
       'else: pf = self.s[i:stop] == "' * '"' .nl
-      'if pf: self.lastMatch = "' * '"; i = stop' .nl
+      'if pf: i = stop' .nl
     ) .post { ?pf }
     / '(' EX1 ')'
     / '.pre' '{' .out('if ') TVAR
@@ -95,22 +107,28 @@ EX3 = SUB
     / '.pass' .out('i = 0' .nl)
     / '$' SET .out('while pf:' .nl .lm+) .post { +pf }
       EX3 .out(.lm-) .post { -pf } SET ;
-EX2 = ( EX3 .out(.lm? 'if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
-      / OUTPUT .out(.lm?) )
-      $( EX3
-         .pre { -pf } { .out('raise ParseError(i)' .nl) }
-         .pre { ?pf } { .out('if not pf: raise ParseError(i)' .nl) }
-         .post { +pf }
-         / OUTPUT )
+EX2 = .out(.lm?)
+      ( EX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf } / OUTPUT )
+      $( EX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf } / OUTPUT )
       .out(.lm!) .post { ?pf } ;
-EX1 = EX2
-      $( '/' .out('if not pf:' .nl .lm+) .post { -pf } EX2 .post { ?pf } .out(.lm-) ) ;
+EX1 = SAVE EX2
+      $( '/' .out('if not pf:' .nl .lm+) .post { -pf }
+         BACKUP EX2 .post { ?pf } .out(.lm-) ) COMMIT ;
 
 PR = ID .out(
-       'def parse' * '(self, i, pf, tf, ms, tb, ob, lb):' .nl .lm+
+       'def parse' * '(self, i, tf, ms, tb, ob, lb):' .nl .lm+
+       'k = "' * '", i, tf, ms[-1], tb, ob, lb' .nl
+       'if k in self.cache: return self.cache[k]' .nl
+       'self.cache[k] = failed' .nl
+       'saved = []' .nl
      )
-     '=' .top EX1 ';'
-     .out('return i, pf, tf, ms, tb, ob, lb' .nl .lm-) ;
+     '=' .top SET EX1 ';'
+     .out(
+       'if pf:' .nl .lm+
+       'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))' .nl
+       'self.lastMatch = k[0], k[1]' .nl .lm-
+       'return self.cache[k]' .nl .lm-
+     ) ;
 
 TY = 'bool' .out('0') ;
 DR = ID ':' .out('self.a' * ' = ') TY ';' .out(.nl) ;
@@ -120,28 +138,31 @@ ZADDY = '.syntax' ID .out(
           'def target(driver, *args):' .nl .lm+
           'driver.exe_name = "' * '".lower() + "c"' .nl
           'return main, None' .nl .lm-
-          'class ParseError(Exception):' .nl .lm+
-          'def __init__(self, i): self.i = i' .nl .lm-
+          'class Status(object): pass' .nl
+          'class Failed(Status): pass' .nl
+          '# i, ms[-1], tb, ob, lb' .nl
+          'class Succeeded(Status):' .nl .lm+
+          'def __init__(self, t): self.t = t' .nl .lm-
+          'failed = Failed()' .nl
           'def main(argv):' .nl .lm+
           'stdin, stdout, stderr = create_stdio()' .nl
           'parser = ' * 'Parser(stdin.read())' .nl
-          'try:' .nl .lm+
-          '_, _, _, _, _, _, lb = parser.parse()' .nl
-          'stdout.write(lb)' .nl
-          'return 0' .nl .lm-
-          'except ParseError as pe:' .nl .lm+
-          'line = parser.s.count(chr(10), 0, pe.i) + 1' .nl
-          'stderr.write(("Error at input location: %d (line %d)" % (pe.i, line)) + chr(10))' .nl
+          'status = parser.parse()' .nl
+          'if status is failed:' .nl .lm+
           'stderr.write(("Backtrace: %s" % " ".join(parser.stack)) + chr(10))' .nl
-          'stderr.write(("Last matching token: ' 39 '%s' 39 '" % parser.lastMatch) + chr(10))' .nl
-          'return 1' .nl .lm- .lm-
+          'stderr.write(("Last successful match:' 39 '%s, %d' 39 '" % parser.lastMatch) + chr(10))' .nl
+          'return 1' .nl .lm-
+          'else:' .nl .lm+
+          '_, _, _, _, lb = status.t' .nl
+          'stdout.write(lb)' .nl
+          'return 0' .nl .lm- .lm-
           'class ' * 'Parser(object):' .nl .lm+
-          'lastMatch = ""' .nl
-          'def __init__(self, s): self.s = s; self.stack = []; self.top()' .nl
+          'lastMatch = "", 0' .nl
+          'def __init__(self, s): self.s = s; self.cache = {}; self.stack = []; self.top()' .nl
           'def parse(self):' .nl .lm+
           'self.top()' .nl
-          '# i, pf, tf, ms, tb, ob, lb' .nl
-          'return self.parse' * '(0, False, False, [0], "", "", "")' .nl .lm-
+          '# i, tf, ms, tb, ob, lb' .nl
+          'return self.parse' * '(0, False, [0], "", "", "")' .nl .lm-
         )
         $PR '.tokens' $TR
         .out('def top(self):' .nl .lm+ 'pass' .nl)
