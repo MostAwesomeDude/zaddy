@@ -131,44 +131,75 @@ PR = ID .out(
 TY = 'bool' .out('0') ;
 DR = ID ':' .out('self.a' * ' = ') TY ';' .out(.nl) ;
 
-ZADDY = '.syntax' ID .out(
-          'from rpython.rlib.rfile import create_stdio' .nl
-          'def target(driver, *args):' .nl .lm+
-          'driver.exe_name = "' * '".lower() + "c"' .nl
-          'return main, None' .nl .lm-
-          'class Status(object): pass' .nl
-          'class Failed(Status): pass' .nl
-          '# i, ms[-1], tb, ob, lb' .nl
-          'class Succeeded(Status):' .nl .lm+
-          'def __init__(self, t): self.t = t' .nl .lm-
-          'failed = Failed()' .nl
-          'def main(argv):' .nl .lm+
-          'stdin, stdout, stderr = create_stdio()' .nl
-          'parser = ' * 'Parser(stdin.read())' .nl
-          'status = parser.parse()' .nl
-          'if status is failed:' .nl .lm+
-          'stderr.write(("Last successful match:' 39 '%s, %d' 39 '" % parser.lastMatch) + chr(10))' .nl
-          'return 1' .nl .lm-
-          'else:' .nl .lm+
-          '_, _, _, _, lb = status.t' .nl
-          'stdout.write(lb)' .nl
-          'return 0' .nl .lm- .lm-
-        )
-        ( '.tiles' / .empty )
-        ( '.semantics' / .empty )
-        .out(
-          'class ' * 'Parser(object):' .nl .lm+
-          'lastMatch = "", 0' .nl
-          'def __init__(self, s): self.s = s; self.cache = {}; self.top()' .nl
-          'def parse(self):' .nl .lm+
-          'self.top()' .nl
-          '# i, tf, ms, tb, ob, lb' .nl
-          'return self.parse' * '(0, False, [0], "", "", "")' .nl .lm-
-        )
-        $PR '.tokens' $TR
-        .out('def top(self):' .nl .lm+ 'pass' .nl)
-        '.domain' $DR .out(.lm-)
+PROLOGUE = .out(
+             'from rpython.rlib.rfile import create_stdio' .nl
+             'class Status(object): pass' .nl
+             'class Failed(Status): pass' .nl
+             '# i, ms[-1], tb, ob, lb' .nl
+             'class Succeeded(Status):' .nl .lm+
+             'def __init__(self, t): self.t = t' .nl .lm-
+             'failed = Failed()' .nl
+           ) ;
+
+ZR = ID '=' ZTY ;
+ZTY = PRODUCTTY / SUMTY ;
+PRODUCTTY = FIELDS ;
+SUMTY = CONSTRUCTOR $( '|' CONSTRUCTOR )
+        ( 'attributes' FIELDS / .empty ) ;
+CONSTRUCTOR = ID ( FIELDS / .empty ) ;
+FIELDS = '(' FIELD $( ',' FIELD ) ')' ;
+FIELD = ID ( '?' / '*' / .empty ) ( ID / .empty ) ;
+
+ZADDY = PROLOGUE
+        $( ( '.grammar' / '.syntax' ) ID
+           .out(
+             'def main(argv):' .nl .lm+
+             'stdin, stdout, stderr = create_stdio()' .nl
+             'parser = ' * 'Parser(stdin.read())' .nl
+             'status = parser.parse()' .nl
+             'if status is failed:' .nl .lm+
+             'lineNumber = parser.s.count(chr(10), 0, parser.lastMatch[1]) + 1' .nl
+             't = parser.lastMatch + (lineNumber,)' .nl
+             'stderr.write(("Last successful match:' 39 '%s, %d (line %d)' 39 '" % t) + chr(10))' .nl
+             'return 1' .nl .lm-
+             'else:' .nl .lm+
+             '_, _, _, _, lb = status.t' .nl
+             'stdout.write(lb)' .nl
+             'return 0' .nl .lm- .lm-
+             'def target(driver, *args):' .nl .lm+
+             'driver.exe_name = "' * '".lower() + "c"' .nl
+             'return main, None' .nl .lm-
+             'class ' * 'Parser(object):' .nl .lm+
+             'lastMatch = "", 0' .nl
+             'def __init__(self, s): self.s = s; self.cache = {}; self.top()' .nl
+             'def parse(self):' .nl .lm+
+             'self.top()' .nl
+             '# i, tf, ms, tb, ob, lb' .nl
+             'return self.parse' * '(0, False, [0], "", "", "")' .nl .lm-
+           )
+           $PR ( '.tokens' $TR / .empty )
+           .out('def top(self):' .nl .lm+ 'pass' .nl)
+           ( '.domain' $DR / .empty ) .out(.lm-)
+         / '.algebra' ID $ZR
+         / '.tiles' ID $TIR
+         )
         '.end' ;
+
+TIR = ID TIPATT '=' $TIX1 ';' ;
+TIPATT = TIPATTS / ID ( TIPATTS / .empty ) ;
+TIPATTS = '(' TIVAL $( ',' TIVAL ) ')' ;
+TIVAL = '[]' / ID ;
+TIX1 = '*' / '.lm-' / '.lm+' / NUMBER / STRING
+     / ID ( ':(' $TIX1 ')' / .empty ) ;
+
+PRULE = ID '=' PEXPR1 ';' ;
+PEXPR1 = PEXPR2 $( '/' PEXPR2 ) ;
+PEXPR2 = $PEXPR3 ( ':' ID / .empty ) '->'
+         ( ID / .empty ) '(' ID $( ',' ID ) ')' ;
+PEXPR3 = ( '&' / '!' / .empty ) PEXPR4 ;
+PEXPR4 = PEXPR5 ( '*' / '+' / '?' / .empty ) ;
+PEXPR5 = STRING / '(' PEXPR1 ')' ;
+
 
 .tokens
 
@@ -184,5 +215,18 @@ ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
 
 pf : bool ;
 tf : bool ;
+
+.algebra py
+
+stmt = Compound(string head, stmt* block)
+     | Statement(string line)
+py = (stmt* lines)
+
+.tiles out
+
+py (lines) = lines:( * ) ;
+stmt Compound(head, []) = ;
+stmt Compound(head, block) = head ':' 10 .lm+ block .lm- ;
+stmt Statement(line) = line 10 ;
 
 .end
