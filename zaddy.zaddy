@@ -31,11 +31,9 @@ SCAN = .pre { +pf } {
          .out('i += 1' .nl .lm-)
        } ;
 SUB = ID .out(
-        'self.stack.append("' * '")' .nl
         'rv = self.parse' * '(i, tf, ms[:], tb, ob, lb)' .nl
         'pf = rv is not failed' .nl
         'if pf: i, ms[-1], tb, ob, lb = rv.t' .nl
-        'self.stack.pop()' .nl
       ) .top ;
 
 SET = .pre { ~+pf } { .out('pf = True' .nl) } .post { +pf } ;
@@ -149,7 +147,6 @@ ZADDY = '.syntax' ID .out(
           'parser = ' * 'Parser(stdin.read())' .nl
           'status = parser.parse()' .nl
           'if status is failed:' .nl .lm+
-          'stderr.write(("Backtrace: %s" % " ".join(parser.stack)) + chr(10))' .nl
           'stderr.write(("Last successful match:' 39 '%s, %d' 39 '" % parser.lastMatch) + chr(10))' .nl
           'return 1' .nl .lm-
           'else:' .nl .lm+
@@ -158,7 +155,7 @@ ZADDY = '.syntax' ID .out(
           'return 0' .nl .lm- .lm-
           'class ' * 'Parser(object):' .nl .lm+
           'lastMatch = "", 0' .nl
-          'def __init__(self, s): self.s = s; self.cache = {}; self.stack = []; self.top()' .nl
+          'def __init__(self, s): self.s = s; self.cache = {}; self.top()' .nl
           'def parse(self):' .nl .lm+
           'self.top()' .nl
           '# i, tf, ms, tb, ob, lb' .nl
