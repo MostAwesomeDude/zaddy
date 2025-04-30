@@ -153,6 +153,10 @@ ZADDY = '.syntax' ID .out(
           '_, _, _, _, lb = status.t' .nl
           'stdout.write(lb)' .nl
           'return 0' .nl .lm- .lm-
+        )
+        ( '.tiles' / .empty )
+        ( '.semantics' / .empty )
+        .out(
           'class ' * 'Parser(object):' .nl .lm+
           'lastMatch = "", 0' .nl
           'def __init__(self, s): self.s = s; self.cache = {}; self.top()' .nl
@@ -164,8 +168,6 @@ ZADDY = '.syntax' ID .out(
         $PR '.tokens' $TR
         .out('def top(self):' .nl .lm+ 'pass' .nl)
         '.domain' $DR .out(.lm-)
-        ( '.semantics' / .empty )
-        ( '.tiles' / .empty )
         '.end' ;
 
 .tokens

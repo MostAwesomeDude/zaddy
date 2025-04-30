@@ -1659,109 +1659,109 @@ class ZADDYParser(object):
                 ob = ""
                 if ms[-1]: ms[-1] -= 1
                 if ms[-1]: ms[-1] -= 1
-                ob += 'class '
-                ob += tb
-                ob += 'Parser(object):'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                ms[-1] += 1
-                ob += 'lastMatch = "", 0'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                ob += 'def __init__(self, s): self.s = s; self.cache = {}; self.top()'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                ob += 'def parse(self):'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                ms[-1] += 1
-                ob += 'self.top()'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                ob += '# i, tf, ms, tb, ob, lb'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                ob += 'return self.parse'
-                ob += tb
-                ob += '(0, False, [0], "", "", "")'
-                lb += " " * (ms[-1] * 4) + ob + chr(10)
-                ob = ""
-                if ms[-1]: ms[-1] -= 1
-                while pf:
-                    rv = self.parsePR(i, tf, ms[:], tb, ob, lb)
-                    pf = rv is not failed
-                    if pf: i, ms[-1], tb, ob, lb = rv.t
-                pf = True
+                saved.append((i, tf, ms[-1], tb, ob, lb))
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(".tiles")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ".tiles"
+                if pf: i = stop
                 if pf:
                     pass
+                if not pf:
+                    i, tf, ms[-1], tb, ob, lb = saved[-1]
+                    pf = True
+                    if pf:
+                        pass
+                saved.pop()
+                if pf:
+                    pass
+                    saved.append((i, tf, ms[-1], tb, ob, lb))
                     while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                    stop = i + len(".tokens")
+                    stop = i + len(".semantics")
                     if stop > len(self.s): pf = False
-                    else: pf = self.s[i:stop] == ".tokens"
+                    else: pf = self.s[i:stop] == ".semantics"
                     if pf: i = stop
                     if pf:
                         pass
+                    if not pf:
+                        i, tf, ms[-1], tb, ob, lb = saved[-1]
+                        pf = True
+                        if pf:
+                            pass
+                    saved.pop()
+                    if pf:
+                        pass
+                        ob += 'class '
+                        ob += tb
+                        ob += 'Parser(object):'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ms[-1] += 1
+                        ob += 'lastMatch = "", 0'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ob += 'def __init__(self, s): self.s = s; self.cache = {}; self.top()'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ob += 'def parse(self):'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ms[-1] += 1
+                        ob += 'self.top()'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ob += '# i, tf, ms, tb, ob, lb'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ob += 'return self.parse'
+                        ob += tb
+                        ob += '(0, False, [0], "", "", "")'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        if ms[-1]: ms[-1] -= 1
                         while pf:
-                            rv = self.parseTR(i, tf, ms[:], tb, ob, lb)
+                            rv = self.parsePR(i, tf, ms[:], tb, ob, lb)
                             pf = rv is not failed
                             if pf: i, ms[-1], tb, ob, lb = rv.t
                         pf = True
                         if pf:
                             pass
-                            ob += 'def top(self):'
-                            lb += " " * (ms[-1] * 4) + ob + chr(10)
-                            ob = ""
-                            ms[-1] += 1
-                            ob += 'pass'
-                            lb += " " * (ms[-1] * 4) + ob + chr(10)
-                            ob = ""
                             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                            stop = i + len(".domain")
+                            stop = i + len(".tokens")
                             if stop > len(self.s): pf = False
-                            else: pf = self.s[i:stop] == ".domain"
+                            else: pf = self.s[i:stop] == ".tokens"
                             if pf: i = stop
                             if pf:
                                 pass
                                 while pf:
-                                    rv = self.parseDR(i, tf, ms[:], tb, ob, lb)
+                                    rv = self.parseTR(i, tf, ms[:], tb, ob, lb)
                                     pf = rv is not failed
                                     if pf: i, ms[-1], tb, ob, lb = rv.t
                                 pf = True
                                 if pf:
                                     pass
-                                    if ms[-1]: ms[-1] -= 1
-                                    saved.append((i, tf, ms[-1], tb, ob, lb))
+                                    ob += 'def top(self):'
+                                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                                    ob = ""
+                                    ms[-1] += 1
+                                    ob += 'pass'
+                                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                                    ob = ""
                                     while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                                    stop = i + len(".semantics")
+                                    stop = i + len(".domain")
                                     if stop > len(self.s): pf = False
-                                    else: pf = self.s[i:stop] == ".semantics"
+                                    else: pf = self.s[i:stop] == ".domain"
                                     if pf: i = stop
                                     if pf:
                                         pass
-                                    if not pf:
-                                        i, tf, ms[-1], tb, ob, lb = saved[-1]
+                                        while pf:
+                                            rv = self.parseDR(i, tf, ms[:], tb, ob, lb)
+                                            pf = rv is not failed
+                                            if pf: i, ms[-1], tb, ob, lb = rv.t
                                         pf = True
                                         if pf:
                                             pass
-                                    saved.pop()
-                                    if pf:
-                                        pass
-                                        saved.append((i, tf, ms[-1], tb, ob, lb))
-                                        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                                        stop = i + len(".tiles")
-                                        if stop > len(self.s): pf = False
-                                        else: pf = self.s[i:stop] == ".tiles"
-                                        if pf: i = stop
-                                        if pf:
-                                            pass
-                                        if not pf:
-                                            i, tf, ms[-1], tb, ob, lb = saved[-1]
-                                            pf = True
-                                            if pf:
-                                                pass
-                                        saved.pop()
-                                        if pf:
-                                            pass
+                                            if ms[-1]: ms[-1] -= 1
                                             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
                                             stop = i + len(".end")
                                             if stop > len(self.s): pf = False
