@@ -1990,9 +1990,20 @@ class ZADDYParser(object):
                         ob = ""
                         if ms[-1]: ms[-1] -= 1
                         while pf:
-                            rv = self.parsePR(i, tf, ms[:], tb, ob, lb)
+                            saved.append((i, tf, ms[-1], tb, ob, lb))
+                            rv = self.parsePRULE(i, tf, ms[:], tb, ob, lb)
                             pf = rv is not failed
                             if pf: i, ms[-1], tb, ob, lb = rv.t
+                            if pf:
+                                pass
+                            if not pf:
+                                i, tf, ms[-1], tb, ob, lb = saved[-1]
+                                rv = self.parsePR(i, tf, ms[:], tb, ob, lb)
+                                pf = rv is not failed
+                                if pf: i, ms[-1], tb, ob, lb = rv.t
+                                if pf:
+                                    pass
+                            saved.pop()
                         pf = True
                         if pf:
                             pass
@@ -2120,22 +2131,33 @@ class ZADDYParser(object):
         if pf: i, ms[-1], tb, ob, lb = rv.t
         if pf:
             pass
-            rv = self.parseTIPATT(i, tf, ms[:], tb, ob, lb)
-            pf = rv is not failed
-            if pf: i, ms[-1], tb, ob, lb = rv.t
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("=")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "="
+            if pf: i = stop
             if pf:
                 pass
-                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                stop = i + len("=")
-                if stop > len(self.s): pf = False
-                else: pf = self.s[i:stop] == "="
-                if pf: i = stop
+                rv = self.parseTCLAUSE(i, tf, ms[:], tb, ob, lb)
+                pf = rv is not failed
+                if pf: i, ms[-1], tb, ob, lb = rv.t
                 if pf:
                     pass
                     while pf:
-                        rv = self.parseTIX1(i, tf, ms[:], tb, ob, lb)
-                        pf = rv is not failed
-                        if pf: i, ms[-1], tb, ob, lb = rv.t
+                        saved.append((i, tf, ms[-1], tb, ob, lb))
+                        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                        stop = i + len("|")
+                        if stop > len(self.s): pf = False
+                        else: pf = self.s[i:stop] == "|"
+                        if pf: i = stop
+                        if pf:
+                            pass
+                            rv = self.parseTCLAUSE(i, tf, ms[:], tb, ob, lb)
+                            pf = rv is not failed
+                            if pf: i, ms[-1], tb, ob, lb = rv.t
+                            if pf:
+                                pass
+                        saved.pop()
                     pf = True
                     if pf:
                         pass
@@ -2146,6 +2168,37 @@ class ZADDYParser(object):
                         if pf: i = stop
                         if pf:
                             pass
+        saved.pop()
+        if pf:
+            self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
+            self.lastMatch = k[0], k[1]
+        return self.cache[k]
+    def parseTCLAUSE(self, i, tf, ms, tb, ob, lb):
+        k = "TCLAUSE", i, tf, ms[-1], tb, ob, lb
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        pf = True
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        rv = self.parseTIPATT(i, tf, ms[:], tb, ob, lb)
+        pf = rv is not failed
+        if pf: i, ms[-1], tb, ob, lb = rv.t
+        if pf:
+            pass
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("->")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "->"
+            if pf: i = stop
+            if pf:
+                pass
+                while pf:
+                    rv = self.parseTIX1(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                pf = True
+                if pf:
+                    pass
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
@@ -2352,6 +2405,51 @@ class ZADDYParser(object):
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
             self.lastMatch = k[0], k[1]
         return self.cache[k]
+    def parseZSAVE(self, i, tf, ms, tb, ob, lb):
+        k = "ZSAVE", i, tf, ms[-1], tb, ob, lb
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        pf = True
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        ob += 'saved.append((i, rv))'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        saved.pop()
+        if pf:
+            self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
+            self.lastMatch = k[0], k[1]
+        return self.cache[k]
+    def parseZBACKUP(self, i, tf, ms, tb, ob, lb):
+        k = "ZBACKUP", i, tf, ms[-1], tb, ob, lb
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        pf = True
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        ob += 'i, rv = saved[-1]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        saved.pop()
+        if pf:
+            self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
+            self.lastMatch = k[0], k[1]
+        return self.cache[k]
+    def parseZCOMMIT(self, i, tf, ms, tb, ob, lb):
+        k = "ZCOMMIT", i, tf, ms[-1], tb, ob, lb
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        pf = True
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        ob += 'if pf: saved.pop()'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        saved.pop()
+        if pf:
+            self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
+            self.lastMatch = k[0], k[1]
+        return self.cache[k]
     def parsePRULE(self, i, tf, ms, tb, ob, lb):
         k = "PRULE", i, tf, ms[-1], tb, ob, lb
         if k in self.cache: return self.cache[k]
@@ -2364,25 +2462,82 @@ class ZADDYParser(object):
         if pf: i, ms[-1], tb, ob, lb = rv.t
         if pf:
             pass
+            ob += 'def parse'
+            ob += tb
+            ob += '(self, i):'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+            ms[-1] += 1
+            ob += 'k = "'
+            ob += tb
+            ob += '", i'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+            ob += 'if k in self.cache: return self.cache[k]'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+            ob += 'self.cache[k] = failed'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+            ob += 'saved = []'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+            saved.append((i, tf, ms[-1], tb, ob, lb))
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-            stop = i + len("=")
+            stop = i + len(":str")
             if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == "="
+            else: pf = self.s[i:stop] == ":str"
             if pf: i = stop
             if pf:
                 pass
-                rv = self.parsePEXPR1(i, tf, ms[:], tb, ob, lb)
-                pf = rv is not failed
-                if pf: i, ms[-1], tb, ob, lb = rv.t
+                ob += 'rv = ""'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+            if not pf:
+                i, tf, ms[-1], tb, ob, lb = saved[-1]
+                pf = True
                 if pf:
                     pass
-                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                    stop = i + len(";")
-                    if stop > len(self.s): pf = False
-                    else: pf = self.s[i:stop] == ";"
-                    if pf: i = stop
+                    ob += 'rv = None'
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                    ob = ""
+            saved.pop()
+            if pf:
+                pass
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(":=")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ":="
+                if pf: i = stop
+                if pf:
+                    pass
+                    rv = self.parsePEXPR1(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
                     if pf:
                         pass
+                        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                        stop = i + len(";")
+                        if stop > len(self.s): pf = False
+                        else: pf = self.s[i:stop] == ";"
+                        if pf: i = stop
+                        if pf:
+                            pass
+                            ob += 'if rv:'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
+                            ob = ""
+                            ms[-1] += 1
+                            ob += 'self.cache[k] = Succeeded((i, rv))'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
+                            ob = ""
+                            ob += 'self.lastMatch.append(k)'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
+                            ob = ""
+                            if ms[-1]: ms[-1] -= 1
+                            ob += 'return self.cache[k]'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
+                            ob = ""
+                            if ms[-1]: ms[-1] -= 1
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
@@ -2395,29 +2550,49 @@ class ZADDYParser(object):
         saved = []
         pf = True
         saved.append((i, tf, ms[-1], tb, ob, lb))
-        rv = self.parsePEXPR2(i, tf, ms[:], tb, ob, lb)
+        rv = self.parseZSAVE(i, tf, ms[:], tb, ob, lb)
         pf = rv is not failed
         if pf: i, ms[-1], tb, ob, lb = rv.t
         if pf:
             pass
-            while pf:
-                saved.append((i, tf, ms[-1], tb, ob, lb))
-                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                stop = i + len("/")
-                if stop > len(self.s): pf = False
-                else: pf = self.s[i:stop] == "/"
-                if pf: i = stop
-                if pf:
-                    pass
-                    rv = self.parsePEXPR2(i, tf, ms[:], tb, ob, lb)
-                    pf = rv is not failed
-                    if pf: i, ms[-1], tb, ob, lb = rv.t
-                    if pf:
-                        pass
-                saved.pop()
-            pf = True
+            rv = self.parsePEXPR2(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
             if pf:
                 pass
+                while pf:
+                    saved.append((i, tf, ms[-1], tb, ob, lb))
+                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                    stop = i + len("/")
+                    if stop > len(self.s): pf = False
+                    else: pf = self.s[i:stop] == "/"
+                    if pf: i = stop
+                    if pf:
+                        pass
+                        ob += 'if not rv:'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ms[-1] += 1
+                        rv = self.parseZBACKUP(i, tf, ms[:], tb, ob, lb)
+                        pf = rv is not failed
+                        if pf: i, ms[-1], tb, ob, lb = rv.t
+                        if pf:
+                            pass
+                            rv = self.parsePEXPR2(i, tf, ms[:], tb, ob, lb)
+                            pf = rv is not failed
+                            if pf: i, ms[-1], tb, ob, lb = rv.t
+                            if pf:
+                                pass
+                                rv = self.parseZCOMMIT(i, tf, ms[:], tb, ob, lb)
+                                pf = rv is not failed
+                                if pf: i, ms[-1], tb, ob, lb = rv.t
+                                if pf:
+                                    pass
+                                    if ms[-1]: ms[-1] -= 1
+                    saved.pop()
+                pf = True
+                if pf:
+                    pass
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
@@ -2430,22 +2605,102 @@ class ZADDYParser(object):
         saved = []
         pf = True
         saved.append((i, tf, ms[-1], tb, ob, lb))
+        ms.append(ms[-1])
         while pf:
+            saved.append((i, tf, ms[-1], tb, ob, lb))
+            ob += 'if rv:'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
+            ms[-1] += 1
+            ob += 'pass'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
             rv = self.parsePEXPR3(i, tf, ms[:], tb, ob, lb)
             pf = rv is not failed
             if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                saved.append((i, tf, ms[-1], tb, ob, lb))
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(":")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ":"
+                if pf: i = stop
+                if pf:
+                    pass
+                    rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                    if pf:
+                        pass
+                        ob += tb
+                        ob += ' = rv'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                if not pf:
+                    i, tf, ms[-1], tb, ob, lb = saved[-1]
+                    pf = True
+                    if pf:
+                        pass
+                saved.pop()
+                if pf:
+                    pass
+            saved.pop()
         pf = True
         if pf:
             pass
             saved.append((i, tf, ms[-1], tb, ob, lb))
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-            stop = i + len(":")
+            stop = i + len("->")
             if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == ":"
+            else: pf = self.s[i:stop] == "->"
             if pf: i = stop
             if pf:
                 pass
-                rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+                ob += 'rv = '
+                rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
+                pf = rv is not failed
+                if pf: i, ms[-1], tb, ob, lb = rv.t
+                if pf:
+                    pass
+                    lb += " " * (ms[-1] * 4) + ob + chr(10)
+                    ob = ""
+            if not pf:
+                i, tf, ms[-1], tb, ob, lb = saved[-1]
+                pf = True
+                if pf:
+                    pass
+            saved.pop()
+            if pf:
+                pass
+                ms.pop()
+        saved.pop()
+        if pf:
+            self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
+            self.lastMatch = k[0], k[1]
+        return self.cache[k]
+    def parsePPROD1(self, i, tf, ms, tb, ob, lb):
+        k = "PPROD1", i, tf, ms[-1], tb, ob, lb
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        pf = True
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        rv = self.parsePPROD2(i, tf, ms[:], tb, ob, lb)
+        pf = rv is not failed
+        if pf: i, ms[-1], tb, ob, lb = rv.t
+        if pf:
+            pass
+            saved.append((i, tf, ms[-1], tb, ob, lb))
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("+")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "+"
+            if pf: i = stop
+            if pf:
+                pass
+                ob += ' + '
+                rv = self.parsePPROD2(i, tf, ms[:], tb, ob, lb)
                 pf = rv is not failed
                 if pf: i, ms[-1], tb, ob, lb = rv.t
                 if pf:
@@ -2458,64 +2713,104 @@ class ZADDYParser(object):
             saved.pop()
             if pf:
                 pass
-                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                stop = i + len("->")
-                if stop > len(self.s): pf = False
-                else: pf = self.s[i:stop] == "->"
-                if pf: i = stop
+        saved.pop()
+        if pf:
+            self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
+            self.lastMatch = k[0], k[1]
+        return self.cache[k]
+    def parsePPROD2(self, i, tf, ms, tb, ob, lb):
+        k = "PPROD2", i, tf, ms[-1], tb, ob, lb
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        pf = True
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        saved.append((i, tf, ms[-1], tb, ob, lb))
+        rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+        pf = rv is not failed
+        if pf: i, ms[-1], tb, ob, lb = rv.t
+        if pf:
+            pass
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "."
+            if pf: i = stop
+            if pf:
+                pass
+                ob += tb
+                ob += '.'
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            pf = True
+            if pf:
+                pass
+        saved.pop()
+        if pf:
+            pass
+            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += tb
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            pf = True
+            if pf:
+                pass
+        saved.pop()
+        if pf:
+            pass
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len("(")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == "("
+            if pf: i = stop
+            if pf:
+                pass
+                ob += '('
+                rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
+                pf = rv is not failed
+                if pf: i, ms[-1], tb, ob, lb = rv.t
                 if pf:
                     pass
-                    saved.append((i, tf, ms[-1], tb, ob, lb))
-                    rv = self.parseID(i, tf, ms[:], tb, ob, lb)
-                    pf = rv is not failed
-                    if pf: i, ms[-1], tb, ob, lb = rv.t
-                    if pf:
-                        pass
-                    if not pf:
-                        i, tf, ms[-1], tb, ob, lb = saved[-1]
-                        pf = True
-                        if pf:
-                            pass
-                    saved.pop()
-                    if pf:
-                        pass
+                    while pf:
+                        saved.append((i, tf, ms[-1], tb, ob, lb))
                         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                        stop = i + len("(")
+                        stop = i + len(",")
                         if stop > len(self.s): pf = False
-                        else: pf = self.s[i:stop] == "("
+                        else: pf = self.s[i:stop] == ","
                         if pf: i = stop
                         if pf:
                             pass
-                            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+                            ob += ', '
+                            rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
                             pf = rv is not failed
                             if pf: i, ms[-1], tb, ob, lb = rv.t
                             if pf:
                                 pass
-                                while pf:
-                                    saved.append((i, tf, ms[-1], tb, ob, lb))
-                                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                                    stop = i + len(",")
-                                    if stop > len(self.s): pf = False
-                                    else: pf = self.s[i:stop] == ","
-                                    if pf: i = stop
-                                    if pf:
-                                        pass
-                                        rv = self.parseID(i, tf, ms[:], tb, ob, lb)
-                                        pf = rv is not failed
-                                        if pf: i, ms[-1], tb, ob, lb = rv.t
-                                        if pf:
-                                            pass
-                                    saved.pop()
-                                pf = True
-                                if pf:
-                                    pass
-                                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                                    stop = i + len(")")
-                                    if stop > len(self.s): pf = False
-                                    else: pf = self.s[i:stop] == ")"
-                                    if pf: i = stop
-                                    if pf:
-                                        pass
+                        saved.pop()
+                    pf = True
+                    if pf:
+                        pass
+                        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                        stop = i + len(")")
+                        if stop > len(self.s): pf = False
+                        else: pf = self.s[i:stop] == ")"
+                        if pf: i = stop
+                        if pf:
+                            pass
+                            ob += ')'
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += tb
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
@@ -2528,7 +2823,6 @@ class ZADDYParser(object):
         saved = []
         pf = True
         saved.append((i, tf, ms[-1], tb, ob, lb))
-        saved.append((i, tf, ms[-1], tb, ob, lb))
         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
         stop = i + len("&")
         if stop > len(self.s): pf = False
@@ -2536,6 +2830,21 @@ class ZADDYParser(object):
         if pf: i = stop
         if pf:
             pass
+            rv = self.parseZSAVE(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                rv = self.parsePEXPR4(i, tf, ms[:], tb, ob, lb)
+                pf = rv is not failed
+                if pf: i, ms[-1], tb, ob, lb = rv.t
+                if pf:
+                    pass
+                    rv = self.parseZBACKUP(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                    if pf:
+                        pass
         if not pf:
             i, tf, ms[-1], tb, ob, lb = saved[-1]
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -2545,14 +2854,23 @@ class ZADDYParser(object):
             if pf: i = stop
             if pf:
                 pass
+                rv = self.parseZSAVE(i, tf, ms[:], tb, ob, lb)
+                pf = rv is not failed
+                if pf: i, ms[-1], tb, ob, lb = rv.t
+                if pf:
+                    pass
+                    rv = self.parsePEXPR4(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                    if pf:
+                        pass
+                        rv = self.parseZBACKUP(i, tf, ms[:], tb, ob, lb)
+                        pf = rv is not failed
+                        if pf: i, ms[-1], tb, ob, lb = rv.t
+                        if pf:
+                            pass
         if not pf:
             i, tf, ms[-1], tb, ob, lb = saved[-1]
-            pf = True
-            if pf:
-                pass
-        saved.pop()
-        if pf:
-            pass
             rv = self.parsePEXPR4(i, tf, ms[:], tb, ob, lb)
             pf = rv is not failed
             if pf: i, ms[-1], tb, ob, lb = rv.t
@@ -2570,43 +2888,90 @@ class ZADDYParser(object):
         saved = []
         pf = True
         saved.append((i, tf, ms[-1], tb, ob, lb))
+        ob += 'pf = first = True'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'rvs = []'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'while pf:'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
         rv = self.parsePEXPR5(i, tf, ms[:], tb, ob, lb)
         pf = rv is not failed
         if pf: i, ms[-1], tb, ob, lb = rv.t
         if pf:
             pass
+            ob += 'pf = bool(rv)'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
             saved.append((i, tf, ms[-1], tb, ob, lb))
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-            stop = i + len("*")
+            stop = i + len("+")
             if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == "*"
+            else: pf = self.s[i:stop] == "+"
             if pf: i = stop
             if pf:
                 pass
+                ob += 'pf = pf or not first'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
             if not pf:
                 i, tf, ms[-1], tb, ob, lb = saved[-1]
                 while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                stop = i + len("+")
+                stop = i + len("*")
                 if stop > len(self.s): pf = False
-                else: pf = self.s[i:stop] == "+"
+                else: pf = self.s[i:stop] == "*"
                 if pf: i = stop
-                if pf:
-                    pass
-            if not pf:
-                i, tf, ms[-1], tb, ob, lb = saved[-1]
-                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-                stop = i + len("?")
-                if stop > len(self.s): pf = False
-                else: pf = self.s[i:stop] == "?"
-                if pf: i = stop
-                if pf:
-                    pass
-            if not pf:
-                i, tf, ms[-1], tb, ob, lb = saved[-1]
-                pf = True
                 if pf:
                     pass
             saved.pop()
+            if pf:
+                pass
+                ob += 'first = False'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+                if ms[-1]: ms[-1] -= 1
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseZSAVE(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                rv = self.parsePEXPR5(i, tf, ms[:], tb, ob, lb)
+                pf = rv is not failed
+                if pf: i, ms[-1], tb, ob, lb = rv.t
+                if pf:
+                    pass
+                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                    stop = i + len("?")
+                    if stop > len(self.s): pf = False
+                    else: pf = self.s[i:stop] == "?"
+                    if pf: i = stop
+                    if pf:
+                        pass
+                        ob += 'if not rv:'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ms[-1] += 1
+                        rv = self.parseZBACKUP(i, tf, ms[:], tb, ob, lb)
+                        pf = rv is not failed
+                        if pf: i, ms[-1], tb, ob, lb = rv.t
+                        if pf:
+                            pass
+                            if ms[-1]: ms[-1] -= 1
+                            rv = self.parseZCOMMIT(i, tf, ms[:], tb, ob, lb)
+                            pf = rv is not failed
+                            if pf: i, ms[-1], tb, ob, lb = rv.t
+                            if pf:
+                                pass
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parsePEXPR5(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
             if pf:
                 pass
         saved.pop()
@@ -2621,11 +2986,104 @@ class ZADDYParser(object):
         saved = []
         pf = True
         saved.append((i, tf, ms[-1], tb, ob, lb))
-        rv = self.parseSTRING(i, tf, ms[:], tb, ob, lb)
-        pf = rv is not failed
-        if pf: i, ms[-1], tb, ob, lb = rv.t
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + len(".range(")
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == ".range("
+        if pf: i = stop
         if pf:
             pass
+            rv = self.parseNUMBER(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += 'if '
+                ob += tb
+                ob += ' <= ord(self.s[i]) <= '
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + len(":")
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == ":"
+                if pf: i = stop
+                if pf:
+                    pass
+                    rv = self.parseNUMBER(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                    if pf:
+                        pass
+                        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                        stop = i + len(")")
+                        if stop > len(self.s): pf = False
+                        else: pf = self.s[i:stop] == ")"
+                        if pf: i = stop
+                        if pf:
+                            pass
+                            ob += tb
+                            ob += ': rv = self.s[i]; i += 1'
+                            lb += " " * (ms[-1] * 4) + ob + chr(10)
+                            ob = ""
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+            stop = i + len(".any")
+            if stop > len(self.s): pf = False
+            else: pf = self.s[i:stop] == ".any"
+            if pf: i = stop
+            if pf:
+                pass
+                ob += 'rv = self.s[i]; i += 1'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseNUMBER(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += 'if ord(self.s[i]) == '
+                ob += tb
+                ob += ': rv = chr('
+                ob += tb
+                ob += '); i += 1'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += 'st = self.parse'
+                ob += tb
+                ob += '(i)'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+                ob += 'if st is not failed: i, rv = st.t'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseSTRING(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += 'l = len("'
+                ob += tb
+                ob += '")'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
+                ob += 'if self.s[i:i + l] == "'
+                ob += tb
+                ob += '": rv = "'
+                ob += tb
+                ob += '"; i += l'
+                lb += " " * (ms[-1] * 4) + ob + chr(10)
+                ob = ""
         if not pf:
             i, tf, ms[-1], tb, ob, lb = saved[-1]
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
@@ -2651,6 +3109,930 @@ class ZADDYParser(object):
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
             self.lastMatch = k[0], k[1]
+        return self.cache[k]
+    def parseZZR(self, i):
+        k = "ZZR", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseID(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                l = len("=")
+                if self.s[i:i + l] == "=": rv = "="; i += l
+                if rv:
+                    pass
+                    st = self.parseZTY(i)
+                    if st is not failed: i, rv = st.t
+                    if rv:
+                        pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZZTY(self, i):
+        k = "ZZTY", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parsePRODUCTTY(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseSUMTY(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPRODUCTTY(self, i):
+        k = "ZPRODUCTTY", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseFIELDS(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZSUMTY(self, i):
+        k = "ZSUMTY", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseCONSTRUCTOR(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                pf = first = True
+                rvs = []
+                while pf:
+                    saved.append((i, rv))
+                    if rv:
+                        pass
+                        l = len("|")
+                        if self.s[i:i + l] == "|": rv = "|"; i += l
+                        if rv:
+                            pass
+                            st = self.parseCONSTRUCTOR(i)
+                            if st is not failed: i, rv = st.t
+                            if rv:
+                                pass
+                    pf = bool(rv)
+                    first = False
+                if rv:
+                    pass
+                    saved.append((i, rv))
+                    saved.append((i, rv))
+                    if rv:
+                        pass
+                        l = len("attributes")
+                        if self.s[i:i + l] == "attributes": rv = "attributes"; i += l
+                        if rv:
+                            pass
+                            st = self.parseFIELDS(i)
+                            if st is not failed: i, rv = st.t
+                            if rv:
+                                pass
+                    if not rv:
+                        i, rv = saved[-1]
+                    if pf: saved.pop()
+                    if rv:
+                        pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZCONSTRUCTOR(self, i):
+        k = "ZCONSTRUCTOR", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseID(i)
+            if st is not failed: i, rv = st.t
+            tag = rv
+            if rv:
+                pass
+                saved.append((i, rv))
+                st = self.parseFIELDS(i)
+                if st is not failed: i, rv = st.t
+                if not rv:
+                    i, rv = saved[-1]
+                if pf: saved.pop()
+                args = rv
+                if rv:
+                    pass
+                    rv = zephyr.Con(tag, args)
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZFIELDS(self, i):
+        k = "ZFIELDS", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            l = len("(")
+            if self.s[i:i + l] == "(": rv = "("; i += l
+            if rv:
+                pass
+                st = self.parseFIELD(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+                    pf = first = True
+                    rvs = []
+                    while pf:
+                        saved.append((i, rv))
+                        if rv:
+                            pass
+                            l = len(",")
+                            if self.s[i:i + l] == ",": rv = ","; i += l
+                            if rv:
+                                pass
+                                st = self.parseFIELD(i)
+                                if st is not failed: i, rv = st.t
+                                if rv:
+                                    pass
+                        pf = bool(rv)
+                        first = False
+                    if rv:
+                        pass
+                        l = len(")")
+                        if self.s[i:i + l] == ")": rv = ")"; i += l
+                        if rv:
+                            pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZFIELD(self, i):
+        k = "ZFIELD", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseID(i)
+            if st is not failed: i, rv = st.t
+            ty = rv
+            if rv:
+                pass
+                saved.append((i, rv))
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                if not rv:
+                    i, rv = saved[-1]
+                if pf: saved.pop()
+                name = rv
+                if rv:
+                    pass
+                    l = len("?")
+                    if self.s[i:i + l] == "?": rv = "?"; i += l
+                    if rv:
+                        pass
+                        rv = zephyr.Option(ty, name)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                ty = rv
+                if rv:
+                    pass
+                    saved.append((i, rv))
+                    st = self.parseID(i)
+                    if st is not failed: i, rv = st.t
+                    if not rv:
+                        i, rv = saved[-1]
+                    if pf: saved.pop()
+                    name = rv
+                    if rv:
+                        pass
+                        l = len("*")
+                        if self.s[i:i + l] == "*": rv = "*"; i += l
+                        if rv:
+                            pass
+                            rv = zephyr.Sequence(ty, name)
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                ty = rv
+                if rv:
+                    pass
+                    saved.append((i, rv))
+                    st = self.parseID(i)
+                    if st is not failed: i, rv = st.t
+                    if not rv:
+                        i, rv = saved[-1]
+                    if pf: saved.pop()
+                    name = rv
+                    if rv:
+                        pass
+                        rv = zephyr.Id(ty, name)
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPRULE(self, i):
+        k = "ZPRULE", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseID(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                l = len(":=")
+                if self.s[i:i + l] == ":=": rv = ":="; i += l
+                if rv:
+                    pass
+                    st = self.parsePEXPR1(i)
+                    if st is not failed: i, rv = st.t
+                    if rv:
+                        pass
+                        l = len(";")
+                        if self.s[i:i + l] == ";": rv = ";"; i += l
+                        if rv:
+                            pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPEXPR1(self, i):
+        k = "ZPEXPR1", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parsePEXPR2(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                pf = first = True
+                rvs = []
+                while pf:
+                    saved.append((i, rv))
+                    if rv:
+                        pass
+                        l = len("/")
+                        if self.s[i:i + l] == "/": rv = "/"; i += l
+                        if rv:
+                            pass
+                            st = self.parsePEXPR2(i)
+                            if st is not failed: i, rv = st.t
+                            if rv:
+                                pass
+                    pf = bool(rv)
+                    first = False
+                if rv:
+                    pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPEXPR2(self, i):
+        k = "ZPEXPR2", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            pf = first = True
+            rvs = []
+            while pf:
+                saved.append((i, rv))
+                if rv:
+                    pass
+                    st = self.parsePEXPR3(i)
+                    if st is not failed: i, rv = st.t
+                    if rv:
+                        pass
+                        saved.append((i, rv))
+                        saved.append((i, rv))
+                        if rv:
+                            pass
+                            l = len(":")
+                            if self.s[i:i + l] == ":": rv = ":"; i += l
+                            if rv:
+                                pass
+                                st = self.parseID(i)
+                                if st is not failed: i, rv = st.t
+                                if rv:
+                                    pass
+                        if not rv:
+                            i, rv = saved[-1]
+                        if pf: saved.pop()
+                        if rv:
+                            pass
+                pf = bool(rv)
+                first = False
+            if rv:
+                pass
+                saved.append((i, rv))
+                saved.append((i, rv))
+                if rv:
+                    pass
+                    l = len("->")
+                    if self.s[i:i + l] == "->": rv = "->"; i += l
+                    if rv:
+                        pass
+                        st = self.parsePPROD1(i)
+                        if st is not failed: i, rv = st.t
+                        if rv:
+                            pass
+                if not rv:
+                    i, rv = saved[-1]
+                if pf: saved.pop()
+                if rv:
+                    pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPPROD1(self, i):
+        k = "ZPPROD1", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parsePPROD2(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                saved.append((i, rv))
+                saved.append((i, rv))
+                if rv:
+                    pass
+                    l = len("+")
+                    if self.s[i:i + l] == "+": rv = "+"; i += l
+                    if rv:
+                        pass
+                        st = self.parsePPROD2(i)
+                        if st is not failed: i, rv = st.t
+                        if rv:
+                            pass
+                if not rv:
+                    i, rv = saved[-1]
+                if pf: saved.pop()
+                if rv:
+                    pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPPROD2(self, i):
+        k = "ZPPROD2", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseID(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                l = len(".")
+                if self.s[i:i + l] == ".": rv = "."; i += l
+                if rv:
+                    pass
+                    st = self.parseID(i)
+                    if st is not failed: i, rv = st.t
+                    if rv:
+                        pass
+                        l = len("(")
+                        if self.s[i:i + l] == "(": rv = "("; i += l
+                        if rv:
+                            pass
+                            st = self.parsePPROD1(i)
+                            if st is not failed: i, rv = st.t
+                            if rv:
+                                pass
+                                pf = first = True
+                                rvs = []
+                                while pf:
+                                    saved.append((i, rv))
+                                    if rv:
+                                        pass
+                                        l = len(",")
+                                        if self.s[i:i + l] == ",": rv = ","; i += l
+                                        if rv:
+                                            pass
+                                            st = self.parsePPROD1(i)
+                                            if st is not failed: i, rv = st.t
+                                            if rv:
+                                                pass
+                                    pf = bool(rv)
+                                    first = False
+                                if rv:
+                                    pass
+                                    l = len(")")
+                                    if self.s[i:i + l] == ")": rv = ")"; i += l
+                                    if rv:
+                                        pass
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPEXPR3(self, i):
+        k = "ZPEXPR3", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            l = len("&")
+            if self.s[i:i + l] == "&": rv = "&"; i += l
+            if rv:
+                pass
+                st = self.parsePEXPR4(i)
+                if st is not failed: i, rv = st.t
+                expr = rv
+                if rv:
+                    pass
+                    rv = peg.Positive(expr)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                l = len("!")
+                if self.s[i:i + l] == "!": rv = "!"; i += l
+                if rv:
+                    pass
+                    st = self.parsePEXPR4(i)
+                    if st is not failed: i, rv = st.t
+                    expr = rv
+                    if rv:
+                        pass
+                        rv = peg.Negative(expr)
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePEXPR4(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPEXPR4(self, i):
+        k = "ZPEXPR4", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parsePEXPR5(i)
+            if st is not failed: i, rv = st.t
+            expr = rv
+            if rv:
+                pass
+                l = len("*")
+                if self.s[i:i + l] == "*": rv = "*"; i += l
+                if rv:
+                    pass
+                    rv = peg.Any(expr)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePEXPR5(i)
+                if st is not failed: i, rv = st.t
+                expr = rv
+                if rv:
+                    pass
+                    l = len("?")
+                    if self.s[i:i + l] == "?": rv = "?"; i += l
+                    if rv:
+                        pass
+                        rv = peg.Maybe(expr)
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePEXPR5(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPEXPR5(self, i):
+        k = "ZPEXPR5", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            l = len(".range(")
+            if self.s[i:i + l] == ".range(": rv = ".range("; i += l
+            if rv:
+                pass
+                st = self.parseNUMBER(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+                    l = len(":")
+                    if self.s[i:i + l] == ":": rv = ":"; i += l
+                    if rv:
+                        pass
+                        st = self.parseNUMBER(i)
+                        if st is not failed: i, rv = st.t
+                        if rv:
+                            pass
+                            l = len(")")
+                            if self.s[i:i + l] == ")": rv = ")"; i += l
+                            if rv:
+                                pass
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                l = len(".any")
+                if self.s[i:i + l] == ".any": rv = ".any"; i += l
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseNUMBER(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseSTRING(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                l = len("(")
+                if self.s[i:i + l] == "(": rv = "("; i += l
+                if rv:
+                    pass
+                    st = self.parsePEXPR1(i)
+                    if st is not failed: i, rv = st.t
+                    if rv:
+                        pass
+                        l = len(")")
+                        if self.s[i:i + l] == ")": rv = ")"; i += l
+                        if rv:
+                            pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZWS(self, i):
+        k = "ZWS", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            pf = first = True
+            rvs = []
+            while pf:
+                saved.append((i, rv))
+                if rv:
+                    pass
+                    if ord(self.s[i]) == 9: rv = chr(9); i += 1
+                    if rv:
+                        pass
+                if not rv:
+                    i, rv = saved[-1]
+                    if rv:
+                        pass
+                        if ord(self.s[i]) == 10: rv = chr(10); i += 1
+                        if rv:
+                            pass
+                    if pf: saved.pop()
+                if not rv:
+                    i, rv = saved[-1]
+                    if rv:
+                        pass
+                        if ord(self.s[i]) == 13: rv = chr(13); i += 1
+                        if rv:
+                            pass
+                    if pf: saved.pop()
+                if not rv:
+                    i, rv = saved[-1]
+                    if rv:
+                        pass
+                        if ord(self.s[i]) == 32: rv = chr(32); i += 1
+                        if rv:
+                            pass
+                    if pf: saved.pop()
+                pf = bool(rv)
+                first = False
+            if rv:
+                pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZDIGIT(self, i):
+        k = "ZDIGIT", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            if 48 <= ord(self.s[i]) <= 57: rv = self.s[i]; i += 1
+            if rv:
+                pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZALPHA(self, i):
+        k = "ZALPHA", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            if 65 <= ord(self.s[i]) <= 90: rv = self.s[i]; i += 1
+            if rv:
+                pass
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                if 97 <= ord(self.s[i]) <= 122: rv = self.s[i]; i += 1
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZSQUOTE(self, i):
+        k = "ZSQUOTE", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseWS(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                if ord(self.s[i]) == 39: rv = chr(39); i += 1
+                if rv:
+                    pass
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZSTRING(self, i):
+        k = "ZSTRING", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseWS(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                if ord(self.s[i]) == 39: rv = chr(39); i += 1
+                if rv:
+                    pass
+                    pf = first = True
+                    rvs = []
+                    while pf:
+                        saved.append((i, rv))
+                        if rv:
+                            pass
+                            saved.append((i, rv))
+                            saved.append((i, rv))
+                            if rv:
+                                pass
+                                if ord(self.s[i]) == 10: rv = chr(10); i += 1
+                                if rv:
+                                    pass
+                            if not rv:
+                                i, rv = saved[-1]
+                                if rv:
+                                    pass
+                                    if ord(self.s[i]) == 13: rv = chr(13); i += 1
+                                    if rv:
+                                        pass
+                                if pf: saved.pop()
+                            if not rv:
+                                i, rv = saved[-1]
+                                if rv:
+                                    pass
+                                    if ord(self.s[i]) == 39: rv = chr(39); i += 1
+                                    if rv:
+                                        pass
+                                if pf: saved.pop()
+                            i, rv = saved[-1]
+                            if rv:
+                                pass
+                                rv = self.s[i]; i += 1
+                                if rv:
+                                    pass
+                        pf = bool(rv)
+                        first = False
+                    cs = rv
+                    if rv:
+                        pass
+                        if ord(self.s[i]) == 39: rv = chr(39); i += 1
+                        if rv:
+                            pass
+                            rv = cs
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZNUMBER(self, i):
+        k = "ZNUMBER", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseWS(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                st = self.parseZDIGIT(i)
+                if st is not failed: i, rv = st.t
+                d = rv
+                if rv:
+                    pass
+                    pf = first = True
+                    rvs = []
+                    while pf:
+                        st = self.parseZDIGIT(i)
+                        if st is not failed: i, rv = st.t
+                        pf = bool(rv)
+                        first = False
+                    ds = rv
+                    if rv:
+                        pass
+                        rv = d + ds
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZID(self, i):
+        k = "ZID", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = None
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseWS(i)
+            if st is not failed: i, rv = st.t
+            if rv:
+                pass
+                st = self.parseALPHA(i)
+                if st is not failed: i, rv = st.t
+                c = rv
+                if rv:
+                    pass
+                    pf = first = True
+                    rvs = []
+                    while pf:
+                        saved.append((i, rv))
+                        if rv:
+                            pass
+                            st = self.parseALPHA(i)
+                            if st is not failed: i, rv = st.t
+                            if rv:
+                                pass
+                        if not rv:
+                            i, rv = saved[-1]
+                            if rv:
+                                pass
+                                st = self.parseDIGIT(i)
+                                if st is not failed: i, rv = st.t
+                                if rv:
+                                    pass
+                            if pf: saved.pop()
+                        pf = bool(rv)
+                        first = False
+                    cs = rv
+                    if rv:
+                        pass
+                        rv = c + cs
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
         return self.cache[k]
     def parseWS(self, i, tf, ms, tb, ob, lb):
         k = "WS", i, tf, ms[-1], tb, ob, lb

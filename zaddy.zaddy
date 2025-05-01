@@ -177,7 +177,7 @@ ZADDY = PROLOGUE
              '# i, tf, ms, tb, ob, lb' .nl
              'return self.parse' * '(0, False, [0], "", "", "")' .nl .lm-
            )
-           $PR ( '.tokens' $TR / .empty )
+           $( PRULE / PR ) ( '.tokens' $TR / .empty )
            .out('def top(self):' .nl .lm+ 'pass' .nl)
            ( '.domain' $DR / .empty ) .out(.lm-)
          / '.algebra' ID $ZR
@@ -185,21 +185,107 @@ ZADDY = PROLOGUE
          )
         '.end' ;
 
-TIR = ID TIPATT '=' $TIX1 ';' ;
+TIR = ID '=' TCLAUSE $( '|' TCLAUSE ) ';' ;
+TCLAUSE = TIPATT '->' $TIX1 ;
 TIPATT = TIPATTS / ID ( TIPATTS / .empty ) ;
 TIPATTS = '(' TIVAL $( ',' TIVAL ) ')' ;
 TIVAL = '[]' / ID ;
 TIX1 = '*' / '.lm-' / '.lm+' / NUMBER / STRING
      / ID ( ':(' $TIX1 ')' / .empty ) ;
 
-PRULE = ID '=' PEXPR1 ';' ;
-PEXPR1 = PEXPR2 $( '/' PEXPR2 ) ;
-PEXPR2 = $PEXPR3 ( ':' ID / .empty ) '->'
-         ( ID / .empty ) '(' ID $( ',' ID ) ')' ;
-PEXPR3 = ( '&' / '!' / .empty ) PEXPR4 ;
-PEXPR4 = PEXPR5 ( '*' / '+' / '?' / .empty ) ;
-PEXPR5 = STRING / '(' PEXPR1 ')' ;
+ZSAVE = .out('saved.append((i, rv))' .nl) ;
+ZBACKUP = .out('i, rv = saved[-1]' .nl) ;
+ZCOMMIT = .out('if pf: saved.pop()' .nl) ;
 
+PRULE = ID .out(
+          'def parse' * '(self, i):' .nl .lm+
+          'k = "' * '", i' .nl
+          'if k in self.cache: return self.cache[k]' .nl
+          'self.cache[k] = failed' .nl
+          'saved = []' .nl
+        )
+        ( ':str' .out('rv = ""' .nl) / .empty .out('rv = None' .nl) )
+        ':=' PEXPR1 ';' .out(
+          'if rv:' .nl .lm+
+          'self.cache[k] = Succeeded((i, rv))' .nl
+          'self.lastMatch.append(k)' .nl .lm-
+          'return self.cache[k]' .nl .lm-
+        ) ;
+PEXPR1 = ZSAVE PEXPR2
+         $( '/' .out('if not rv:' .nl .lm+)
+            ZBACKUP PEXPR2 ZCOMMIT .out(.lm-) ) ;
+PEXPR2 = .out(.lm?)
+         $( .out('if rv:' .nl .lm+ 'pass' .nl) PEXPR3 ( ':' ID .out(* ' = rv' .nl) / .empty ) )
+         ( '->' .out('rv = ') PPROD1 .out(.nl) / .empty )
+         .out(.lm!) ;
+PPROD1 = PPROD2 ( '+' .out(' + ') PPROD2 / .empty ) ;
+PPROD2 = ( ( ID '.' .out(* '.') / .empty ) ID .out(*) / .empty )
+         '(' .out('(') PPROD1 $( ',' .out(', ') PPROD1) ')' .out(')')
+       / ID .out(*) ;
+PEXPR3 = '&' ZSAVE PEXPR4 ZBACKUP
+       / '!' ZSAVE PEXPR4 ZBACKUP
+       / PEXPR4 ;
+PEXPR4 = .out(
+           'pf = first = True' .nl
+           'rvs = []' .nl
+           'while pf:' .nl .lm+
+         )
+         PEXPR5
+         .out('pf = bool(rv)' .nl)
+         ( '+' .out('pf = pf or not first' .nl)
+         / '*' )
+         .out('first = False' .nl)
+         .out(.lm-)
+       / ZSAVE PEXPR5 '?'
+         .out('if not rv:' .nl .lm+) ZBACKUP .out(.lm-)
+         ZCOMMIT
+       / PEXPR5 ;
+PEXPR5 = '.range(' NUMBER .out('if ' * ' <= ord(self.s[i]) <= ')
+         ':' NUMBER ')' .out(* ': rv = self.s[i]; i += 1' .nl)
+       / '.any' .out('rv = self.s[i]; i += 1' .nl)
+       / NUMBER .out('if ord(self.s[i]) == ' * ': rv = chr(' * '); i += 1' .nl)
+       / ID .out(
+           'st = self.parse' * '(i)' .nl
+           'if st is not failed: i, rv = st.t' .nl
+         )
+       / STRING .out(
+           'l = len("' * '")' .nl
+           'if self.s[i:i + l] == "' * '": rv = "' * '"; i += l' .nl
+         )
+       / '(' PEXPR1 ')' ;
+
+ZZR := ID '=' ZTY ;
+ZZTY := PRODUCTTY / SUMTY ;
+ZPRODUCTTY := FIELDS ;
+ZSUMTY := CONSTRUCTOR ( '|' CONSTRUCTOR )*
+        ( 'attributes' FIELDS )? ;
+ZCONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
+ZFIELDS := '(' FIELD ( ',' FIELD )* ')' ;
+ZFIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
+        / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
+        / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
+
+ZPRULE := ID ':=' PEXPR1 ';' ;
+ZPEXPR1 := PEXPR2 ( '/' PEXPR2 )* ;
+ZPEXPR2 := ( PEXPR3 ( ':' ID )? )* ( '->' PPROD1 )? ;
+ZPPROD1 := PPROD2 ( '+' PPROD2 )? ;
+ZPPROD2 := ID '.' ID '(' PPROD1 ( ',' PPROD1 )* ')' / ID ;
+ZPEXPR3 := '&' PEXPR4:expr -> peg.Positive(expr)
+         / '!' PEXPR4:expr -> peg.Negative(expr)
+         / PEXPR4 ;
+ZPEXPR4 := PEXPR5:expr '*' -> peg.Any(expr)
+         / PEXPR5:expr '?' -> peg.Maybe(expr)
+         / PEXPR5 ;
+ZPEXPR5 := '.range(' NUMBER ':' NUMBER ')'
+         / '.any' / NUMBER / ID / STRING / '(' PEXPR1 ')' ;
+
+ZWS := ( 9 / 10 / 13 / 32 )* ;
+ZDIGIT := .range(48:57) ;
+ZALPHA := .range(65:90) / .range(97:122) ;
+ZSQUOTE := WS 39 ;
+ZSTRING := WS 39 ( !( 10 / 13 / 39 ) .any )*:cs 39 -> cs ;
+ZNUMBER := WS ZDIGIT:d ZDIGIT*:ds -> d + ds ;
+ZID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> c + cs ;
 
 .tokens
 
@@ -216,17 +302,40 @@ ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
 pf : bool ;
 tf : bool ;
 
+.algebra peg
+
+expr = Exactly(string)
+     | Sequence(expr*)
+     | Choice(expr, expr)
+     | Any(expr)
+     | Some(expr)
+     | Maybe(expr)
+     | Positive(expr)
+     | Negative(expr)
+
+.algebra zephyr
+
+ty = Sum(string name, field* attrs, constructor con, constructor* cons)
+   | Product(string name, field comp, field* comps)
+constructor = Con(string tag, field* args)
+field = Id(string ty, string? name)
+      | Option(string ty, string? name)
+      | Sequence(string ty, string? name)
+
 .algebra py
 
 stmt = Compound(string head, stmt* block)
+     | Conditional(string test, stmt* block)
      | Statement(string line)
 py = (stmt* lines)
 
 .tiles out
 
-py (lines) = lines:( * ) ;
-stmt Compound(head, []) = ;
-stmt Compound(head, block) = head ':' 10 .lm+ block .lm- ;
-stmt Statement(line) = line 10 ;
+py = (lines) -> lines:( * ) ;
+stmt = Compound(head, []) -> head ': pass' 10
+     | Compound(head, block) -> head ':' 10 .lm+ block .lm-
+     | Conditional(test, []) ->
+     | Conditional(test, block) -> 'if ' test ':' 10 .lm+ block .lm-
+     | Statement(line) -> line 10 ;
 
 .end
