@@ -70,7 +70,7 @@ TR = ID .out(
      .out(
        'if pf:' .nl .lm+
        'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))' .nl
-       'self.lastMatch = k[0], k[1]' .nl .lm-
+       'self.lastMatch.append((k[0], k[1]))' .nl .lm-
        'return self.cache[k]' .nl .lm-
      ) ;
 
@@ -124,7 +124,7 @@ PR = ID .out(
      .out(
        'if pf:' .nl .lm+
        'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))' .nl
-       'self.lastMatch = k[0], k[1]' .nl .lm-
+       'self.lastMatch.append((k[0], k[1]))' .nl .lm-
        'return self.cache[k]' .nl .lm-
      ) ;
 
@@ -158,9 +158,11 @@ ZADDY = PROLOGUE
              'parser = ' * 'Parser(stdin.read())' .nl
              'status = parser.parse()' .nl
              'if status is failed:' .nl .lm+
-             'lineNumber = parser.s.count(chr(10), 0, parser.lastMatch[1]) + 1' .nl
-             't = parser.lastMatch + (lineNumber,)' .nl
-             'stderr.write(("Last successful match:' 39 '%s, %d (line %d)' 39 '" % t) + chr(10))' .nl
+             'start = max(len(parser.lastMatch) - 5, 0)' .nl
+             'for k, i in parser.lastMatch[start:]:' .nl .lm+
+             'lineNumber = parser.s.count(chr(10), 0, i) + 1' .nl
+             't = k, i, lineNumber' .nl
+             'stderr.write(("Last successful match:' 39 '%s, %d (line %d)' 39 '" % t) + chr(10))' .nl .lm-
              'return 1' .nl .lm-
              'else:' .nl .lm+
              '_, _, _, _, lb = status.t' .nl
@@ -170,8 +172,7 @@ ZADDY = PROLOGUE
              'driver.exe_name = "' * '".lower() + "c"' .nl
              'return main, None' .nl .lm-
              'class ' * 'Parser(object):' .nl .lm+
-             'lastMatch = "", 0' .nl
-             'def __init__(self, s): self.s = s; self.cache = {}; self.top()' .nl
+             'def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}; self.top()' .nl
              'def parse(self):' .nl .lm+
              'self.top()' .nl
              '# i, tf, ms, tb, ob, lb' .nl

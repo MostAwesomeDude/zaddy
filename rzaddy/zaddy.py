@@ -10,9 +10,11 @@ def main(argv):
     parser = ZADDYParser(stdin.read())
     status = parser.parse()
     if status is failed:
-        lineNumber = parser.s.count(chr(10), 0, parser.lastMatch[1]) + 1
-        t = parser.lastMatch + (lineNumber,)
-        stderr.write(("Last successful match:'%s, %d (line %d)'" % t) + chr(10))
+        start = max(len(parser.lastMatch) - 5, 0)
+        for k, i in parser.lastMatch[start:]:
+            lineNumber = parser.s.count(chr(10), 0, i) + 1
+            t = k, i, lineNumber
+            stderr.write(("Last successful match:'%s, %d (line %d)'" % t) + chr(10))
         return 1
     else:
         _, _, _, _, lb = status.t
@@ -22,8 +24,7 @@ def target(driver, *args):
     driver.exe_name = "ZADDY".lower() + "c"
     return main, None
 class ZADDYParser(object):
-    lastMatch = "", 0
-    def __init__(self, s): self.s = s; self.cache = {}; self.top()
+    def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}; self.top()
     def parse(self):
         self.top()
         # i, tf, ms, tb, ob, lb
@@ -136,7 +137,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseOUTPUT(self, i, tf, ms, tb, ob, lb):
         k = "OUTPUT", i, tf, ms[-1], tb, ob, lb
@@ -176,7 +177,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseCX3(self, i, tf, ms, tb, ob, lb):
         k = "CX3", i, tf, ms[-1], tb, ob, lb
@@ -204,7 +205,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseCX2(self, i, tf, ms, tb, ob, lb):
         k = "CX2", i, tf, ms[-1], tb, ob, lb
@@ -247,7 +248,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseCX1(self, i, tf, ms, tb, ob, lb):
         k = "CX1", i, tf, ms[-1], tb, ob, lb
@@ -289,7 +290,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSCAN(self, i, tf, ms, tb, ob, lb):
         k = "SCAN", i, tf, ms[-1], tb, ob, lb
@@ -360,7 +361,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSUB(self, i, tf, ms, tb, ob, lb):
         k = "SUB", i, tf, ms[-1], tb, ob, lb
@@ -391,7 +392,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSET(self, i, tf, ms, tb, ob, lb):
         k = "SET", i, tf, ms[-1], tb, ob, lb
@@ -415,7 +416,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSAVE(self, i, tf, ms, tb, ob, lb):
         k = "SAVE", i, tf, ms[-1], tb, ob, lb
@@ -430,7 +431,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseBACKUP(self, i, tf, ms, tb, ob, lb):
         k = "BACKUP", i, tf, ms[-1], tb, ob, lb
@@ -445,7 +446,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseCOMMIT(self, i, tf, ms, tb, ob, lb):
         k = "COMMIT", i, tf, ms[-1], tb, ob, lb
@@ -460,7 +461,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTX3(self, i, tf, ms, tb, ob, lb):
         k = "TX3", i, tf, ms[-1], tb, ob, lb
@@ -654,7 +655,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTX2(self, i, tf, ms, tb, ob, lb):
         k = "TX2", i, tf, ms[-1], tb, ob, lb
@@ -704,7 +705,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTX1(self, i, tf, ms, tb, ob, lb):
         k = "TX1", i, tf, ms[-1], tb, ob, lb
@@ -765,7 +766,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTR(self, i, tf, ms, tb, ob, lb):
         k = "TR", i, tf, ms[-1], tb, ob, lb
@@ -833,7 +834,7 @@ class ZADDYParser(object):
                                 ob += 'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))'
                                 lb += " " * (ms[-1] * 4) + ob + chr(10)
                                 ob = ""
-                                ob += 'self.lastMatch = k[0], k[1]'
+                                ob += 'self.lastMatch.append((k[0], k[1]))'
                                 lb += " " * (ms[-1] * 4) + ob + chr(10)
                                 ob = ""
                                 if ms[-1]: ms[-1] -= 1
@@ -844,7 +845,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTVAR(self, i, tf, ms, tb, ob, lb):
         k = "TVAR", i, tf, ms[-1], tb, ob, lb
@@ -921,7 +922,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseAVAR(self, i, tf, ms, tb, ob, lb):
         k = "AVAR", i, tf, ms[-1], tb, ob, lb
@@ -988,7 +989,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseEX3(self, i, tf, ms, tb, ob, lb):
         k = "EX3", i, tf, ms[-1], tb, ob, lb
@@ -1287,7 +1288,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseEX2(self, i, tf, ms, tb, ob, lb):
         k = "EX2", i, tf, ms[-1], tb, ob, lb
@@ -1358,7 +1359,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseEX1(self, i, tf, ms, tb, ob, lb):
         k = "EX1", i, tf, ms[-1], tb, ob, lb
@@ -1419,7 +1420,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePR(self, i, tf, ms, tb, ob, lb):
         k = "PR", i, tf, ms[-1], tb, ob, lb
@@ -1487,7 +1488,7 @@ class ZADDYParser(object):
                                 ob += 'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))'
                                 lb += " " * (ms[-1] * 4) + ob + chr(10)
                                 ob = ""
-                                ob += 'self.lastMatch = k[0], k[1]'
+                                ob += 'self.lastMatch.append((k[0], k[1]))'
                                 lb += " " * (ms[-1] * 4) + ob + chr(10)
                                 ob = ""
                                 if ms[-1]: ms[-1] -= 1
@@ -1498,7 +1499,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTY(self, i, tf, ms, tb, ob, lb):
         k = "TY", i, tf, ms[-1], tb, ob, lb
@@ -1518,7 +1519,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseDR(self, i, tf, ms, tb, ob, lb):
         k = "DR", i, tf, ms[-1], tb, ob, lb
@@ -1559,7 +1560,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePROLOGUE(self, i, tf, ms, tb, ob, lb):
         k = "PROLOGUE", i, tf, ms[-1], tb, ob, lb
@@ -1594,7 +1595,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZR(self, i, tf, ms, tb, ob, lb):
         k = "ZR", i, tf, ms[-1], tb, ob, lb
@@ -1623,7 +1624,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZTY(self, i, tf, ms, tb, ob, lb):
         k = "ZTY", i, tf, ms[-1], tb, ob, lb
@@ -1647,7 +1648,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePRODUCTTY(self, i, tf, ms, tb, ob, lb):
         k = "PRODUCTTY", i, tf, ms[-1], tb, ob, lb
@@ -1664,7 +1665,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSUMTY(self, i, tf, ms, tb, ob, lb):
         k = "SUMTY", i, tf, ms[-1], tb, ob, lb
@@ -1720,7 +1721,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseCONSTRUCTOR(self, i, tf, ms, tb, ob, lb):
         k = "CONSTRUCTOR", i, tf, ms[-1], tb, ob, lb
@@ -1751,7 +1752,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseFIELDS(self, i, tf, ms, tb, ob, lb):
         k = "FIELDS", i, tf, ms[-1], tb, ob, lb
@@ -1800,7 +1801,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseFIELD(self, i, tf, ms, tb, ob, lb):
         k = "FIELD", i, tf, ms[-1], tb, ob, lb
@@ -1856,7 +1857,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZADDY(self, i, tf, ms, tb, ob, lb):
         k = "ZADDY", i, tf, ms[-1], tb, ob, lb
@@ -1916,10 +1917,17 @@ class ZADDYParser(object):
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
                         ms[-1] += 1
-                        ob += 'lineNumber = parser.s.count(chr(10), 0, parser.lastMatch[1]) + 1'
+                        ob += 'start = max(len(parser.lastMatch) - 5, 0)'
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
-                        ob += 't = parser.lastMatch + (lineNumber,)'
+                        ob += 'for k, i in parser.lastMatch[start:]:'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ms[-1] += 1
+                        ob += 'lineNumber = parser.s.count(chr(10), 0, i) + 1'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ob += 't = k, i, lineNumber'
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
                         ob += 'stderr.write(("Last successful match:'
@@ -1929,6 +1937,7 @@ class ZADDYParser(object):
                         ob += '" % t) + chr(10))'
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
+                        if ms[-1]: ms[-1] -= 1
                         ob += 'return 1'
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
@@ -1967,10 +1976,7 @@ class ZADDYParser(object):
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
                         ms[-1] += 1
-                        ob += 'lastMatch = "", 0'
-                        lb += " " * (ms[-1] * 4) + ob + chr(10)
-                        ob = ""
-                        ob += 'def __init__(self, s): self.s = s; self.cache = {}; self.top()'
+                        ob += 'def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}; self.top()'
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
                         ob += 'def parse(self):'
@@ -2117,7 +2123,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTIR(self, i, tf, ms, tb, ob, lb):
         k = "TIR", i, tf, ms[-1], tb, ob, lb
@@ -2171,7 +2177,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTCLAUSE(self, i, tf, ms, tb, ob, lb):
         k = "TCLAUSE", i, tf, ms[-1], tb, ob, lb
@@ -2202,7 +2208,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTIPATT(self, i, tf, ms, tb, ob, lb):
         k = "TIPATT", i, tf, ms[-1], tb, ob, lb
@@ -2240,7 +2246,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTIPATTS(self, i, tf, ms, tb, ob, lb):
         k = "TIPATTS", i, tf, ms[-1], tb, ob, lb
@@ -2289,7 +2295,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTIVAL(self, i, tf, ms, tb, ob, lb):
         k = "TIVAL", i, tf, ms[-1], tb, ob, lb
@@ -2315,7 +2321,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseTIX1(self, i, tf, ms, tb, ob, lb):
         k = "TIX1", i, tf, ms[-1], tb, ob, lb
@@ -2403,7 +2409,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZSAVE(self, i, tf, ms, tb, ob, lb):
         k = "ZSAVE", i, tf, ms[-1], tb, ob, lb
@@ -2418,7 +2424,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZBACKUP(self, i, tf, ms, tb, ob, lb):
         k = "ZBACKUP", i, tf, ms[-1], tb, ob, lb
@@ -2433,7 +2439,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZCOMMIT(self, i, tf, ms, tb, ob, lb):
         k = "ZCOMMIT", i, tf, ms[-1], tb, ob, lb
@@ -2448,7 +2454,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePRULE(self, i, tf, ms, tb, ob, lb):
         k = "PRULE", i, tf, ms[-1], tb, ob, lb
@@ -2541,7 +2547,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePEXPR1(self, i, tf, ms, tb, ob, lb):
         k = "PEXPR1", i, tf, ms[-1], tb, ob, lb
@@ -2596,7 +2602,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePEXPR2(self, i, tf, ms, tb, ob, lb):
         k = "PEXPR2", i, tf, ms[-1], tb, ob, lb
@@ -2677,7 +2683,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePPROD1(self, i, tf, ms, tb, ob, lb):
         k = "PPROD1", i, tf, ms[-1], tb, ob, lb
@@ -2716,7 +2722,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePPROD2(self, i, tf, ms, tb, ob, lb):
         k = "PPROD2", i, tf, ms[-1], tb, ob, lb
@@ -2814,7 +2820,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePEXPR3(self, i, tf, ms, tb, ob, lb):
         k = "PEXPR3", i, tf, ms[-1], tb, ob, lb
@@ -2879,7 +2885,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePEXPR4(self, i, tf, ms, tb, ob, lb):
         k = "PEXPR4", i, tf, ms[-1], tb, ob, lb
@@ -2977,7 +2983,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parsePEXPR5(self, i, tf, ms, tb, ob, lb):
         k = "PEXPR5", i, tf, ms[-1], tb, ob, lb
@@ -3108,7 +3114,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseZZR(self, i):
         k = "ZZR", i
@@ -4052,7 +4058,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseDIGIT(self, i, tf, ms, tb, ob, lb):
         k = "DIGIT", i, tf, ms[-1], tb, ob, lb
@@ -4070,7 +4076,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseALPHA(self, i, tf, ms, tb, ob, lb):
         k = "ALPHA", i, tf, ms[-1], tb, ob, lb
@@ -4088,7 +4094,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSQUOTE(self, i, tf, ms, tb, ob, lb):
         k = "SQUOTE", i, tf, ms[-1], tb, ob, lb
@@ -4111,7 +4117,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseSTRING(self, i, tf, ms, tb, ob, lb):
         k = "STRING", i, tf, ms[-1], tb, ob, lb
@@ -4155,7 +4161,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseNUMBER(self, i, tf, ms, tb, ob, lb):
         k = "NUMBER", i, tf, ms[-1], tb, ob, lb
@@ -4191,7 +4197,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def parseID(self, i, tf, ms, tb, ob, lb):
         k = "ID", i, tf, ms[-1], tb, ob, lb
@@ -4238,7 +4244,7 @@ class ZADDYParser(object):
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
-            self.lastMatch = k[0], k[1]
+            self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
     def top(self):
         pass
