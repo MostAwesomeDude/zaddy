@@ -1,0 +1,1 @@
+class Py(object): pass

@@ -5,6 +5,63 @@ class Failed(Status): pass
 class Succeeded(Status):
     def __init__(self, t): self.t = t
 failed = Failed()
+class Py(object):
+    m = 0
+    def indent(self): self.m += 1
+    def dedent(self): self.m -= 1
+    def line(self, s): return " " * self.m + s
+class Compound(Py):
+    def __init__(self, head, block): self.head = head; self.block = block
+    def out(self, buf):
+        if self.block:
+            buf.append(self.line(self.head + ":"))
+            self.indent()
+            for b in self.block: b.out(buf)
+            self.dedent()
+        else: buf.append(self.line(self.head + ": pass"))
+class Conditional(Py):
+    def __init__(self, test, block): self.test = test; self.block = block
+    def out(self, buf):
+        if not self.block: return
+        buf.append(self.line("if " + self.test + ":"))
+        self.indent()
+        for b in self.block: b.out(buf)
+        self.dedent()
+class Statement(Py):
+    def __init__(self, s): self.s = s
+    def out(self, buf): buf.append(self.line(self.s))
+class Builder(object):
+    def Compound(self, head, block): return Compound(head, block)
+    def Conditional(self, test, block): return Conditional(test, block)
+    def Statement(self, line): return Statement(line)
+py = Builder()
+save = Statement("saved.append((i, rv))")
+backup = Statement("i, rv = saved[-1]")
+commit = Conditional("pf", [Statement("saved.pop()")])
+class PEG(object):
+    def Con(self, ty, con, prods): return "self." + ty + "." + con + "(" + ", ".join(prods) + ")"
+    def Plus(self, left, right): return left + " + " + right
+    def Name(self, s): return s
+    def String(self, s): return chr(34) + s + chr(34)
+    def List(self, prods): return "[" + ", ".join(prods) + "]"
+    def Null(self): return []
+    def AnyChar(self): return [py.Statement("rv = self.s[i]; i += 1")]
+    def Char(self, i): return [py.Statement("if ord(self.s[i]) == " + str(i) + ": rv = self.s[i]; i += 1")]
+    def Range(self, l, u): return [py.Statement("if " + str(l) + " <= ord(self.s[i]) <= " + str(u) + ": rv = self.s[i]; i += 1")]
+    def Call(self, s): return [py.Statement("st = self.parse" + s + "(i); if st is not failed: i, rv = st.t")]
+    def Sequence(self, exprs):
+        rv = []
+        for expr in reversed(exprs): rv = [py.Conditional("rv", rv)]
+        return rv
+    def Choice(self, this, that): return [this, py.Conditional("not rv", [that])]
+    def Any(self, expr):
+        return [py.Statement("pf = True; rvs = []"), py.Compound("while pf", [expr, py.Statement("if rv: rvs.append(rv)"), py.Statement("pf = bool(rv)")])]
+    Some = Any
+    def Maybe(self, expr): return [save, expr, py.Conditional("not rv", [backup]), commit]
+    def Positive(self, expr): return [save, expr, backup]
+    Negative = Positive
+    def Capture(self, expr, name): return [expr, py.Conditional("rv", [py.Statement(name + " = rv")])]
+    def Production(self, expr, prod): return [expr, py.Statement("rv = " + prod)]
 def main(argv):
     stdin, stdout, stderr = create_stdio()
     parser = ZADDYParser(stdin.read())
@@ -24,6 +81,8 @@ def target(driver, *args):
     driver.exe_name = "ZADDY".lower() + "c"
     return main, None
 class ZADDYParser(object):
+    peg = PEG()
+    py = py
     def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}; self.top()
     def parse(self):
         self.top()
@@ -1537,6 +1596,199 @@ class ZADDYParser(object):
         ob += 'failed = Failed()'
         lb += " " * (ms[-1] * 4) + ob + chr(10)
         ob = ""
+        ob += 'class Py(object):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'm = 0'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def indent(self): self.m += 1'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def dedent(self): self.m -= 1'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def line(self, s): return " " * self.m + s'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        ob += 'class Compound(Py):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'def __init__(self, head, block): self.head = head; self.block = block'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def out(self, buf):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'if self.block:'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'buf.append(self.line(self.head + ":"))'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'self.indent()'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'for b in self.block: b.out(buf)'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'self.dedent()'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        ob += 'else: buf.append(self.line(self.head + ": pass"))'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        if ms[-1]: ms[-1] -= 1
+        ob += 'class Conditional(Py):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'def __init__(self, test, block): self.test = test; self.block = block'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def out(self, buf):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'if not self.block: return'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'buf.append(self.line("if " + self.test + ":"))'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'self.indent()'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'for b in self.block: b.out(buf)'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'self.dedent()'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        if ms[-1]: ms[-1] -= 1
+        ob += 'class Statement(Py):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'def __init__(self, s): self.s = s'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def out(self, buf): buf.append(self.line(self.s))'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        ob += 'class Builder(object):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'def Compound(self, head, block): return Compound(head, block)'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Conditional(self, test, block): return Conditional(test, block)'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Statement(self, line): return Statement(line)'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        ob += 'py = Builder()'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'save = Statement("saved.append((i, rv))")'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'backup = Statement("i, rv = saved[-1]")'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'commit = Conditional("pf", [Statement("saved.pop()")])'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'class PEG(object):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'def Con(self, ty, con, prods): return "self." + ty + "." + con + "(" + ", ".join(prods) + ")"'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Plus(self, left, right): return left + " + " + right'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Name(self, s): return s'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def String(self, s): return chr(34) + s + chr(34)'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def List(self, prods): return "[" + ", ".join(prods) + "]"'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Null(self): return []'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def AnyChar(self): return [py.Statement("rv = self.s[i]; i += 1")]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Char(self, i): return [py.Statement("if ord(self.s[i]) == " + str(i) + ": rv = self.s[i]; i += 1")]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Range(self, l, u): return [py.Statement("if " + str(l) + " <= ord(self.s[i]) <= " + str(u) + ": rv = self.s[i]; i += 1")]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Call(self, s): return [py.Statement("st = self.parse" + s + "(i); if st is not failed: i, rv = st.t")]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Sequence(self, exprs):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'rv = []'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'for expr in reversed(exprs): rv = [py.Conditional("rv", rv)]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'return rv'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        ob += 'def Choice(self, this, that): return [this, py.Conditional("not rv", [that])]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Any(self, expr):'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ms[-1] += 1
+        ob += 'return [py.Statement("pf = True; rvs = []"), py.Compound("while pf", [expr, py.Statement("if rv: rvs.append(rv)"), py.Statement("pf = bool(rv)")])]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
+        ob += 'Some = Any'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Maybe(self, expr): return [save, expr, py.Conditional("not rv", [backup]), commit]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Positive(self, expr): return [save, expr, backup]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'Negative = Positive'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Capture(self, expr, name): return [expr, py.Conditional("rv", [py.Statement(name + " = rv")])]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        ob += 'def Production(self, expr, prod): return [expr, py.Statement("rv = " + prod)]'
+        lb += " " * (ms[-1] * 4) + ob + chr(10)
+        ob = ""
+        if ms[-1]: ms[-1] -= 1
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
@@ -1659,6 +1911,12 @@ class ZADDYParser(object):
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
                         ms[-1] += 1
+                        ob += 'peg = PEG()'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
+                        ob += 'py = py'
+                        lb += " " * (ms[-1] * 4) + ob + chr(10)
+                        ob = ""
                         ob += 'def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}; self.top()'
                         lb += " " * (ms[-1] * 4) + ob + chr(10)
                         ob = ""
@@ -1860,7 +2118,7 @@ class ZADDYParser(object):
                 pf = True
                 if pf:
                     pass
-                    ob += 'rv = None'
+                    ob += 'rv = self.peg.Null()'
                     lb += " " * (ms[-1] * 4) + ob + chr(10)
                     ob = ""
             saved.pop()
@@ -2053,24 +2311,23 @@ class ZADDYParser(object):
         if pf: i, ms[-1], tb, ob, lb = rv.t
         if pf:
             pass
-            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-            stop = i + 1
-            if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == "+"
-            if pf: i = stop
-            if pf:
-                pass
-                ob += ' + '
-                rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
-                pf = rv is not failed
-                if pf: i, ms[-1], tb, ob, lb = rv.t
+            while pf:
+                saved.append((i, tf, ms[-1], tb, ob, lb))
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + 1
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "+"
+                if pf: i = stop
                 if pf:
                     pass
-        if not pf:
-            i, tf, ms[-1], tb, ob, lb = saved[-1]
-            rv = self.parsePPROD2(i, tf, ms[:], tb, ob, lb)
-            pf = rv is not failed
-            if pf: i, ms[-1], tb, ob, lb = rv.t
+                    ob += ' + '
+                    rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                    if pf:
+                        pass
+                saved.pop()
+            pf = True
             if pf:
                 pass
         saved.pop()
@@ -2085,53 +2342,24 @@ class ZADDYParser(object):
         saved = []
         pf = True
         saved.append((i, tf, ms[-1], tb, ob, lb))
-        saved.append((i, tf, ms[-1], tb, ob, lb))
-        saved.append((i, tf, ms[-1], tb, ob, lb))
-        rv = self.parseID(i, tf, ms[:], tb, ob, lb)
-        pf = rv is not failed
-        if pf: i, ms[-1], tb, ob, lb = rv.t
+        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+        stop = i + 2
+        if stop > len(self.s): pf = False
+        else: pf = self.s[i:stop] == "[]"
+        if pf: i = stop
         if pf:
             pass
+            ob += '[]'
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
             while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
             stop = i + 1
             if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == "."
+            else: pf = self.s[i:stop] == "["
             if pf: i = stop
             if pf:
                 pass
-                ob += tb
-                ob += '.'
-        if not pf:
-            i, tf, ms[-1], tb, ob, lb = saved[-1]
-            pf = True
-            if pf:
-                pass
-        saved.pop()
-        if pf:
-            pass
-            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
-            pf = rv is not failed
-            if pf: i, ms[-1], tb, ob, lb = rv.t
-            if pf:
-                pass
-                ob += tb
-        if not pf:
-            i, tf, ms[-1], tb, ob, lb = saved[-1]
-            pf = True
-            if pf:
-                pass
-        saved.pop()
-        if pf:
-            pass
-            saved.append((i, tf, ms[-1], tb, ob, lb))
-            while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
-            stop = i + 1
-            if stop > len(self.s): pf = False
-            else: pf = self.s[i:stop] == "("
-            if pf: i = stop
-            if pf:
-                pass
-                ob += '('
+                ob += '['
                 rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
                 pf = rv is not failed
                 if pf: i, ms[-1], tb, ob, lb = rv.t
@@ -2159,28 +2387,11 @@ class ZADDYParser(object):
                         while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
                         stop = i + 1
                         if stop > len(self.s): pf = False
-                        else: pf = self.s[i:stop] == ")"
+                        else: pf = self.s[i:stop] == "]"
                         if pf: i = stop
                         if pf:
                             pass
-                            ob += ')'
-            if not pf:
-                i, tf, ms[-1], tb, ob, lb = saved[-1]
-                pf = True
-                if pf:
-                    pass
-                    ob += '()'
-            saved.pop()
-            if pf:
-                pass
-        if not pf:
-            i, tf, ms[-1], tb, ob, lb = saved[-1]
-            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
-            pf = rv is not failed
-            if pf: i, ms[-1], tb, ob, lb = rv.t
-            if pf:
-                pass
-                ob += tb
+                            ob += ']'
         if not pf:
             i, tf, ms[-1], tb, ob, lb = saved[-1]
             rv = self.parseSTRING(i, tf, ms[:], tb, ob, lb)
@@ -2191,6 +2402,87 @@ class ZADDYParser(object):
                 ob += '"'
                 ob += tb
                 ob += '"'
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                stop = i + 1
+                if stop > len(self.s): pf = False
+                else: pf = self.s[i:stop] == "."
+                if pf: i = stop
+                if pf:
+                    pass
+                    ob += 'self.'
+                    ob += tb
+                    ob += '.'
+                    rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+                    pf = rv is not failed
+                    if pf: i, ms[-1], tb, ob, lb = rv.t
+                    if pf:
+                        pass
+                        ob += tb
+                        saved.append((i, tf, ms[-1], tb, ob, lb))
+                        while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                        stop = i + 1
+                        if stop > len(self.s): pf = False
+                        else: pf = self.s[i:stop] == "("
+                        if pf: i = stop
+                        if pf:
+                            pass
+                            ob += '('
+                            rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
+                            pf = rv is not failed
+                            if pf: i, ms[-1], tb, ob, lb = rv.t
+                            if pf:
+                                pass
+                                while pf:
+                                    saved.append((i, tf, ms[-1], tb, ob, lb))
+                                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                                    stop = i + 1
+                                    if stop > len(self.s): pf = False
+                                    else: pf = self.s[i:stop] == ","
+                                    if pf: i = stop
+                                    if pf:
+                                        pass
+                                        ob += ', '
+                                        rv = self.parsePPROD1(i, tf, ms[:], tb, ob, lb)
+                                        pf = rv is not failed
+                                        if pf: i, ms[-1], tb, ob, lb = rv.t
+                                        if pf:
+                                            pass
+                                    saved.pop()
+                                pf = True
+                                if pf:
+                                    pass
+                                    while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1
+                                    stop = i + 1
+                                    if stop > len(self.s): pf = False
+                                    else: pf = self.s[i:stop] == ")"
+                                    if pf: i = stop
+                                    if pf:
+                                        pass
+                                        ob += ')'
+                        if not pf:
+                            i, tf, ms[-1], tb, ob, lb = saved[-1]
+                            pf = True
+                            if pf:
+                                pass
+                                ob += '()'
+                        saved.pop()
+                        if pf:
+                            pass
+        if not pf:
+            i, tf, ms[-1], tb, ob, lb = saved[-1]
+            rv = self.parseID(i, tf, ms[:], tb, ob, lb)
+            pf = rv is not failed
+            if pf: i, ms[-1], tb, ob, lb = rv.t
+            if pf:
+                pass
+                ob += tb
         saved.pop()
         if pf:
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
@@ -2283,6 +2575,9 @@ class ZADDYParser(object):
         if pf: i, ms[-1], tb, ob, lb = rv.t
         if pf:
             pass
+            ob += 'if rv: rvs.append(rv)'
+            lb += " " * (ms[-1] * 4) + ob + chr(10)
+            ob = ""
             ob += 'pf = bool(rv)'
             lb += " " * (ms[-1] * 4) + ob + chr(10)
             ob = ""
@@ -2489,12 +2784,60 @@ class ZADDYParser(object):
             self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))
             self.lastMatch.append((k[0], k[1]))
         return self.cache[k]
+    def parseZZADDY(self, i):
+        k = "ZZADDY", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = self.peg.Null()
+        saved.append((i, rv))
+        if rv:
+            pass
+            saved.append((i, rv))
+            if rv:
+                pass
+                l = 7
+                if self.s[i:i + l] == ".syntax": rv = ".syntax"; i += l
+                if rv:
+                    pass
+            if not rv:
+                i, rv = saved[-1]
+                if rv:
+                    pass
+                    l = 8
+                    if self.s[i:i + l] == ".grammar": rv = ".grammar"; i += l
+                    if rv:
+                        pass
+                if pf: saved.pop()
+            if rv:
+                pass
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                name = rv
+                if rv:
+                    pass
+                    pf = first = True
+                    rvs = []
+                    while pf:
+                        st = self.parsePRULE(i)
+                        if st is not failed: i, rv = st.t
+                        if rv: rvs.append(rv)
+                        pf = bool(rv)
+                        first = False
+                    rules = rv
+                    if rv:
+                        pass
+                        rv = self.py.Compound("class " + name + "Parser(object):", [self.py.Statement("def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}"), self.py.Statement("def parse(self): return self.parse" + name + "(0)")] + rules)
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
     def parseZZR(self, i):
         k = "ZZR", i
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -2515,7 +2858,7 @@ class ZADDYParser(object):
                         fs = rv
                         if rv:
                             pass
-                            rv = zephyr.Product(name(), fs())
+                            rv = self.zephyr.Product(name, fs)
                     if not rv:
                         i, rv = saved[-1]
                         if rv:
@@ -2539,6 +2882,7 @@ class ZADDYParser(object):
                                             if st is not failed: i, rv = st.t
                                             if rv:
                                                 pass
+                                    if rv: rvs.append(rv)
                                     pf = bool(rv)
                                     first = False
                                 cons = rv
@@ -2562,7 +2906,7 @@ class ZADDYParser(object):
                                     attrs = rv
                                     if rv:
                                         pass
-                                        rv = zephyr.Sum(name(), attrs(), con(), cons())
+                                        rv = self.zephyr.Sum(name, attrs, con, cons)
                         if pf: saved.pop()
                     if rv:
                         pass
@@ -2575,7 +2919,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -2593,7 +2937,7 @@ class ZADDYParser(object):
                 args = rv
                 if rv:
                     pass
-                    rv = zephyr.Con(tag(), args())
+                    rv = self.zephyr.Con(tag, args)
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
@@ -2603,7 +2947,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -2630,6 +2974,7 @@ class ZADDYParser(object):
                                 if st is not failed: i, rv = st.t
                                 if rv:
                                     pass
+                        if rv: rvs.append(rv)
                         pf = bool(rv)
                         first = False
                     fs = rv
@@ -2639,7 +2984,7 @@ class ZADDYParser(object):
                         if self.s[i:i + l] == ")": rv = ")"; i += l
                         if rv:
                             pass
-                            rv = f() + fs()
+                            rv = f + fs
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
@@ -2649,7 +2994,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -2671,7 +3016,7 @@ class ZADDYParser(object):
                     if self.s[i:i + l] == "?": rv = "?"; i += l
                     if rv:
                         pass
-                        rv = zephyr.Option(ty(), name())
+                        rv = self.zephyr.Option(ty, name)
         if not rv:
             i, rv = saved[-1]
             if rv:
@@ -2694,7 +3039,7 @@ class ZADDYParser(object):
                         if self.s[i:i + l] == "*": rv = "*"; i += l
                         if rv:
                             pass
-                            rv = zephyr.Sequence(ty(), name())
+                            rv = self.zephyr.Sequence(ty, name)
             if pf: saved.pop()
         if not rv:
             i, rv = saved[-1]
@@ -2714,7 +3059,7 @@ class ZADDYParser(object):
                     name = rv
                     if rv:
                         pass
-                        rv = zephyr.Id(ty(), name())
+                        rv = self.zephyr.Id(ty, name)
             if pf: saved.pop()
         if rv:
             self.cache[k] = Succeeded((i, rv))
@@ -2725,12 +3070,13 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
             st = self.parseID(i)
             if st is not failed: i, rv = st.t
+            name = rv
             if rv:
                 pass
                 l = 2
@@ -2739,12 +3085,14 @@ class ZADDYParser(object):
                     pass
                     st = self.parsePEXPR1(i)
                     if st is not failed: i, rv = st.t
+                    expr = rv
                     if rv:
                         pass
                         l = 1
                         if self.s[i:i + l] == ";": rv = ";"; i += l
                         if rv:
                             pass
+                            rv = self.py.Compound("def parse" + name + "(self, i):", expr)
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
@@ -2754,32 +3102,34 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
             st = self.parsePEXPR2(i)
             if st is not failed: i, rv = st.t
+            this = rv
             if rv:
                 pass
-                pf = first = True
-                rvs = []
-                while pf:
-                    saved.append((i, rv))
-                    if rv:
-                        pass
-                        l = 1
-                        if self.s[i:i + l] == "/": rv = "/"; i += l
-                        if rv:
-                            pass
-                            st = self.parsePEXPR2(i)
-                            if st is not failed: i, rv = st.t
-                            if rv:
-                                pass
-                    pf = bool(rv)
-                    first = False
+                l = 1
+                if self.s[i:i + l] == "/": rv = "/"; i += l
                 if rv:
                     pass
+                    st = self.parsePEXPR2(i)
+                    if st is not failed: i, rv = st.t
+                    that = rv
+                    if rv:
+                        pass
+                        rv = self.peg.Choice(this, that)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePEXPR2(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
@@ -2789,164 +3139,47 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
             pf = first = True
             rvs = []
             while pf:
-                saved.append((i, rv))
-                if rv:
-                    pass
-                    st = self.parsePEXPR3(i)
-                    if st is not failed: i, rv = st.t
-                    if rv:
-                        pass
-                        saved.append((i, rv))
-                        saved.append((i, rv))
-                        if rv:
-                            pass
-                            l = 1
-                            if self.s[i:i + l] == ":": rv = ":"; i += l
-                            if rv:
-                                pass
-                                st = self.parseID(i)
-                                if st is not failed: i, rv = st.t
-                                if rv:
-                                    pass
-                        if not rv:
-                            i, rv = saved[-1]
-                        if pf: saved.pop()
-                        if rv:
-                            pass
+                st = self.parsePEXPR3(i)
+                if st is not failed: i, rv = st.t
+                if rv: rvs.append(rv)
                 pf = bool(rv)
                 first = False
+            exprs = rv
             if rv:
                 pass
-                saved.append((i, rv))
-                saved.append((i, rv))
+                l = 2
+                if self.s[i:i + l] == "->": rv = "->"; i += l
                 if rv:
                     pass
-                    l = 2
-                    if self.s[i:i + l] == "->": rv = "->"; i += l
-                    if rv:
-                        pass
-                        st = self.parsePPROD1(i)
-                        if st is not failed: i, rv = st.t
-                        if rv:
-                            pass
-                if not rv:
-                    i, rv = saved[-1]
-                if pf: saved.pop()
-                if rv:
-                    pass
-        if rv:
-            self.cache[k] = Succeeded((i, rv))
-            self.lastMatch.append(k)
-        return self.cache[k]
-    def parseZPPROD1(self, i):
-        k = "ZPPROD1", i
-        if k in self.cache: return self.cache[k]
-        self.cache[k] = failed
-        saved = []
-        rv = None
-        saved.append((i, rv))
-        if rv:
-            pass
-            st = self.parsePPROD2(i)
-            if st is not failed: i, rv = st.t
-            if rv:
-                pass
-                saved.append((i, rv))
-                saved.append((i, rv))
-                if rv:
-                    pass
-                    l = 1
-                    if self.s[i:i + l] == "+": rv = "+"; i += l
-                    if rv:
-                        pass
-                        st = self.parsePPROD2(i)
-                        if st is not failed: i, rv = st.t
-                        if rv:
-                            pass
-                if not rv:
-                    i, rv = saved[-1]
-                if pf: saved.pop()
-                if rv:
-                    pass
-        if rv:
-            self.cache[k] = Succeeded((i, rv))
-            self.lastMatch.append(k)
-        return self.cache[k]
-    def parseZPPROD2(self, i):
-        k = "ZPPROD2", i
-        if k in self.cache: return self.cache[k]
-        self.cache[k] = failed
-        saved = []
-        rv = None
-        saved.append((i, rv))
-        if rv:
-            pass
-            st = self.parseID(i)
-            if st is not failed: i, rv = st.t
-            if rv:
-                pass
-                l = 1
-                if self.s[i:i + l] == ".": rv = "."; i += l
-                if rv:
-                    pass
-                    st = self.parseID(i)
+                    st = self.parsePPROD1(i)
                     if st is not failed: i, rv = st.t
+                    prod = rv
                     if rv:
                         pass
-                        l = 1
-                        if self.s[i:i + l] == "(": rv = "("; i += l
-                        if rv:
-                            pass
-                            st = self.parsePPROD1(i)
-                            if st is not failed: i, rv = st.t
-                            if rv:
-                                pass
-                                pf = first = True
-                                rvs = []
-                                while pf:
-                                    saved.append((i, rv))
-                                    if rv:
-                                        pass
-                                        l = 1
-                                        if self.s[i:i + l] == ",": rv = ","; i += l
-                                        if rv:
-                                            pass
-                                            st = self.parsePPROD1(i)
-                                            if st is not failed: i, rv = st.t
-                                            if rv:
-                                                pass
-                                    pf = bool(rv)
-                                    first = False
-                                if rv:
-                                    pass
-                                    l = 1
-                                    if self.s[i:i + l] == ")": rv = ")"; i += l
-                                    if rv:
-                                        pass
+                        rv = self.peg.Production(self.peg.Sequence(exprs), prod)
         if not rv:
             i, rv = saved[-1]
             if rv:
                 pass
-                st = self.parseID(i)
-                if st is not failed: i, rv = st.t
+                pf = first = True
+                rvs = []
+                while pf:
+                    st = self.parsePEXPR3(i)
+                    if st is not failed: i, rv = st.t
+                    if rv: rvs.append(rv)
+                    pf = bool(rv)
+                    first = False
+                exprs = rv
                 if rv:
                     pass
-            if pf: saved.pop()
-        if not rv:
-            i, rv = saved[-1]
-            if rv:
-                pass
-                st = self.parseSTRING(i)
-                if st is not failed: i, rv = st.t
-                if rv:
-                    pass
+                    rv = self.peg.Sequence(exprs)
             if pf: saved.pop()
         if rv:
             self.cache[k] = Succeeded((i, rv))
@@ -2957,35 +3190,25 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
-            l = 1
-            if self.s[i:i + l] == "&": rv = "&"; i += l
-            if rv:
-                pass
-                st = self.parsePEXPR4(i)
-                if st is not failed: i, rv = st.t
-                expr = rv
-                if rv:
-                    pass
-                    rv = peg.Positive(expr())
-        if not rv:
-            i, rv = saved[-1]
+            st = self.parsePEXPR4(i)
+            if st is not failed: i, rv = st.t
+            expr = rv
             if rv:
                 pass
                 l = 1
-                if self.s[i:i + l] == "!": rv = "!"; i += l
+                if self.s[i:i + l] == ":": rv = ":"; i += l
                 if rv:
                     pass
-                    st = self.parsePEXPR4(i)
+                    st = self.parseID(i)
                     if st is not failed: i, rv = st.t
-                    expr = rv
+                    name = rv
                     if rv:
                         pass
-                        rv = peg.Negative(expr())
-            if pf: saved.pop()
+                        rv = self.peg.Capture(expr, name)
         if not rv:
             i, rv = saved[-1]
             if rv:
@@ -3004,22 +3227,12 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
-            st = self.parsePEXPR5(i)
-            if st is not failed: i, rv = st.t
-            expr = rv
-            if rv:
-                pass
-                l = 1
-                if self.s[i:i + l] == "*": rv = "*"; i += l
-                if rv:
-                    pass
-                    rv = peg.Any(expr())
-        if not rv:
-            i, rv = saved[-1]
+            l = 1
+            if self.s[i:i + l] == "&": rv = "&"; i += l
             if rv:
                 pass
                 st = self.parsePEXPR5(i)
@@ -3027,11 +3240,21 @@ class ZADDYParser(object):
                 expr = rv
                 if rv:
                     pass
-                    l = 1
-                    if self.s[i:i + l] == "?": rv = "?"; i += l
+                    rv = self.peg.Positive(expr)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                l = 1
+                if self.s[i:i + l] == "!": rv = "!"; i += l
+                if rv:
+                    pass
+                    st = self.parsePEXPR5(i)
+                    if st is not failed: i, rv = st.t
+                    expr = rv
                     if rv:
                         pass
-                        rv = peg.Maybe(expr())
+                        rv = self.peg.Negative(expr)
             if pf: saved.pop()
         if not rv:
             i, rv = saved[-1]
@@ -3051,7 +3274,54 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parsePEXPR6(i)
+            if st is not failed: i, rv = st.t
+            expr = rv
+            if rv:
+                pass
+                l = 1
+                if self.s[i:i + l] == "*": rv = "*"; i += l
+                if rv:
+                    pass
+                    rv = self.peg.Any(expr)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePEXPR6(i)
+                if st is not failed: i, rv = st.t
+                expr = rv
+                if rv:
+                    pass
+                    l = 1
+                    if self.s[i:i + l] == "?": rv = "?"; i += l
+                    if rv:
+                        pass
+                        rv = self.peg.Maybe(expr)
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePEXPR6(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPEXPR6(self, i):
+        k = "ZPEXPR6", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3077,7 +3347,7 @@ class ZADDYParser(object):
                             if self.s[i:i + l] == ")": rv = ")"; i += l
                             if rv:
                                 pass
-                                rv = peg.Range(l(), u())
+                                rv = self.peg.Range(l, u)
         if not rv:
             i, rv = saved[-1]
             if rv:
@@ -3086,7 +3356,7 @@ class ZADDYParser(object):
                 if self.s[i:i + l] == ".any": rv = ".any"; i += l
                 if rv:
                     pass
-                    rv = peg.AnyChar()
+                    rv = self.peg.AnyChar()
             if pf: saved.pop()
         if not rv:
             i, rv = saved[-1]
@@ -3097,7 +3367,7 @@ class ZADDYParser(object):
                 c = rv
                 if rv:
                     pass
-                    rv = peg.Char(c())
+                    rv = self.peg.Char(c)
             if pf: saved.pop()
         if not rv:
             i, rv = saved[-1]
@@ -3108,7 +3378,7 @@ class ZADDYParser(object):
                 name = rv
                 if rv:
                     pass
-                    rv = peg.Call(name())
+                    rv = self.peg.Call(name)
             if pf: saved.pop()
         if not rv:
             i, rv = saved[-1]
@@ -3119,7 +3389,7 @@ class ZADDYParser(object):
                 s = rv
                 if rv:
                     pass
-                    rv = peg.String(s())
+                    rv = self.peg.String(s)
             if pf: saved.pop()
         if not rv:
             i, rv = saved[-1]
@@ -3142,12 +3412,181 @@ class ZADDYParser(object):
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
         return self.cache[k]
+    def parseZPPROD1(self, i):
+        k = "ZPPROD1", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = self.peg.Null()
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parsePPROD1(i)
+            if st is not failed: i, rv = st.t
+            this = rv
+            if rv:
+                pass
+                l = 1
+                if self.s[i:i + l] == "+": rv = "+"; i += l
+                if rv:
+                    pass
+                    st = self.parsePPROD2(i)
+                    if st is not failed: i, rv = st.t
+                    that = rv
+                    if rv:
+                        pass
+                        rv = self.peg.Plus(this, that)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parsePPROD2(i)
+                if st is not failed: i, rv = st.t
+                if rv:
+                    pass
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
+    def parseZPPROD2(self, i):
+        k = "ZPPROD2", i
+        if k in self.cache: return self.cache[k]
+        self.cache[k] = failed
+        saved = []
+        rv = self.peg.Null()
+        saved.append((i, rv))
+        if rv:
+            pass
+            st = self.parseID(i)
+            if st is not failed: i, rv = st.t
+            ty = rv
+            if rv:
+                pass
+                l = 1
+                if self.s[i:i + l] == ".": rv = "."; i += l
+                if rv:
+                    pass
+                    st = self.parseID(i)
+                    if st is not failed: i, rv = st.t
+                    con = rv
+                    if rv:
+                        pass
+                        l = 1
+                        if self.s[i:i + l] == "(": rv = "("; i += l
+                        if rv:
+                            pass
+                            st = self.parsePPROD1(i)
+                            if st is not failed: i, rv = st.t
+                            prod = rv
+                            if rv:
+                                pass
+                                pf = first = True
+                                rvs = []
+                                while pf:
+                                    saved.append((i, rv))
+                                    if rv:
+                                        pass
+                                        l = 1
+                                        if self.s[i:i + l] == ",": rv = ","; i += l
+                                        if rv:
+                                            pass
+                                            st = self.parsePPROD1(i)
+                                            if st is not failed: i, rv = st.t
+                                            if rv:
+                                                pass
+                                    if rv: rvs.append(rv)
+                                    pf = bool(rv)
+                                    first = False
+                                prods = rv
+                                if rv:
+                                    pass
+                                    l = 1
+                                    if self.s[i:i + l] == ")": rv = ")"; i += l
+                                    if rv:
+                                        pass
+                                        rv = self.peg.Con(ty, con, [prod] + prods)
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                l = 2
+                if self.s[i:i + l] == "[]": rv = "[]"; i += l
+                if rv:
+                    pass
+                    rv = self.peg.List([])
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                l = 1
+                if self.s[i:i + l] == "[": rv = "["; i += l
+                if rv:
+                    pass
+                    st = self.parsePPROD1(i)
+                    if st is not failed: i, rv = st.t
+                    expr = rv
+                    if rv:
+                        pass
+                        pf = first = True
+                        rvs = []
+                        while pf:
+                            saved.append((i, rv))
+                            if rv:
+                                pass
+                                l = 1
+                                if self.s[i:i + l] == ",": rv = ","; i += l
+                                if rv:
+                                    pass
+                                    st = self.parsePPROD1(i)
+                                    if st is not failed: i, rv = st.t
+                                    if rv:
+                                        pass
+                            if rv: rvs.append(rv)
+                            pf = bool(rv)
+                            first = False
+                        exprs = rv
+                        if rv:
+                            pass
+                            l = 1
+                            if self.s[i:i + l] == "]": rv = "]"; i += l
+                            if rv:
+                                pass
+                                rv = self.peg.List([expr] + exprs)
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseID(i)
+                if st is not failed: i, rv = st.t
+                s = rv
+                if rv:
+                    pass
+                    rv = self.peg.Name(s)
+            if pf: saved.pop()
+        if not rv:
+            i, rv = saved[-1]
+            if rv:
+                pass
+                st = self.parseSTRING(i)
+                if st is not failed: i, rv = st.t
+                s = rv
+                if rv:
+                    pass
+                    rv = self.peg.String(s)
+            if pf: saved.pop()
+        if rv:
+            self.cache[k] = Succeeded((i, rv))
+            self.lastMatch.append(k)
+        return self.cache[k]
     def parseZWS(self, i):
         k = "ZWS", i
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3184,6 +3623,7 @@ class ZADDYParser(object):
                         if rv:
                             pass
                     if pf: saved.pop()
+                if rv: rvs.append(rv)
                 pf = bool(rv)
                 first = False
             if rv:
@@ -3197,7 +3637,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3213,7 +3653,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3237,7 +3677,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3257,7 +3697,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3303,6 +3743,7 @@ class ZADDYParser(object):
                                 rv = self.s[i]; i += 1
                                 if rv:
                                     pass
+                        if rv: rvs.append(rv)
                         pf = bool(rv)
                         first = False
                     cs = rv
@@ -3311,7 +3752,7 @@ class ZADDYParser(object):
                         if ord(self.s[i]) == 39: rv = chr(39); i += 1
                         if rv:
                             pass
-                            rv = cs()
+                            rv = cs
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
@@ -3321,7 +3762,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3339,12 +3780,13 @@ class ZADDYParser(object):
                     while pf:
                         st = self.parseZDIGIT(i)
                         if st is not failed: i, rv = st.t
+                        if rv: rvs.append(rv)
                         pf = bool(rv)
                         first = False
                     ds = rv
                     if rv:
                         pass
-                        rv = d() + ds()
+                        rv = d + ds
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
@@ -3354,7 +3796,7 @@ class ZADDYParser(object):
         if k in self.cache: return self.cache[k]
         self.cache[k] = failed
         saved = []
-        rv = None
+        rv = self.peg.Null()
         saved.append((i, rv))
         if rv:
             pass
@@ -3386,12 +3828,13 @@ class ZADDYParser(object):
                                 if rv:
                                     pass
                             if pf: saved.pop()
+                        if rv: rvs.append(rv)
                         pf = bool(rv)
                         first = False
                     cs = rv
                     if rv:
                         pass
-                        rv = c() + cs()
+                        rv = c + cs
         if rv:
             self.cache[k] = Succeeded((i, rv))
             self.lastMatch.append(k)
