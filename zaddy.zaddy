@@ -1,368 +1,72 @@
-.syntax ZADDY
+.grammar ZADDY
 
-OUT1 = '*'     .out('ob += tb' .nl)
-     / '#'     .out('ob += str(len(tb))' .nl)
-     / STRING  .out('ob += ' 39 * 39 .nl)
-     / NUMBER  .out('ob += chr(' * ')' .nl)
-     / '.lm+'  .out('ms[-1] += 1' .nl)
-     / '.lm-'  .out('if ms[-1]: ms[-1] -= 1' .nl)
-     / '.lm?'  .out('ms.append(ms[-1])' .nl)
-     / '.lm!'  .out('ms.pop()' .nl)
-     / '.nl'   .out(
-       'lb += " " * (ms[-1] * 4) + ob + chr(10)' .nl
-       'ob = ""' .nl
-     ) ;
-OUTPUT = '.out' '(' $OUT1 ')' ;
+ZADDY := '.grammar' ID:name PRULE*:rules WS
+       -> py.Compound('class ' + name + 'Parser(object)', [
+                py.Compound('def __init__(self, s)',
+                            [py.Statement('self.s = s; self.lastMatch = []')]),
+                py.Statement('def parse(self): return self.parse' + name + '(0)')
+              ] + *rules) ;
 
-CX3 = NUMBER / SQUOTE .litchr ;
-CX2 = CX3 ( ':' .out(* ' <= ord(self.s[i]) <= ') CX3 .out(*)
-          / .empty .out('ord(self.s[i]) == ' *) ) ;
-CX1 = .out('pf = (i < len(self.s)) and ') CX2
-      $( '!' .out(' or ') CX2 ) .out(.nl) .post { ?pf } ;
+ZR := ID:name '='
+      ( FIELDS:fs -> zephyr.Product(name, fs)
+      / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons
+        ( 'attributes' FIELDS )?:attrs -> zephyr.Sum(name, attrs, con, cons) ) ;
+CONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
+FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> f + fs ;
+FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
+       / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
+       / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
 
-SCAN = .pre { +pf } {
-         .out('if tf: tb += self.s[i]' .nl)
-         .out('i += 1' .nl)
-       }
-       .pre { ?pf } {
-         .out('if pf:' .nl .lm+)
-         .out('if tf: tb += self.s[i]' .nl)
-         .out('i += 1' .nl .lm-)
-       } ;
-SUB = ID .out(
-        'rv = self.parse' * '(i, tf, ms[:], tb, ob, lb)' .nl
-        'pf = rv is not failed' .nl
-        'if pf: i, ms[-1], tb, ob, lb = rv.t' .nl
-      ) .top ;
+PRULE := ID:name ':=' PEXPR1:expr ';'
+       -> [py.Compound('def parse' + name + '(self, i)',
+                      [py.Statement('key = i'),
+                       py.Conditional('key in self.cache' + name,
+                        [py.Statement('if self.cache' + name + '[key] is failed: raise ParseError()'),
+                         py.Statement('return self.cache' + name + '[key].t')]),
+                       py.Statement('self.cache' + name + '[key] = failed'),
+                       py.Statement('st = []; rv = peg.Null()')]
+                    + expr +
+                      [py.Statement('self.lastMatch.append(("' + name + '", key))'),
+                       py.Statement('self.cache' + name + '[key] = self.Result' + name + '(i, rv)'),
+                       py.Statement('return i, rv')]),
+           py.Statement('cache' + name + ' = {}'),
+           py.Compound('class Result' + name + '(Result)',
+            [py.Statement('def __init__(self, i, rv): self.t = i, rv')])] ;
+PEXPR1 := PEXPR2:this '/' PEXPR1:that -> peg.Choice(this, that)
+        / PEXPR2 ;
+PEXPR2 := PEXPR3*:exprs '->' PPROD1:prod -> peg.Production(peg.Sequence(exprs), prod)
+        / PEXPR3*:exprs                  -> peg.Sequence(exprs) ;
+PEXPR3 := PEXPR4:expr ':' ID:name -> peg.Capture(expr, name)
+        / PEXPR4 ;
+PEXPR4 := '&' PEXPR5:expr -> peg.Positive(expr)
+        / '!' PEXPR5:expr -> peg.Negative(expr)
+        / PEXPR5 ;
+PEXPR5 := PEXPR6:expr '*' -> peg.Any(expr)
+        / PEXPR6:expr '?' -> peg.Maybe(expr)
+        / PEXPR6 ;
+PEXPR6 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
+        / '.any'                              -> peg.AnyChar
+        / NUMBER:c                            -> peg.Char(c)
+        / ID:name                             -> peg.Call(name)
+        / STRING:s                            -> peg.Token(s)
+        / '(' PEXPR1:expr ')'                 -> expr ;
+PPROD1 := PPROD2:this '+' PPROD1:that -> peg.Plus(this, that)
+        / PPROD2:this '%' PPROD1:that -> peg.Mod(this, that)
+        / PPROD2 ;
+PPROD2 := '*' PPROD3:prod -> peg.Flatten(prod)
+        / PPROD3 ;
+PPROD3 := ID:ty '.' ID:con
+          '(' PPROD1:prod ( ',' PPROD1 )*:prods ')' -> peg.Con(ty, con, [prod] + prods)
+        / ID:ty '.' ID:con                          -> peg.Con(ty, con, [])
+        / '[]'                                      -> peg.List([])
+        / '[' PPROD1:expr ( ',' PPROD1 )*:exprs ']' -> peg.List([expr] + exprs)
+        / ID:s                                      -> peg.Name(s)
+        / STRING:s                                  -> peg.String(s)
+        / '(' PPROD1:prod ')'                       -> prod ;
 
-SET = .pre { ~+pf } { .out('pf = True' .nl) } .post { +pf } ;
-
-SAVE = .out('saved.append((i, tf, ms[-1], tb, ob, lb))' .nl) ;
-BACKUP = .out('i, tf, ms[-1], tb, ob, lb = saved[-1]' .nl) ;
-COMMIT = .out('saved.pop()' .nl) ;
-
-TX3 = ( '.token'
-        .out('tb = ""' .nl)
-        .out('tf = True' .nl)
-      / '.tokout'
-        .out('tf = False' .nl)
-      / '$' SET .out('while pf:' .nl .lm+) .post { +pf } TX3 .out(.lm-) .post { -pf } ) SET
-    / '.empty' SET
-    / '.not(' CX1 ')' .out('pf = (i < len(self.s)) and not pf' .nl) .post { ?pf } SCAN
-    / '.any(' CX1 ')' SCAN
-    / SUB
-    / '(' TX1 ')' ;
-TX2 = .out(.lm?) TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf }
-      $( TX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf } )
-      .out(.lm!) ;
-TX1 = SAVE TX2
-      $( '/' .out('if not pf:' .nl .lm+) .post { -pf }
-         BACKUP TX2 .post { ?pf } .out(.lm-) ) COMMIT ;
-TR = ID .out(
-       'def parse' * '(self, i, tf, ms, tb, ob, lb):' .nl .lm+
-       'k = "' * '", i, tf, ms[-1], tb, ob, lb' .nl
-       'if k in self.cache: return self.cache[k]' .nl
-       'self.cache[k] = failed' .nl
-       'saved = []' .nl
-     )
-     ':' .top SET TX1 ';'
-     .out(
-       'if pf:' .nl .lm+
-       'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))' .nl
-       'self.lastMatch.append((k[0], k[1]))' .nl .lm-
-       'return self.cache[k]' .nl .lm-
-     ) ;
-
-TVAR = '~' .out('(not ') TVAR .out(')')
-     / '?' ID .out('(self.a' * ' == 0)')
-     / '+' ID .out('(self.a' * ' == 1)')
-     / '-' ID .out('(self.a' * ' == 2)') ;
-AVAR = '?' ID .out('self.a' * ' = 0' .nl)
-     / '+' ID .out('self.a' * ' = 1' .nl)
-     / '-' ID .out('self.a' * ' = 2' .nl) ;
-EX3 = SUB
-    / STRING .out(
-      'while i < len(self.s) and self.s[i] in (" " + chr(10)): i += 1' .nl
-      'stop = i + ' # .nl
-      'if stop > len(self.s): pf = False' .nl
-      'else: pf = self.s[i:stop] == "' * '"' .nl
-      'if pf: i = stop' .nl
-    ) .post { ?pf }
-    / '(' EX1 ')'
-    / '.pre' '{' .out('if ') TVAR
-      $( ',' .out(' and ') TVAR ) .out(':' .nl .lm+ 'pass' .nl) '}'
-      '{' EX1 '}' .out(.lm-)
-    / '.post' '{' AVAR $( ',' AVAR ) '}'
-    / '.top' .out('self.top()' .nl)
-    / '.empty' SET
-    / '.litchr' SET .out(
-      'tb = str(ord(self.s[i]))' .nl
-      'i += 1' .nl
-    )
-    / '.pass' .out('i = 0' .nl)
-    / '$' SET .out('while pf:' .nl .lm+) .post { +pf }
-      EX3 .out(.lm-) .post { -pf } SET ;
-EX2 = .out(.lm?)
-      ( EX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf } / OUTPUT )
-      $( EX3 .out('if pf:' .nl .lm+ 'pass' .nl) .post { +pf } / OUTPUT )
-      .out(.lm!) .post { ?pf } ;
-EX1 = SAVE EX2
-      $( '/' .out('if not pf:' .nl .lm+) .post { -pf }
-         BACKUP EX2 .post { ?pf } .out(.lm-) ) COMMIT ;
-
-PR = ID .out(
-       'def parse' * '(self, i, tf, ms, tb, ob, lb):' .nl .lm+
-       'k = "' * '", i, tf, ms[-1], tb, ob, lb' .nl
-       'if k in self.cache: return self.cache[k]' .nl
-       'self.cache[k] = failed' .nl
-       'saved = []' .nl
-     )
-     '=' .top SET EX1 ';'
-     .out(
-       'if pf:' .nl .lm+
-       'self.cache[k] = Succeeded((i, ms[-1], tb, ob, lb))' .nl
-       'self.lastMatch.append((k[0], k[1]))' .nl .lm-
-       'return self.cache[k]' .nl .lm-
-     ) ;
-
-TY = 'bool' .out('0') ;
-DR = ID ':' .out('self.a' * ' = ') TY ';' .out(.nl) ;
-
-PROLOGUE = .out(
-             'from rpython.rlib.rfile import create_stdio' .nl
-             'class Status(object): pass' .nl
-             'class Failed(Status): pass' .nl
-             '# i, ms[-1], tb, ob, lb' .nl
-             'class Succeeded(Status):' .nl .lm+
-             'def __init__(self, t): self.t = t' .nl .lm-
-             'failed = Failed()' .nl
-             'class Py(object):' .nl .lm+
-             'm = 0' .nl
-             'def indent(self): self.m += 1' .nl
-             'def dedent(self): self.m -= 1' .nl
-             'def line(self, s): return " " * self.m + s' .nl .lm-
-             'class Compound(Py):' .nl .lm+
-             'def __init__(self, head, block): self.head = head; self.block = block' .nl
-             'def out(self, buf):' .nl .lm+
-             'if self.block:' .nl .lm+
-             'buf.append(self.line(self.head + ":"))' .nl
-             'self.indent()' .nl
-             'for b in self.block: b.out(buf)' .nl
-             'self.dedent()' .nl .lm-
-             'else: buf.append(self.line(self.head + ": pass"))' .nl .lm- .lm-
-             'class Conditional(Py):' .nl .lm+
-             'def __init__(self, test, block): self.test = test; self.block = block' .nl
-             'def out(self, buf):' .nl .lm+
-             'if not self.block: return' .nl
-             'buf.append(self.line("if " + self.test + ":"))' .nl
-             'self.indent()' .nl
-             'for b in self.block: b.out(buf)' .nl
-             'self.dedent()' .nl .lm- .lm-
-             'class Statement(Py):' .nl .lm+
-             'def __init__(self, s): self.s = s' .nl
-             'def out(self, buf): buf.append(self.line(self.s))' .nl .lm-
-             'class Builder(object):' .nl .lm+
-             'def Compound(self, head, block): return Compound(head, block)' .nl
-             'def Conditional(self, test, block): return Conditional(test, block)' .nl
-             'def Statement(self, line): return Statement(line)' .nl .lm-
-             'py = Builder()' .nl
-             'save = Statement("saved.append((i, rv))")' .nl
-             'backup = Statement("i, rv = saved[-1]")' .nl
-             'commit = Conditional("pf", [Statement("saved.pop()")])' .nl
-             'class PEG(object):' .nl .lm+
-             'def Con(self, ty, con, prods): return "self." + ty + "." + con + "(" + ", ".join(prods) + ")"' .nl
-             'def Plus(self, left, right): return left + " + " + right' .nl
-             'def Name(self, s): return s' .nl
-             'def String(self, s): return chr(34) + s + chr(34)' .nl
-             'def List(self, prods): return "[" + ", ".join(prods) + "]"' .nl
-             'def Null(self): return []' .nl
-             'def AnyChar(self): return [py.Statement("rv = self.s[i]; i += 1")]' .nl
-             'def Char(self, i): return [py.Statement("if ord(self.s[i]) == " + str(i) + ": rv = self.s[i]; i += 1")]' .nl
-             'def Range(self, l, u): return [py.Statement("if " + str(l) + " <= ord(self.s[i]) <= " + str(u) + ": rv = self.s[i]; i += 1")]' .nl
-             'def Call(self, s): return [py.Statement("st = self.parse" + s + "(i); if st is not failed: i, rv = st.t")]' .nl
-             'def Sequence(self, exprs):' .nl .lm+
-             'rv = []' .nl
-             'for expr in reversed(exprs): rv = [py.Conditional("rv", rv)]' .nl
-             'return rv' .nl .lm-
-             'def Choice(self, this, that): return [this, py.Conditional("not rv", [that])]' .nl
-             'def Any(self, expr):' .nl .lm+
-             'return [py.Statement("pf = True; rvs = []"), py.Compound("while pf", [expr, py.Statement("if rv: rvs.append(rv)"), py.Statement("pf = bool(rv)")])]' .nl .lm-
-             'Some = Any' .nl
-             'def Maybe(self, expr): return [save, expr, py.Conditional("not rv", [backup]), commit]' .nl
-             'def Positive(self, expr): return [save, expr, backup]' .nl
-             'Negative = Positive' .nl
-             'def Capture(self, expr, name): return [expr, py.Conditional("rv", [py.Statement(name + " = rv")])]' .nl
-             'def Production(self, expr, prod): return [expr, py.Statement("rv = " + prod)]' .nl .lm-
-           ) ;
-
-ZADDY = PROLOGUE
-        $( ( '.grammar' / '.syntax' ) ID
-           .out(
-             'def main(argv):' .nl .lm+
-             'stdin, stdout, stderr = create_stdio()' .nl
-             'parser = ' * 'Parser(stdin.read())' .nl
-             'status = parser.parse()' .nl
-             'if status is failed:' .nl .lm+
-             'start = max(len(parser.lastMatch) - 5, 0)' .nl
-             'for k, i in parser.lastMatch[start:]:' .nl .lm+
-             'lineNumber = parser.s.count(chr(10), 0, i) + 1' .nl
-             't = k, i, lineNumber' .nl
-             'stderr.write(("Last successful match:' 39 '%s, %d (line %d)' 39 '" % t) + chr(10))' .nl .lm-
-             'return 1' .nl .lm-
-             'else:' .nl .lm+
-             '_, _, _, _, lb = status.t' .nl
-             'stdout.write(lb)' .nl
-             'return 0' .nl .lm- .lm-
-             'def target(driver, *args):' .nl .lm+
-             'driver.exe_name = "' * '".lower() + "c"' .nl
-             'return main, None' .nl .lm-
-             'class ' * 'Parser(object):' .nl .lm+
-             'peg = PEG()' .nl
-             'py = py' .nl
-             'def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}; self.top()' .nl
-             'def parse(self):' .nl .lm+
-             'self.top()' .nl
-             '# i, tf, ms, tb, ob, lb' .nl
-             'return self.parse' * '(0, False, [0], "", "", "")' .nl .lm-
-           )
-           $( PRULE / PR ) ( '.tokens' $TR / .empty )
-           .out('def top(self):' .nl .lm+ 'pass' .nl)
-           ( '.domain' $DR / .empty ) .out(.lm- .lm-)
-         )
-        '.end' ;
-
-ZSAVE = .out('saved.append((i, rv))' .nl) ;
-ZBACKUP = .out('i, rv = saved[-1]' .nl) ;
-ZCOMMIT = .out('if pf: saved.pop()' .nl) ;
-
-PRULE = ID .out(
-          'def parse' * '(self, i):' .nl .lm+
-          'k = "' * '", i' .nl
-          'if k in self.cache: return self.cache[k]' .nl
-          'self.cache[k] = failed' .nl
-          'saved = []' .nl
-        )
-        ( ':str' .out('rv = ""' .nl) / .empty .out('rv = self.peg.Null()' .nl) )
-        ':=' PEXPR1 ';' .out(
-          'if rv:' .nl .lm+
-          'self.cache[k] = Succeeded((i, rv))' .nl
-          'self.lastMatch.append(k)' .nl .lm-
-          'return self.cache[k]' .nl .lm-
-        ) ;
-PEXPR1 = ZSAVE PEXPR2
-         $( '/' .out('if not rv:' .nl .lm+)
-            ZBACKUP PEXPR2 ZCOMMIT .out(.lm-) ) ;
-PEXPR2 = .out(.lm?)
-         $( .out('if rv:' .nl .lm+ 'pass' .nl) PEXPR3 ( ':' ID .out(* ' = rv' .nl) / .empty ) )
-         ( '->' .out('rv = ') PPROD1 .out(.nl) / .empty )
-         .out(.lm!) ;
-PPROD1 = PPROD2 $( '+' .out(' + ') PPROD1 ) ;
-PPROD2 = '[]' .out('[]')
-       / '[' .out('[') PPROD1 $( ',' .out(', ') PPROD1 ) ']' .out(']')
-       / STRING .out('"' * '"')
-       / ID '.' .out('self.' * '.') ID .out(*)
-         ( '(' .out('(') PPROD1 $( ',' .out(', ') PPROD1 ) ')' .out(')')
-         / .empty .out('()') )
-       / ID .out(*) ;
-PEXPR3 = '&' ZSAVE PEXPR4 ZBACKUP
-       / '!' ZSAVE PEXPR4 ZBACKUP
-       / PEXPR4 ;
-PEXPR4 = .out(
-           'pf = first = True' .nl
-           'rvs = []' .nl
-           'while pf:' .nl .lm+
-         )
-         PEXPR5
-         .out(
-           'if rv: rvs.append(rv)' .nl
-           'pf = bool(rv)' .nl
-         )
-         ( '+' .out('pf = pf or not first' .nl)
-         / '*' )
-         .out('first = False' .nl)
-         .out(.lm-)
-       / ZSAVE PEXPR5 '?'
-         .out('if not rv:' .nl .lm+) ZBACKUP .out(.lm-)
-         ZCOMMIT
-       / PEXPR5 ;
-PEXPR5 = '.range(' NUMBER .out('if ' * ' <= ord(self.s[i]) <= ')
-         ':' NUMBER ')' .out(* ': rv = self.s[i]; i += 1' .nl)
-       / '.any' .out('rv = self.s[i]; i += 1' .nl)
-       / NUMBER .out('if ord(self.s[i]) == ' * ': rv = chr(' * '); i += 1' .nl)
-       / ID .out(
-           'st = self.parse' * '(i)' .nl
-           'if st is not failed: i, rv = st.t' .nl
-         )
-       / STRING .out(
-           'l = ' # .nl
-           'if self.s[i:i + l] == "' * '": rv = "' * '"; i += l' .nl
-         )
-       / '(' PEXPR1 ')' ;
-
-ZZADDY := ( '.syntax' / '.grammar' ) ID:name PRULE*:rules
-       -> py.Compound('class ' + name + 'Parser(object):', [
-                        py.Statement('def __init__(self, s): self.s = s; self.lastMatch = []; self.cache = {}'),
-                        py.Statement('def parse(self): return self.parse' + name + '(0)')
-                      ] + rules) ;
-
-ZZR := ID:name '='
-       ( FIELDS:fs -> zephyr.Product(name, fs)
-       / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons
-         ( 'attributes' FIELDS )?:attrs -> zephyr.Sum(name, attrs, con, cons) ) ;
-ZCONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
-ZFIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> f + fs ;
-ZFIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
-        / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
-        / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
-
-ZPRULE := ID:name ':=' PEXPR1:expr ';' -> py.Compound('def parse' + name + '(self, i):', expr) ;
-ZPEXPR1 := PEXPR2:this '/' PEXPR2:that -> peg.Choice(this, that)
-         / PEXPR2 ;
-ZPEXPR2 := PEXPR3*:exprs '->' PPROD1:prod -> peg.Production(peg.Sequence(exprs), prod)
-         / PEXPR3*:exprs                  -> peg.Sequence(exprs) ;
-ZPEXPR3 := PEXPR4:expr ':' ID:name -> peg.Capture(expr, name)
-         / PEXPR4 ;
-ZPEXPR4 := '&' PEXPR5:expr -> peg.Positive(expr)
-         / '!' PEXPR5:expr -> peg.Negative(expr)
-         / PEXPR5 ;
-ZPEXPR5 := PEXPR6:expr '*' -> peg.Any(expr)
-         / PEXPR6:expr '?' -> peg.Maybe(expr)
-         / PEXPR6 ;
-ZPEXPR6 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
-         / '.any'                              -> peg.AnyChar
-         / NUMBER:c                            -> peg.Char(c)
-         / ID:name                             -> peg.Call(name)
-         / STRING:s                            -> peg.String(s)
-         / '(' PEXPR1 ')' ;
-ZPPROD1 := PPROD1:this '+' PPROD2:that -> peg.Plus(this, that)
-         / PPROD2 ;
-ZPPROD2 := ID:ty '.' ID:con
-           '(' PPROD1:prod ( ',' PPROD1 )*:prods ')' -> peg.Con(ty, con, [prod] + prods)
-         / '[]'                                      -> peg.List([])
-         / '[' PPROD1:expr ( ',' PPROD1 )*:exprs ']' -> peg.List([expr] + exprs)
-         / ID:s                                      -> peg.Name(s)
-         / STRING:s                                  -> peg.String(s) ;
-
-ZWS := ( 9 / 10 / 13 / 32 )* ;
-ZDIGIT := .range(48:57) ;
-ZALPHA := .range(65:90) / .range(97:122) ;
-ZSQUOTE := WS 39 ;
-ZSTRING := WS 39 ( !( 10 / 13 / 39 ) .any )*:cs 39 -> cs ;
-ZNUMBER := WS ZDIGIT:d ZDIGIT*:ds -> d + ds ;
-ZID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> c + cs ;
-
-.tokens
-
-WS     : $.any(9!10!13!32) ;
-DIGIT  : .any('0:'9) ;
-ALPHA  : .any('A:'Z!'a:'z) ;
-SQUOTE : WS .any(39) ;
-STRING : WS .any(39) .token $.not(10!13!39) .tokout .any(39) ;
-NUMBER : WS .token DIGIT $DIGIT .tokout ;
-ID     : WS .token ALPHA $( ALPHA / DIGIT ) .tokout ;
-
-.domain
-
-pf : bool ;
-
-.end
+WS := ( 9 / 10 / 13 / 32 )* ;
+DIGIT := .range(48:57) ;
+ALPHA := .range(65:90) / .range(97:122) ;
+STRING := WS 39 ( !( 10 / 13 / 39 ) .any )*:cs 39 -> cs % '' ;
+NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] + ds) % '' ;
+ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] + cs) % '' ;
