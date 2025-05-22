@@ -18,33 +18,23 @@ FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
        / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
 
 PRULE := ID:name ':=' PEXPR1:expr ';'
-       -> [py.Compound('def parse' + name + '(self, i)',
-                      [py.Statement('key = i'),
-                       py.Conditional('key in self.cache' + name,
-                        [py.Statement('if self.cache' + name + '[key] is failed: raise ParseError()'),
-                         py.Statement('return self.cache' + name + '[key].t')]),
-                       py.Statement('self.cache' + name + '[key] = failed'),
-                       py.Statement('st = []; rv = peg.Null()')]
-                    + expr +
-                      [py.Statement('self.lastMatch.append(("' + name + '", key))'),
-                       py.Statement('self.cache' + name + '[key] = self.Result' + name + '(i, rv)'),
-                       py.Statement('return i, rv')]),
-           py.Statement('cache' + name + ' = {}'),
-           py.Compound('class Result' + name + '(Result)',
-            [py.Statement('def __init__(self, i, rv): self.t = i, rv')])] ;
+       -> [py.Statement('@cached'),
+           py.Compound('def parse' + name + '(self, i)',
+           [py.Statement('st = []')] + expr + [py.Statement('return i, rv')])] ;
 PEXPR1 := PEXPR2:this '/' PEXPR1:that -> peg.Choice(this, that)
         / PEXPR2 ;
-PEXPR2 := PEXPR3*:exprs '->' PPROD1:prod -> peg.Production(peg.Sequence(exprs), prod)
-        / PEXPR3*:exprs                  -> peg.Sequence(exprs) ;
-PEXPR3 := PEXPR4:expr ':' ID:name -> peg.Capture(expr, name)
-        / PEXPR4 ;
-PEXPR4 := '&' PEXPR5:expr -> peg.Positive(expr)
-        / '!' PEXPR5:expr -> peg.Negative(expr)
+PEXPR2 := PEXPR3:exprs '->' PPROD1:prod -> peg.Production(exprs, prod)
+        / PEXPR3 ;
+PEXPR3 := PEXPR4*:exprs -> peg.Sequence(exprs) ;
+PEXPR4 := PEXPR5:expr ':' ID:name -> peg.Capture(expr, name)
         / PEXPR5 ;
-PEXPR5 := PEXPR6:expr '*' -> peg.Any(expr)
-        / PEXPR6:expr '?' -> peg.Maybe(expr)
+PEXPR5 := '&' PEXPR6:expr -> peg.Positive(expr)
+        / '!' PEXPR6:expr -> peg.Negative(expr)
         / PEXPR6 ;
-PEXPR6 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
+PEXPR6 := PEXPR7:expr '*' -> peg.Any(expr)
+        / PEXPR7:expr '?' -> peg.Maybe(expr)
+        / PEXPR7 ;
+PEXPR7 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
         / '.any'                              -> peg.AnyChar
         / NUMBER:c                            -> peg.Char(c)
         / ID:name                             -> peg.Call(name)

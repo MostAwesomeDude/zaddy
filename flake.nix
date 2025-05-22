@@ -53,7 +53,9 @@
         bfc = mk "bf.zaddy" "bfc";
       };
       devShells.default = pkgs.mkShell {
-        packages = [ ];
+        packages = with pkgs; [
+          gdb
+        ];
       };
     });
 }
