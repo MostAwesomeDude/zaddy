@@ -60,67 +60,18 @@ class Builder(object):
     def Handler(self, block, handler): return Handler(block, handler)
     def Statement(self, line): return Statement(line)
 py = Builder()
-save = Statement("st.append(i)")
-backup = Statement("i = st.pop()")
-boundcheck = Statement("if i >= len(self.s): raise ParseError()")
-class PEG(object):
-    def Con(self, ty, con, prods): return ty + "." + con + "(" + ", ".join(prods) + ")"
-    def Plus(self, left, right): return left + " + " + right
-    def Mod(self, left, right): return right + ".join(" + left + ")"
-    def Flatten(self, l): return "flatten(" + l + ")"
-    def Name(self, s): return s
-    def String(self, s): return "'" + s + "'"
-    def List(self, prods): return "[" + ", ".join(prods) + "]"
-
-    def Null(self): return []
-    def AnyChar(self): return [boundcheck, py.Statement("rv = self.s[i]; i += 1")]
-    def Char(self, i):
-        return [boundcheck, py.Statement("if ord(self.s[i]) != " + str(i) + ": raise ParseError()"),
-                py.Statement("rv = self.s[i]; i += 1")]
-    def Range(self, l, u):
-        return [boundcheck, py.Statement("if not (" + str(l) + " <= ord(self.s[i]) <= " + str(u) + "): raise ParseError()"),
-                py.Statement("rv = self.s[i]; i += 1")]
-    def Token(self, s):
-        return [boundcheck, py.Statement("while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1"),
-                boundcheck, py.Statement("if self.s[i:i + %d] != \"%s\": raise ParseError()" % (len(s), s)),
-                py.Statement("rv = \"%s\"; i += %d" % (s, len(s)))]
-    def Call(self, s): return [py.Statement("i, rv = self.parse" + s + "(i)")]
-    def Sequence(self, exprs): return flatten(exprs)
-    def Choice(self, this, that): return [save] + [py.Handler(this, [backup] + that)]
-    def Any(self, expr):
-        return [py.Statement("rvs = []"),
-                py.Compound("while True",
-                            [save, py.Handler(expr +
-                                        [py.Statement("rvs.append(rv)")],
-                                        [backup, py.Statement("break")])]),
-                py.Statement("rv = rvs")]
-    def Some(self, expr):
-        return self.Any(expr) + [py.Statement("if not rv: raise ParseError()")]
-    def Maybe(self, expr):
-        return [save, py.Handler(expr, [py.Statement("rv = peg.Null()"), backup])]
-    def Positive(self, expr):
-        return [save, py.Handler(expr + [py.Statement("rv = True")],
-                                 [py.Statement("rv = False")]),
-                backup, py.Statement("if not rv: raise ParseError()")]
-    def Negative(self, expr):
-        return [save, py.Handler(expr + [py.Statement("rv = True")],
-                                 [py.Statement("rv = False")]),
-                backup, py.Statement("if rv: raise ParseError()")]
-    def Capture(self, expr, name): return expr + [py.Statement(name + " = rv")]
-    def Production(self, expr, prod): return expr + [py.Statement("rv = " + prod)]
-peg = PEG()
-selfSrc = open(__file__, "rb").read().split("\n")[:145]
+selfSrc = open(__file__, "rb").read().split("\n")[:95]
 def main(argv):
     stdin, stdout, stderr = create_stdio()
     parser = ZADDYParser(stdin.read())
     try:
-        i, rule = parser.parse()
+        i, rules = parser.parse()
         if i != len(parser.s):
             stderr.write(("Failed to consume all input; ended at %d of %d\n")
                          % (i, len(parser.s)))
             raise ParseError()
         buf = selfSrc[:]
-        rule.out(buf, 0)
+        for rule in rules: rule.out(buf, 0)
         stdout.write("\n".join(buf))
         stderr.write("Wrote %d lines to stdout\n" % len(buf))
         return 0
@@ -141,16 +92,552 @@ class ParseError(Exception): pass
 
 
 
-# XXX
 
-
-
+class productionFunctor(object):
+    def Con(self, ty, con, prods):
+        return ty + '.' + con + '(' + ', '.join(prods) + ')'
+    def Plus(self, left, right):
+        return left + ' + ' + right
+    def Mod(self, left, right):
+        return right + '.join(' + left + ')'
+    def Flatten(self, l):
+        return 'flatten(' + l + ')'
+    def Name(self, s):
+        return s
+    def String(self, s):
+        return chr(39) + s + chr(39)
+    def List(self, prods):
+        return '[' + ', '.join(prods) + ']'
+    def Length(self, s):
+        return 'str(len(' + s + '))'
+    def Chr(self, n):
+        return 'chr(' + n + ')'
+production = productionFunctor()
+save = py.Statement('st.append(i)')
+backup = py.Statement('i = st.pop()')
+boundcheck = py.Statement('if i >= len(self.s): raise ParseError()')
+class pegFunctor(object):
+    def Null(self):
+        return []
+    def AnyChar(self):
+        return [boundcheck, py.Statement('rv = self.s[i]; i += 1')]
+    def Char(self, i):
+        return [boundcheck, py.Statement('if ord(self.s[i]) != ' + i + ': raise ParseError()'), py.Statement('rv = self.s[i]; i += 1')]
+    def Range(self, l, u):
+        return [boundcheck, py.Statement('if not (' + l + ' <= ord(self.s[i]) <= ' + u + '): raise ParseError()'), py.Statement('rv = self.s[i]; i += 1')]
+    def Token(self, s):
+        return [boundcheck, py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'), boundcheck, py.Statement('if self.s[i:i + ' + str(len(s)) + '] != "' + s + '": raise ParseError()'), py.Statement('rv = "' + s + '"; i += ' + str(len(s)))]
+    def Call(self, s):
+        return [py.Statement('i, rv = self.parse' + s + '(i)')]
+    def Sequence(self, exprs):
+        return flatten(exprs)
+    def Choice(self, this, that):
+        return [save, py.Handler(this, [backup] + that)]
+    def Any(self, expr):
+        return [py.Statement('rvs = []'), py.Compound('while True', [save, py.Handler(expr + [py.Statement('rvs.append(rv)')], [backup, py.Statement('break')])]), py.Statement('rv = rvs')]
+    def Some(self, expr):
+        return [py.Statement('rvs = []'), py.Compound('while True', [save, py.Handler(expr + [py.Statement('rvs.append(rv)')], [backup, py.Statement('break')])]), py.Statement('rv = rvs'), py.Statement('if not rv: raise ParseError()')]
+    def Maybe(self, expr):
+        return [save, py.Handler(expr, [py.Statement('rv = peg.Null()'), backup])]
+    def Positive(self, expr):
+        return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.Statement('if not rv: raise ParseError()')]
+    def Negative(self, expr):
+        return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.Statement('if rv: raise ParseError()')]
+    def Capture(self, expr, name):
+        return expr + [py.Statement(name + ' = rv')]
+    def Production(self, expr, prod):
+        return expr + [py.Statement('rv = ' + prod)]
+peg = pegFunctor()
 class ZADDYParser(object):
     def __init__(self, s):
         self.s = s; self.lastMatch = []
     def parse(self): return self.parseZADDY(0)
     @cached
-    def parseZADDY(self, i):
+    def parseWS(self, i):
+        st = []
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                st.append(i)
+                try:
+                    if i >= len(self.s): raise ParseError()
+                    if ord(self.s[i]) != 9: raise ParseError()
+                    rv = self.s[i]; i += 1
+                except ParseError:
+                    i = st.pop()
+                    st.append(i)
+                    try:
+                        if i >= len(self.s): raise ParseError()
+                        if ord(self.s[i]) != 10: raise ParseError()
+                        rv = self.s[i]; i += 1
+                    except ParseError:
+                        i = st.pop()
+                        st.append(i)
+                        try:
+                            if i >= len(self.s): raise ParseError()
+                            if ord(self.s[i]) != 13: raise ParseError()
+                            rv = self.s[i]; i += 1
+                        except ParseError:
+                            i = st.pop()
+                            if i >= len(self.s): raise ParseError()
+                            if ord(self.s[i]) != 32: raise ParseError()
+                            rv = self.s[i]; i += 1
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        return i, rv
+    @cached
+    def parseDIGIT(self, i):
+        st = []
+        if i >= len(self.s): raise ParseError()
+        if not (48 <= ord(self.s[i]) <= 57): raise ParseError()
+        rv = self.s[i]; i += 1
+        return i, rv
+    @cached
+    def parseALPHA(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            if not (65 <= ord(self.s[i]) <= 90): raise ParseError()
+            rv = self.s[i]; i += 1
+        except ParseError:
+            i = st.pop()
+            if i >= len(self.s): raise ParseError()
+            if not (97 <= ord(self.s[i]) <= 122): raise ParseError()
+            rv = self.s[i]; i += 1
+        return i, rv
+    @cached
+    def parseSTRING(self, i):
+        st = []
+        i, rv = self.parseWS(i)
+        if i >= len(self.s): raise ParseError()
+        if ord(self.s[i]) != 39: raise ParseError()
+        rv = self.s[i]; i += 1
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                st.append(i)
+                try:
+                    st.append(i)
+                    try:
+                        if i >= len(self.s): raise ParseError()
+                        if ord(self.s[i]) != 10: raise ParseError()
+                        rv = self.s[i]; i += 1
+                    except ParseError:
+                        i = st.pop()
+                        st.append(i)
+                        try:
+                            if i >= len(self.s): raise ParseError()
+                            if ord(self.s[i]) != 13: raise ParseError()
+                            rv = self.s[i]; i += 1
+                        except ParseError:
+                            i = st.pop()
+                            if i >= len(self.s): raise ParseError()
+                            if ord(self.s[i]) != 39: raise ParseError()
+                            rv = self.s[i]; i += 1
+                    rv = True
+                except ParseError:
+                    rv = False
+                i = st.pop()
+                if rv: raise ParseError()
+                if i >= len(self.s): raise ParseError()
+                rv = self.s[i]; i += 1
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        cs = rv
+        if i >= len(self.s): raise ParseError()
+        if ord(self.s[i]) != 39: raise ParseError()
+        rv = self.s[i]; i += 1
+        rv = ''.join(cs)
+        return i, rv
+    @cached
+    def parseNUMBER(self, i):
+        st = []
+        i, rv = self.parseWS(i)
+        i, rv = self.parseDIGIT(i)
+        d = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                i, rv = self.parseDIGIT(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        ds = rv
+        rv = ''.join([d] + ds)
+        return i, rv
+    @cached
+    def parseID(self, i):
+        st = []
+        i, rv = self.parseWS(i)
+        i, rv = self.parseALPHA(i)
+        c = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                st.append(i)
+                try:
+                    i, rv = self.parseALPHA(i)
+                except ParseError:
+                    i = st.pop()
+                    i, rv = self.parseDIGIT(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        cs = rv
+        rv = ''.join([c] + cs)
+        return i, rv
+    @cached
+    def parsePROD1(self, i):
+        st = []
+        st.append(i)
+        try:
+            i, rv = self.parsePROD2(i)
+            this = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "+": raise ParseError()
+            rv = "+"; i += 1
+            i, rv = self.parsePROD1(i)
+            that = rv
+            rv = production.Plus(this, that)
+        except ParseError:
+            i = st.pop()
+            st.append(i)
+            try:
+                i, rv = self.parsePROD2(i)
+                this = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != "%": raise ParseError()
+                rv = "%"; i += 1
+                i, rv = self.parsePROD1(i)
+                that = rv
+                rv = production.Mod(this, that)
+            except ParseError:
+                i = st.pop()
+                i, rv = self.parsePROD2(i)
+        return i, rv
+    @cached
+    def parsePROD2(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "*": raise ParseError()
+            rv = "*"; i += 1
+            i, rv = self.parsePROD3(i)
+            prod = rv
+            rv = production.Flatten(prod)
+        except ParseError:
+            i = st.pop()
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != "#": raise ParseError()
+                rv = "#"; i += 1
+                i, rv = self.parsePROD3(i)
+                prod = rv
+                rv = production.Length(prod)
+            except ParseError:
+                i = st.pop()
+                i, rv = self.parsePROD3(i)
+        return i, rv
+    @cached
+    def parsePROD3(self, i):
+        st = []
+        st.append(i)
+        try:
+            i, rv = self.parseID(i)
+            ty = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != ".": raise ParseError()
+            rv = "."; i += 1
+            i, rv = self.parseID(i)
+            con = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "(": raise ParseError()
+            rv = "("; i += 1
+            i, rv = self.parsePROD1(i)
+            prod = rv
+            rvs = []
+            while True:
+                st.append(i)
+                try:
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != ",": raise ParseError()
+                    rv = ","; i += 1
+                    i, rv = self.parsePROD1(i)
+                    rvs.append(rv)
+                except ParseError:
+                    i = st.pop()
+                    break
+            rv = rvs
+            prods = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != ")": raise ParseError()
+            rv = ")"; i += 1
+            rv = production.Con(ty, con, [prod] + prods)
+        except ParseError:
+            i = st.pop()
+            st.append(i)
+            try:
+                i, rv = self.parseID(i)
+                ty = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != ".": raise ParseError()
+                rv = "."; i += 1
+                i, rv = self.parseID(i)
+                con = rv
+                rv = production.Con(ty, con, [])
+            except ParseError:
+                i = st.pop()
+                st.append(i)
+                try:
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 2] != "[]": raise ParseError()
+                    rv = "[]"; i += 2
+                    rv = production.List([])
+                except ParseError:
+                    i = st.pop()
+                    st.append(i)
+                    try:
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != "[": raise ParseError()
+                        rv = "["; i += 1
+                        i, rv = self.parsePROD1(i)
+                        expr = rv
+                        rvs = []
+                        while True:
+                            st.append(i)
+                            try:
+                                if i >= len(self.s): raise ParseError()
+                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                if i >= len(self.s): raise ParseError()
+                                if self.s[i:i + 1] != ",": raise ParseError()
+                                rv = ","; i += 1
+                                i, rv = self.parsePROD1(i)
+                                rvs.append(rv)
+                            except ParseError:
+                                i = st.pop()
+                                break
+                        rv = rvs
+                        exprs = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != "]": raise ParseError()
+                        rv = "]"; i += 1
+                        rv = production.List([expr] + exprs)
+                    except ParseError:
+                        i = st.pop()
+                        st.append(i)
+                        try:
+                            i, rv = self.parseID(i)
+                            s = rv
+                            rv = production.Name(s)
+                        except ParseError:
+                            i = st.pop()
+                            st.append(i)
+                            try:
+                                i, rv = self.parseSTRING(i)
+                                s = rv
+                                rv = production.String(s)
+                            except ParseError:
+                                i = st.pop()
+                                st.append(i)
+                                try:
+                                    i, rv = self.parseNUMBER(i)
+                                    n = rv
+                                    rv = production.Chr(n)
+                                except ParseError:
+                                    i = st.pop()
+                                    if i >= len(self.s): raise ParseError()
+                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                    if i >= len(self.s): raise ParseError()
+                                    if self.s[i:i + 1] != "(": raise ParseError()
+                                    rv = "("; i += 1
+                                    i, rv = self.parsePROD1(i)
+                                    prod = rv
+                                    if i >= len(self.s): raise ParseError()
+                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                    if i >= len(self.s): raise ParseError()
+                                    if self.s[i:i + 1] != ")": raise ParseError()
+                                    rv = ")"; i += 1
+                                    rv = prod
+        return i, rv
+    @cached
+    def parseFUNCTOR(self, i):
+        st = []
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 8] != ".functor": raise ParseError()
+        rv = ".functor"; i += 8
+        i, rv = self.parseID(i)
+        name = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                i, rv = self.parseFLET(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        lets = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                i, rv = self.parseFRULE(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        rules = rv
+        rv = lets + [py.Compound('class ' + name + 'Functor(object)', rules), py.Statement(name + ' = ' + name + 'Functor()')]
+        return i, rv
+    @cached
+    def parseFLET(self, i):
+        st = []
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 3] != "let": raise ParseError()
+        rv = "let"; i += 3
+        i, rv = self.parseID(i)
+        name = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 2] != ":=": raise ParseError()
+        rv = ":="; i += 2
+        i, rv = self.parsePROD1(i)
+        prod = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != ";": raise ParseError()
+        rv = ";"; i += 1
+        rv = py.Statement(name + ' = ' + prod)
+        return i, rv
+    @cached
+    def parseFRULE(self, i):
+        st = []
+        st.append(i)
+        try:
+            i, rv = self.parseID(i)
+            tag = rv
+            i, rv = self.parseFPATTS(i)
+            patts = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 2] != "->": raise ParseError()
+            rv = "->"; i += 2
+            i, rv = self.parsePROD1(i)
+            prod = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != ";": raise ParseError()
+            rv = ";"; i += 1
+            rv = py.Compound('def ' + tag + '(self, ' + ', '.join(patts) + ')', [py.Statement('return ' + prod)])
+        except ParseError:
+            i = st.pop()
+            i, rv = self.parseID(i)
+            tag = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 2] != "->": raise ParseError()
+            rv = "->"; i += 2
+            i, rv = self.parsePROD1(i)
+            prod = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != ";": raise ParseError()
+            rv = ";"; i += 1
+            rv = py.Compound('def ' + tag + '(self)', [py.Statement('return ' + prod)])
+        return i, rv
+    @cached
+    def parseFPATTS(self, i):
+        st = []
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != "(": raise ParseError()
+        rv = "("; i += 1
+        i, rv = self.parseFPATT(i)
+        p = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != ",": raise ParseError()
+                rv = ","; i += 1
+                i, rv = self.parseFPATT(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        ps = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != ")": raise ParseError()
+        rv = ")"; i += 1
+        rv = [p] + ps
+        return i, rv
+    @cached
+    def parseFPATT(self, i):
+        st = []
+        i, rv = self.parseID(i)
+        return i, rv
+    @cached
+    def parseGRAMMAR(self, i):
         st = []
         if i >= len(self.s): raise ParseError()
         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
@@ -170,151 +657,7 @@ class ZADDYParser(object):
                 break
         rv = rvs
         rules = rv
-        i, rv = self.parseWS(i)
-        rv = py.Compound('class ' + name + 'Parser(object)', [py.Compound('def __init__(self, s)', [py.Statement('self.s = s; self.lastMatch = []')]), py.Statement('def parse(self): return self.parse' + name + '(0)')] + flatten(rules))
-        return i, rv
-    @cached
-    def parseZR(self, i):
-        st = []
-        i, rv = self.parseID(i)
-        name = rv
-        if i >= len(self.s): raise ParseError()
-        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-        if i >= len(self.s): raise ParseError()
-        if self.s[i:i + 1] != "=": raise ParseError()
-        rv = "="; i += 1
-        st.append(i)
-        try:
-            i, rv = self.parseFIELDS(i)
-            fs = rv
-            rv = zephyr.Product(name, fs)
-        except ParseError:
-            i = st.pop()
-            i, rv = self.parseCONSTRUCTOR(i)
-            con = rv
-            rvs = []
-            while True:
-                st.append(i)
-                try:
-                    if i >= len(self.s): raise ParseError()
-                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                    if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 1] != "|": raise ParseError()
-                    rv = "|"; i += 1
-                    i, rv = self.parseCONSTRUCTOR(i)
-                    rvs.append(rv)
-                except ParseError:
-                    i = st.pop()
-                    break
-            rv = rvs
-            cons = rv
-            st.append(i)
-            try:
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 10] != "attributes": raise ParseError()
-                rv = "attributes"; i += 10
-                i, rv = self.parseFIELDS(i)
-            except ParseError:
-                i = st.pop()
-            attrs = rv
-            rv = zephyr.Sum(name, attrs, con, cons)
-        return i, rv
-    @cached
-    def parseCONSTRUCTOR(self, i):
-        st = []
-        i, rv = self.parseID(i)
-        tag = rv
-        st.append(i)
-        try:
-            i, rv = self.parseFIELDS(i)
-        except ParseError:
-            i = st.pop()
-        args = rv
-        rv = zephyr.Con(tag, args)
-        return i, rv
-    @cached
-    def parseFIELDS(self, i):
-        st = []
-        if i >= len(self.s): raise ParseError()
-        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-        if i >= len(self.s): raise ParseError()
-        if self.s[i:i + 1] != "(": raise ParseError()
-        rv = "("; i += 1
-        i, rv = self.parseFIELD(i)
-        f = rv
-        rvs = []
-        while True:
-            st.append(i)
-            try:
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != ",": raise ParseError()
-                rv = ","; i += 1
-                i, rv = self.parseFIELD(i)
-                rvs.append(rv)
-            except ParseError:
-                i = st.pop()
-                break
-        rv = rvs
-        fs = rv
-        if i >= len(self.s): raise ParseError()
-        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-        if i >= len(self.s): raise ParseError()
-        if self.s[i:i + 1] != ")": raise ParseError()
-        rv = ")"; i += 1
-        rv = f + fs
-        return i, rv
-    @cached
-    def parseFIELD(self, i):
-        st = []
-        st.append(i)
-        try:
-            i, rv = self.parseID(i)
-            ty = rv
-            st.append(i)
-            try:
-                i, rv = self.parseID(i)
-            except ParseError:
-                i = st.pop()
-            name = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != "?": raise ParseError()
-            rv = "?"; i += 1
-            rv = zephyr.Option(ty, name)
-        except ParseError:
-            i = st.pop()
-            st.append(i)
-            try:
-                i, rv = self.parseID(i)
-                ty = rv
-                st.append(i)
-                try:
-                    i, rv = self.parseID(i)
-                except ParseError:
-                    i = st.pop()
-                name = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != "*": raise ParseError()
-                rv = "*"; i += 1
-                rv = zephyr.Sequence(ty, name)
-            except ParseError:
-                i = st.pop()
-                i, rv = self.parseID(i)
-                ty = rv
-                st.append(i)
-                try:
-                    i, rv = self.parseID(i)
-                except ParseError:
-                    i = st.pop()
-                name = rv
-                rv = zephyr.Id(ty, name)
+        rv = [py.Compound('class ' + name + 'Parser(object)', [py.Compound('def __init__(self, s)', [py.Statement('self.s = s; self.lastMatch = []')]), py.Statement('def parse(self): return self.parse' + name + '(0)')] + flatten(rules))]
         return i, rv
     @cached
     def parsePRULE(self, i):
@@ -366,7 +709,7 @@ class ZADDYParser(object):
             if i >= len(self.s): raise ParseError()
             if self.s[i:i + 2] != "->": raise ParseError()
             rv = "->"; i += 2
-            i, rv = self.parsePPROD1(i)
+            i, rv = self.parsePROD1(i)
             prod = rv
             rv = peg.Production(exprs, prod)
         except ParseError:
@@ -539,76 +882,24 @@ class ZADDYParser(object):
                             rv = expr
         return i, rv
     @cached
-    def parsePPROD1(self, i):
+    def parseZR(self, i):
         st = []
+        i, rv = self.parseID(i)
+        name = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != "=": raise ParseError()
+        rv = "="; i += 1
         st.append(i)
         try:
-            i, rv = self.parsePPROD2(i)
-            this = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != "+": raise ParseError()
-            rv = "+"; i += 1
-            i, rv = self.parsePPROD1(i)
-            that = rv
-            rv = peg.Plus(this, that)
+            i, rv = self.parseFIELDS(i)
+            fs = rv
+            rv = zephyr.Product(name, fs)
         except ParseError:
             i = st.pop()
-            st.append(i)
-            try:
-                i, rv = self.parsePPROD2(i)
-                this = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != "%": raise ParseError()
-                rv = "%"; i += 1
-                i, rv = self.parsePPROD1(i)
-                that = rv
-                rv = peg.Mod(this, that)
-            except ParseError:
-                i = st.pop()
-                i, rv = self.parsePPROD2(i)
-        return i, rv
-    @cached
-    def parsePPROD2(self, i):
-        st = []
-        st.append(i)
-        try:
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != "*": raise ParseError()
-            rv = "*"; i += 1
-            i, rv = self.parsePPROD3(i)
-            prod = rv
-            rv = peg.Flatten(prod)
-        except ParseError:
-            i = st.pop()
-            i, rv = self.parsePPROD3(i)
-        return i, rv
-    @cached
-    def parsePPROD3(self, i):
-        st = []
-        st.append(i)
-        try:
-            i, rv = self.parseID(i)
-            ty = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != ".": raise ParseError()
-            rv = "."; i += 1
-            i, rv = self.parseID(i)
+            i, rv = self.parseCONSTRUCTOR(i)
             con = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != "(": raise ParseError()
-            rv = "("; i += 1
-            i, rv = self.parsePPROD1(i)
-            prod = rv
             rvs = []
             while True:
                 st.append(i)
@@ -616,254 +907,148 @@ class ZADDYParser(object):
                     if i >= len(self.s): raise ParseError()
                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                     if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 1] != ",": raise ParseError()
-                    rv = ","; i += 1
-                    i, rv = self.parsePPROD1(i)
+                    if self.s[i:i + 1] != "|": raise ParseError()
+                    rv = "|"; i += 1
+                    i, rv = self.parseCONSTRUCTOR(i)
                     rvs.append(rv)
                 except ParseError:
                     i = st.pop()
                     break
             rv = rvs
-            prods = rv
+            cons = rv
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 10] != "attributes": raise ParseError()
+                rv = "attributes"; i += 10
+                i, rv = self.parseFIELDS(i)
+            except ParseError:
+                rv = peg.Null()
+                i = st.pop()
+            attrs = rv
+            rv = zephyr.Sum(name, attrs, con, cons)
+        return i, rv
+    @cached
+    def parseCONSTRUCTOR(self, i):
+        st = []
+        i, rv = self.parseID(i)
+        tag = rv
+        st.append(i)
+        try:
+            i, rv = self.parseFIELDS(i)
+        except ParseError:
+            rv = peg.Null()
+            i = st.pop()
+        args = rv
+        rv = zephyr.Con(tag, args)
+        return i, rv
+    @cached
+    def parseFIELDS(self, i):
+        st = []
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != "(": raise ParseError()
+        rv = "("; i += 1
+        i, rv = self.parseFIELD(i)
+        f = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != ",": raise ParseError()
+                rv = ","; i += 1
+                i, rv = self.parseFIELD(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        fs = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != ")": raise ParseError()
+        rv = ")"; i += 1
+        rv = f + fs
+        return i, rv
+    @cached
+    def parseFIELD(self, i):
+        st = []
+        st.append(i)
+        try:
+            i, rv = self.parseID(i)
+            ty = rv
+            st.append(i)
+            try:
+                i, rv = self.parseID(i)
+            except ParseError:
+                rv = peg.Null()
+                i = st.pop()
+            name = rv
             if i >= len(self.s): raise ParseError()
             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
             if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != ")": raise ParseError()
-            rv = ")"; i += 1
-            rv = peg.Con(ty, con, [prod] + prods)
+            if self.s[i:i + 1] != "?": raise ParseError()
+            rv = "?"; i += 1
+            rv = zephyr.Option(ty, name)
         except ParseError:
             i = st.pop()
             st.append(i)
             try:
                 i, rv = self.parseID(i)
                 ty = rv
+                st.append(i)
+                try:
+                    i, rv = self.parseID(i)
+                except ParseError:
+                    rv = peg.Null()
+                    i = st.pop()
+                name = rv
                 if i >= len(self.s): raise ParseError()
                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                 if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != ".": raise ParseError()
-                rv = "."; i += 1
+                if self.s[i:i + 1] != "*": raise ParseError()
+                rv = "*"; i += 1
+                rv = zephyr.Sequence(ty, name)
+            except ParseError:
+                i = st.pop()
                 i, rv = self.parseID(i)
-                con = rv
-                rv = peg.Con(ty, con, [])
-            except ParseError:
-                i = st.pop()
+                ty = rv
                 st.append(i)
                 try:
-                    if i >= len(self.s): raise ParseError()
-                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                    if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 2] != "[]": raise ParseError()
-                    rv = "[]"; i += 2
-                    rv = peg.List([])
+                    i, rv = self.parseID(i)
                 except ParseError:
+                    rv = peg.Null()
                     i = st.pop()
-                    st.append(i)
-                    try:
-                        if i >= len(self.s): raise ParseError()
-                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                        if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != "[": raise ParseError()
-                        rv = "["; i += 1
-                        i, rv = self.parsePPROD1(i)
-                        expr = rv
-                        rvs = []
-                        while True:
-                            st.append(i)
-                            try:
-                                if i >= len(self.s): raise ParseError()
-                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                if i >= len(self.s): raise ParseError()
-                                if self.s[i:i + 1] != ",": raise ParseError()
-                                rv = ","; i += 1
-                                i, rv = self.parsePPROD1(i)
-                                rvs.append(rv)
-                            except ParseError:
-                                i = st.pop()
-                                break
-                        rv = rvs
-                        exprs = rv
-                        if i >= len(self.s): raise ParseError()
-                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                        if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != "]": raise ParseError()
-                        rv = "]"; i += 1
-                        rv = peg.List([expr] + exprs)
-                    except ParseError:
-                        i = st.pop()
-                        st.append(i)
-                        try:
-                            i, rv = self.parseID(i)
-                            s = rv
-                            rv = peg.Name(s)
-                        except ParseError:
-                            i = st.pop()
-                            st.append(i)
-                            try:
-                                i, rv = self.parseSTRING(i)
-                                s = rv
-                                rv = peg.String(s)
-                            except ParseError:
-                                i = st.pop()
-                                if i >= len(self.s): raise ParseError()
-                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                if i >= len(self.s): raise ParseError()
-                                if self.s[i:i + 1] != "(": raise ParseError()
-                                rv = "("; i += 1
-                                i, rv = self.parsePPROD1(i)
-                                prod = rv
-                                if i >= len(self.s): raise ParseError()
-                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                if i >= len(self.s): raise ParseError()
-                                if self.s[i:i + 1] != ")": raise ParseError()
-                                rv = ")"; i += 1
-                                rv = prod
+                name = rv
+                rv = zephyr.Id(ty, name)
         return i, rv
     @cached
-    def parseWS(self, i):
-        st = []
-        rvs = []
-        while True:
-            st.append(i)
-            try:
-                st.append(i)
-                try:
-                    if i >= len(self.s): raise ParseError()
-                    if ord(self.s[i]) != 9: raise ParseError()
-                    rv = self.s[i]; i += 1
-                except ParseError:
-                    i = st.pop()
-                    st.append(i)
-                    try:
-                        if i >= len(self.s): raise ParseError()
-                        if ord(self.s[i]) != 10: raise ParseError()
-                        rv = self.s[i]; i += 1
-                    except ParseError:
-                        i = st.pop()
-                        st.append(i)
-                        try:
-                            if i >= len(self.s): raise ParseError()
-                            if ord(self.s[i]) != 13: raise ParseError()
-                            rv = self.s[i]; i += 1
-                        except ParseError:
-                            i = st.pop()
-                            if i >= len(self.s): raise ParseError()
-                            if ord(self.s[i]) != 32: raise ParseError()
-                            rv = self.s[i]; i += 1
-                rvs.append(rv)
-            except ParseError:
-                i = st.pop()
-                break
-        rv = rvs
-        return i, rv
-    @cached
-    def parseDIGIT(self, i):
-        st = []
-        if i >= len(self.s): raise ParseError()
-        if not (48 <= ord(self.s[i]) <= 57): raise ParseError()
-        rv = self.s[i]; i += 1
-        return i, rv
-    @cached
-    def parseALPHA(self, i):
-        st = []
-        st.append(i)
-        try:
-            if i >= len(self.s): raise ParseError()
-            if not (65 <= ord(self.s[i]) <= 90): raise ParseError()
-            rv = self.s[i]; i += 1
-        except ParseError:
-            i = st.pop()
-            if i >= len(self.s): raise ParseError()
-            if not (97 <= ord(self.s[i]) <= 122): raise ParseError()
-            rv = self.s[i]; i += 1
-        return i, rv
-    @cached
-    def parseSTRING(self, i):
+    def parseZADDY(self, i):
         st = []
         i, rv = self.parseWS(i)
-        if i >= len(self.s): raise ParseError()
-        if ord(self.s[i]) != 39: raise ParseError()
-        rv = self.s[i]; i += 1
         rvs = []
         while True:
             st.append(i)
             try:
                 st.append(i)
                 try:
-                    st.append(i)
-                    try:
-                        if i >= len(self.s): raise ParseError()
-                        if ord(self.s[i]) != 10: raise ParseError()
-                        rv = self.s[i]; i += 1
-                    except ParseError:
-                        i = st.pop()
-                        st.append(i)
-                        try:
-                            if i >= len(self.s): raise ParseError()
-                            if ord(self.s[i]) != 13: raise ParseError()
-                            rv = self.s[i]; i += 1
-                        except ParseError:
-                            i = st.pop()
-                            if i >= len(self.s): raise ParseError()
-                            if ord(self.s[i]) != 39: raise ParseError()
-                            rv = self.s[i]; i += 1
-                    rv = True
-                except ParseError:
-                    rv = False
-                i = st.pop()
-                if rv: raise ParseError()
-                if i >= len(self.s): raise ParseError()
-                rv = self.s[i]; i += 1
-                rvs.append(rv)
-            except ParseError:
-                i = st.pop()
-                break
-        rv = rvs
-        cs = rv
-        if i >= len(self.s): raise ParseError()
-        if ord(self.s[i]) != 39: raise ParseError()
-        rv = self.s[i]; i += 1
-        rv = ''.join(cs)
-        return i, rv
-    @cached
-    def parseNUMBER(self, i):
-        st = []
-        i, rv = self.parseWS(i)
-        i, rv = self.parseDIGIT(i)
-        d = rv
-        rvs = []
-        while True:
-            st.append(i)
-            try:
-                i, rv = self.parseDIGIT(i)
-                rvs.append(rv)
-            except ParseError:
-                i = st.pop()
-                break
-        rv = rvs
-        ds = rv
-        rv = ''.join([d] + ds)
-        return i, rv
-    @cached
-    def parseID(self, i):
-        st = []
-        i, rv = self.parseWS(i)
-        i, rv = self.parseALPHA(i)
-        c = rv
-        rvs = []
-        while True:
-            st.append(i)
-            try:
-                st.append(i)
-                try:
-                    i, rv = self.parseALPHA(i)
+                    i, rv = self.parseFUNCTOR(i)
                 except ParseError:
                     i = st.pop()
-                    i, rv = self.parseDIGIT(i)
+                    i, rv = self.parseGRAMMAR(i)
                 rvs.append(rv)
             except ParseError:
                 i = st.pop()
                 break
         rv = rvs
-        cs = rv
-        rv = ''.join([c] + cs)
+        clss = rv
+        i, rv = self.parseWS(i)
+        rv = flatten(clss)
         return i, rv
