@@ -1,5 +1,4 @@
 from rpython.rlib.rfile import create_stdio
-from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 class Result(object): pass
 class Failed(Result): pass
