@@ -26,35 +26,35 @@ def flatten(xs):
     rv = []
     for x in xs: rv.extend(x)
     return rv
-class Py(object):
-    def line(self, m, s): return " " * (m * 4) + s
+def line(m, s): return " " * (m * 4) + s
+class Py(object): pass
 class Compound(Py):
     def __init__(self, head, block): self.head = head; self.block = block
     def out(self, buf, m):
         if self.block:
-            buf.append(self.line(m, self.head + ":"))
+            buf.append(line(m, self.head + ":"))
             for b in self.block: b.out(buf, m + 1)
-        else: buf.append(self.line(m, self.head + ": pass"))
+        else: buf.append(line(m, self.head + ": pass"))
 class Conditional(Py):
     def __init__(self, test, block): self.test = test; self.block = block
     def out(self, buf, m):
         if not self.block: return
-        buf.append(self.line(m, "if " + self.test + ":"))
+        buf.append(line(m, "if " + self.test + ":"))
         for b in self.block: b.out(buf, m + 1)
 class Handler(Py):
     def __init__(self, block, handler): self.block = block; self.handler = handler
     def out(self, buf, m):
         if not self.block: return
         if self.handler:
-            buf.append(self.line(m, "try:"))
+            buf.append(line(m, "try:"))
             for b in self.block: b.out(buf, m + 1)
-            buf.append(self.line(m, "except ParseError:"))
+            buf.append(line(m, "except ParseError:"))
             for b in self.handler: b.out(buf, m + 1)
         else:
             for b in self.block: b.out(buf, m)
 class Statement(Py):
     def __init__(self, s): self.s = s
-    def out(self, buf, m): buf.append(self.line(m, self.s))
+    def out(self, buf, m): buf.append(line(m, self.s))
 class Builder(object):
     def Compound(self, head, block): return Compound(head, block)
     def Conditional(self, test, block): return Conditional(test, block)
@@ -86,10 +86,7 @@ class PEG(object):
                 boundcheck, py.Statement("if self.s[i:i + %d] != \"%s\": raise ParseError()" % (len(s), s)),
                 py.Statement("rv = \"%s\"; i += %d" % (s, len(s)))]
     def Call(self, s): return [py.Statement("i, rv = self.parse" + s + "(i)")]
-    def Sequence(self, exprs):
-        rv = []
-        for expr in exprs: rv.extend(expr)
-        return rv
+    def Sequence(self, exprs): return flatten(exprs)
     def Choice(self, this, that): return [save] + [py.Handler(this, [backup] + that)]
     def Any(self, expr):
         return [py.Statement("rvs = []"),
@@ -100,7 +97,8 @@ class PEG(object):
                 py.Statement("rv = rvs")]
     def Some(self, expr):
         return self.Any(expr) + [py.Statement("if not rv: raise ParseError()")]
-    def Maybe(self, expr): return [save, py.Handler(expr, [backup])]
+    def Maybe(self, expr):
+        return [save, py.Handler(expr, [py.Statement("rv = peg.Null()"), backup])]
     def Positive(self, expr):
         return [save, py.Handler(expr + [py.Statement("rv = True")],
                                  [py.Statement("rv = False")]),
@@ -112,7 +110,7 @@ class PEG(object):
     def Capture(self, expr, name): return expr + [py.Statement(name + " = rv")]
     def Production(self, expr, prod): return expr + [py.Statement("rv = " + prod)]
 peg = PEG()
-selfSrc = open(__file__, "rb").read().split("\n")[:150]
+selfSrc = open(__file__, "rb").read().split("\n")[:145]
 def main(argv):
     stdin, stdout, stderr = create_stdio()
     parser = ZADDYParser(stdin.read())
