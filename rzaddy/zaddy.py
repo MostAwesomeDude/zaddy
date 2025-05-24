@@ -797,12 +797,24 @@ class ZADDYParser(object):
                 if i >= len(self.s): raise ParseError()
                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                 if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != "?": raise ParseError()
-                rv = "?"; i += 1
-                rv = peg.Maybe(expr)
+                if self.s[i:i + 1] != "+": raise ParseError()
+                rv = "+"; i += 1
+                rv = peg.Some(expr)
             except ParseError:
                 i = st.pop()
-                i, rv = self.parsePEXPR7(i)
+                st.append(i)
+                try:
+                    i, rv = self.parsePEXPR7(i)
+                    expr = rv
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != "?": raise ParseError()
+                    rv = "?"; i += 1
+                    rv = peg.Maybe(expr)
+                except ParseError:
+                    i = st.pop()
+                    i, rv = self.parsePEXPR7(i)
         return i, rv
     @cached
     def parsePEXPR7(self, i):

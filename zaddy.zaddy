@@ -122,6 +122,7 @@ PEXPR5 := '&' PEXPR6:expr -> peg.Positive(expr)
         / '!' PEXPR6:expr -> peg.Negative(expr)
         / PEXPR6 ;
 PEXPR6 := PEXPR7:expr '*' -> peg.Any(expr)
+        / PEXPR7:expr '+' -> peg.Some(expr)
         / PEXPR7:expr '?' -> peg.Maybe(expr)
         / PEXPR7 ;
 PEXPR7 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
