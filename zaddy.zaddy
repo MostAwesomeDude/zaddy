@@ -101,11 +101,15 @@ FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> [p] ps ;
 FPATT := ID ;
 
 GRAMMAR := '.grammar' ID:name PRULE*:rules
-        -> [py.Compound('class ' name 'Parser(object)',
+        -> [py.Compound('def target(driver, *args)',
+               [py.Statement('driver.exe_name = "' name '".lower() + "c"'),
+                py.Statement('return main, None')]),
+            py.Compound('class ' name 'Parser(object)',
                [py.Compound('def __init__(self, s)',
                     [py.Statement('self.s = s; self.lastMatch = []')]),
                 py.Statement('def parse(self): return self.parse' name '(0)')]
-               *rules)] ;
+               *rules),
+            py.Statement('MainParser = ' name 'Parser')] ;
 
 PRULE := ID:name ':=' PEXPR1:expr ';'
        -> [py.Statement('@cached'),

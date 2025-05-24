@@ -60,10 +60,11 @@ class Builder(object):
     def Handler(self, block, handler): return Handler(block, handler)
     def Statement(self, line): return Statement(line)
 py = Builder()
-selfSrc = open(__file__, "rb").read().split("\n")[:95]
+class ParseError(Exception): pass
+selfSrc = open(__file__, "rb").read().split("\n")[:90]
 def main(argv):
     stdin, stdout, stderr = create_stdio()
-    parser = ZADDYParser(stdin.read())
+    parser = MainParser(stdin.read())
     try:
         i, rules = parser.parse()
         if i != len(parser.s):
@@ -85,12 +86,6 @@ def main(argv):
             t = k, i, lineNumber + 1, i - newlines[lineNumber]
             stderr.write(("Trail: %s %d (line %d, char %d)" % t) + chr(10))
         return 1
-def target(driver, *args):
-    driver.exe_name = "ZADDY".lower() + "c"
-    return main, None
-class ParseError(Exception): pass
-
-
 
 
 class productionFunctor(object):
@@ -148,6 +143,9 @@ class pegFunctor(object):
     def Production(self, expr, prod):
         return expr + [py.Statement('rv = ' + prod)]
 peg = pegFunctor()
+def target(driver, *args):
+    driver.exe_name = "ZADDY".lower() + "c"
+    return main, None
 class ZADDYParser(object):
     def __init__(self, s):
         self.s = s; self.lastMatch = []
@@ -652,7 +650,7 @@ class ZADDYParser(object):
                 break
         rv = rvs
         rules = rv
-        rv = [py.Compound('class ' + name + 'Parser(object)', [py.Compound('def __init__(self, s)', [py.Statement('self.s = s; self.lastMatch = []')]), py.Statement('def parse(self): return self.parse' + name + '(0)')] + flatten(rules))]
+        rv = [py.Compound('def target(driver, *args)', [py.Statement('driver.exe_name = "' + name + '".lower() + "c"'), py.Statement('return main, None')]), py.Compound('class ' + name + 'Parser(object)', [py.Compound('def __init__(self, s)', [py.Statement('self.s = s; self.lastMatch = []')]), py.Statement('def parse(self): return self.parse' + name + '(0)')] + flatten(rules)), py.Statement('MainParser = ' + name + 'Parser')]
         return i, rv
     @cached
     def parsePRULE(self, i):
@@ -1059,3 +1057,4 @@ class ZADDYParser(object):
         i, rv = self.parseWS(i)
         rv = flatten(clss)
         return i, rv
+MainParser = ZADDYParser
