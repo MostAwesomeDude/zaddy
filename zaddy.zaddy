@@ -1,14 +1,14 @@
 .functor production
 
-Con(ty, con, prods) -> ty + '.' + con + '(' + (prods % ', ') + ')' ;
-Plus(left, right)   -> left + ' + ' + right ;
-Mod(left, right)    -> right + '.join(' + left + ')' ;
-Flatten(l)          -> 'flatten(' + l + ')' ;
+Con(ty, con, prods) -> ty '.' con '(' (prods % ', ') ')' ;
+Plus(left, right)   -> left ' + ' right ;
+Mod(left, right)    -> right '.join(' left ')' ;
+Flatten(l)          -> 'flatten(' l ')' ;
 Name(s)             -> s ;
-String(s)           -> 39 + s + 39 ;
-List(prods)         -> '[' + (prods % ', ') + ']' ;
-Length(s)           -> 'str(len(' + s + '))' ;
-Chr(n)              -> 'chr(' + n + ')' ;
+String(s)           -> 39 s 39 ;
+List(prods)         -> '[' (prods % ', ') ']' ;
+Length(s)           -> 'str(len(' s '))' ;
+Chr(n)              -> 'chr(' n ')' ;
 
 .functor peg
 
@@ -19,45 +19,45 @@ let boundcheck := py.Statement('if i >= len(self.s): raise ParseError()') ;
 Null                    -> [] ;
 AnyChar                 -> [boundcheck, py.Statement('rv = self.s[i]; i += 1')] ;
 Char(i)                 -> [boundcheck,
-                            py.Statement('if ord(self.s[i]) != ' + i + ': raise ParseError()'),
+                            py.Statement('if ord(self.s[i]) != ' i ': raise ParseError()'),
                             py.Statement('rv = self.s[i]; i += 1')] ;
 Range(l, u)             -> [boundcheck,
-                            py.Statement('if not (' + l + ' <= ord(self.s[i]) <= ' + u + '): raise ParseError()'),
+                            py.Statement('if not (' l ' <= ord(self.s[i]) <= ' u '): raise ParseError()'),
                             py.Statement('rv = self.s[i]; i += 1')] ;
 Token(s)                -> [boundcheck,
                             py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'),
                             boundcheck,
-                            py.Statement('if self.s[i:i + ' + #s + '] != "' + s + '": raise ParseError()'),
-                            py.Statement('rv = "' + s + '"; i += ' + #s)] ;
-Call(s)                 -> [py.Statement('i, rv = self.parse' + s + '(i)')] ;
+                            py.Statement('if self.s[i:i + ' #s '] != "' s '": raise ParseError()'),
+                            py.Statement('rv = "' s '"; i += ' #s)] ;
+Call(s)                 -> [py.Statement('i, rv = self.parse' s '(i)')] ;
 Sequence(exprs)         -> *exprs ;
-Choice(this, that)      -> [save, py.Handler(this, [backup] + that)] ;
+Choice(this, that)      -> [save, py.Handler(this, [backup] that)] ;
 Any(expr)               -> [py.Statement('rvs = []'),
                             py.Compound('while True',
                                 [save,
-                                 py.Handler(expr + [py.Statement('rvs.append(rv)')],
+                                 py.Handler(expr [py.Statement('rvs.append(rv)')],
                                             [backup, py.Statement('break')])]),
                             py.Statement('rv = rvs')] ;
 Some(expr)              -> [py.Statement('rvs = []'),
                             py.Compound('while True',
                                 [save,
-                                 py.Handler(expr + [py.Statement('rvs.append(rv)')],
+                                 py.Handler(expr [py.Statement('rvs.append(rv)')],
                                             [backup, py.Statement('break')])]),
                             py.Statement('rv = rvs'),
                             py.Statement('if not rv: raise ParseError()')] ;
 Maybe(expr)             -> [save, py.Handler(expr, [py.Statement('rv = peg.Null()'), backup])] ;
 Positive(expr)          -> [save,
-                            py.Handler(expr + [py.Statement('rv = True')],
+                            py.Handler(expr [py.Statement('rv = True')],
                                        [py.Statement('rv = False')]),
                             backup,
                             py.Statement('if not rv: raise ParseError()')] ;
 Negative(expr)          -> [save,
-                            py.Handler(expr + [py.Statement('rv = True')],
+                            py.Handler(expr [py.Statement('rv = True')],
                                        [py.Statement('rv = False')]),
                             backup,
                             py.Statement('if rv: raise ParseError()')] ;
-Capture(expr, name)     -> expr + [py.Statement(name + ' = rv')] ;
-Production(expr, prod)  -> expr + [py.Statement('rv = ' + prod)] ;
+Capture(expr, name)     -> expr [py.Statement(name ' = rv')] ;
+Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 
 .grammar ZADDY
 
@@ -65,52 +65,52 @@ WS := ( 9 / 10 / 13 / 32 )* ;
 DIGIT := .range(48:57) ;
 ALPHA := .range(65:90) / .range(97:122) ;
 STRING := WS 39 ( !( 10 / 13 / 39 ) .any )*:cs 39 -> cs % '' ;
-NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] + ds) % '' ;
-ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] + cs) % '' ;
+NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] ds) % '' ;
+ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] cs) % '' ;
 
-PROD1 := PROD2:this '+' PROD1:that -> production.Plus(this, that)
-       / PROD2:this '%' PROD1:that -> production.Mod(this, that)
+PROD1 := PROD2:this '%' PROD1:that -> production.Mod(this, that)
+       / PROD2:this PROD1:that     -> production.Plus(this, that)
        / PROD2 ;
 PROD2 := '*' PROD3:prod -> production.Flatten(prod)
        / '#' PROD3:prod -> production.Length(prod)
        / PROD3 ;
 PROD3 := ID:ty '.' ID:con
-         '(' PROD1:prod ( ',' PROD1 )*:prods ')' -> production.Con(ty, con, [prod] + prods)
+         '(' PROD1:prod ( ',' PROD1 )*:prods ')' -> production.Con(ty, con, [prod] prods)
        / ID:ty '.' ID:con                        -> production.Con(ty, con, [])
        / '[]'                                    -> production.List([])
-       / '[' PROD1:expr ( ',' PROD1 )*:exprs ']' -> production.List([expr] + exprs)
+       / '[' PROD1:expr ( ',' PROD1 )*:exprs ']' -> production.List([expr] exprs)
        / ID:s                                    -> production.Name(s)
        / STRING:s                                -> production.String(s)
        / NUMBER:n                                -> production.Chr(n)
        / '(' PROD1:prod ')'                      -> prod ;
 
 FUNCTOR := '.functor' ID:name FLET*:lets FRULE*:rules
-        -> lets + [py.Compound('class ' + name + 'Functor(object)', rules),
-                   py.Statement(name + ' = ' + name + 'Functor()')] ;
+        -> lets [py.Compound('class ' name 'Functor(object)', rules),
+                 py.Statement(name ' = ' name 'Functor()')] ;
 
-FLET := 'let' ID:name ':=' PROD1:prod ';' -> py.Statement(name + ' = ' + prod) ;
+FLET := 'let' ID:name ':=' PROD1:prod ';' -> py.Statement(name ' = ' prod) ;
 
 FRULE := ID:tag FPATTS:patts '->' PROD1:prod ';'
-      -> py.Compound('def ' + tag + '(self, ' + (patts % ', ') + ')',
-             [py.Statement('return ' + prod)])
+      -> py.Compound('def ' tag '(self, ' (patts % ', ') ')',
+             [py.Statement('return ' prod)])
        / ID:tag '->' PROD1:prod ';'
-      -> py.Compound('def ' + tag + '(self)',
-             [py.Statement('return ' + prod)]) ;
+      -> py.Compound('def ' tag '(self)',
+             [py.Statement('return ' prod)]) ;
 
-FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> [p] + ps ;
+FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> [p] ps ;
 FPATT := ID ;
 
 GRAMMAR := '.grammar' ID:name PRULE*:rules
-        -> [py.Compound('class ' + name + 'Parser(object)',
+        -> [py.Compound('class ' name 'Parser(object)',
                [py.Compound('def __init__(self, s)',
                     [py.Statement('self.s = s; self.lastMatch = []')]),
-                py.Statement('def parse(self): return self.parse' + name + '(0)')]
-               + *rules)] ;
+                py.Statement('def parse(self): return self.parse' name '(0)')]
+               *rules)] ;
 
 PRULE := ID:name ':=' PEXPR1:expr ';'
        -> [py.Statement('@cached'),
-           py.Compound('def parse' + name + '(self, i)',
-           [py.Statement('st = []')] + expr + [py.Statement('return i, rv')])] ;
+           py.Compound('def parse' name '(self, i)',
+           [py.Statement('st = []')] expr [py.Statement('return i, rv')])] ;
 PEXPR1 := PEXPR2:this '/' PEXPR1:that -> peg.Choice(this, that)
         / PEXPR2 ;
 PEXPR2 := PEXPR3:exprs '->' PROD1:prod -> peg.Production(exprs, prod)
@@ -136,7 +136,7 @@ ZR := ID:name '='
       / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons
         ( 'attributes' FIELDS )?:attrs -> zephyr.Sum(name, attrs, con, cons) ) ;
 CONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
-FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> f + fs ;
+FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> f fs ;
 FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
        / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
        / ID:ty ID?:name     -> zephyr.Id(ty, name) ;

@@ -311,25 +311,20 @@ class ZADDYParser(object):
             if i >= len(self.s): raise ParseError()
             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
             if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != "+": raise ParseError()
-            rv = "+"; i += 1
+            if self.s[i:i + 1] != "%": raise ParseError()
+            rv = "%"; i += 1
             i, rv = self.parsePROD1(i)
             that = rv
-            rv = production.Plus(this, that)
+            rv = production.Mod(this, that)
         except ParseError:
             i = st.pop()
             st.append(i)
             try:
                 i, rv = self.parsePROD2(i)
                 this = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != "%": raise ParseError()
-                rv = "%"; i += 1
                 i, rv = self.parsePROD1(i)
                 that = rv
-                rv = production.Mod(this, that)
+                rv = production.Plus(this, that)
             except ParseError:
                 i = st.pop()
                 i, rv = self.parsePROD2(i)
