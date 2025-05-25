@@ -1,26 +1,33 @@
+.functor c
+
+Include(h)      -> [.line('#include' h)] ;
+Statement(l)    -> [.line(l ';')] ;
+Block(head, cs) -> [.line(head ' {'), .block(cs), .line('}')] ;
+
 .functor bf
 
-Right(n)    -> ['ptr +=' n ';'] ;
-Left(n)     -> ['ptr -=' n ';'] ;
-Plus(n)     -> ['*ptr +=' n ';'] ;
-Minus(n)    -> ['*ptr -=' n ';'] ;
-Output      -> ['putchar(*ptr);' ';'] ;
-Input       -> ['*ptr = getchar();' ';'] ;
-Loop(exprs) -> ['while (*ptr) {'] *exprs ['};'] ;
-Program(p)  -> ['#include <stdio.h>',
-                '#include <stdlib.h>',
-                'int main(int argc, char **argv) {',
-                'unsigned char *ptr = calloc(30 * 1000, 1);',
-                'if (!ptr) {',
-                'fprintf(stderr, "Error allocating memory.\\n");',
-                'return 1;',
-                '}'] p ['free(ptr);',
-                'return 0;',
-                '}'] ;
+Right(n)    -> [c.Statement('ptr += ' n)] ;
+Left(n)     -> [c.Statement('ptr -= ' n)] ;
+Plus(n)     -> [c.Statement('*ptr += ' n)] ;
+Minus(n)    -> [c.Statement('*ptr -= ' n)] ;
+Output      -> [c.Statement('putchar(*ptr)')] ;
+Input       -> [c.Statement('*ptr = getchar()')] ;
+Loop(exprs) -> [c.Block('while (*ptr)', exprs)] ;
+Program(p)  -> [c.Include('<stdio.h>'),
+                c.Include('<stdlib.h>'),
+                c.Block('int main(int argc, char **argv)', [
+                    c.Statement('unsigned char *ptr = calloc(30 * 1000, 1)'),
+                    c.Block('if (!ptr)', [
+                        c.Statement('fprintf(stderr, "Error allocating memory.\\n")'),
+                        c.Statement('return 1')
+                    ])] p [
+                    c.Statement('free(ptr)'),
+                    c.Statement('return 0')
+                ])] ;
 
 .grammar BF
 
-BF := SQN:p -> bf.Program(p) ;
+BF := SQN:p COMMENT -> bf.Program(p) ;
 SQN := ( COMMENT OP )*:ops -> *ops ;
 OP := '>'+:cs -> bf.Right(#cs)
     / '<'+:cs -> bf.Left(#cs)
