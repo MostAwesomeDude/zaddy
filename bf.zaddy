@@ -1,38 +1,32 @@
-.syntax BF
+.functor bf
 
-BF = .out('#include <stdio.h>' .nl
-          '#include <stdlib.h>' .nl
-          'int main(int argc, char **argv) {' .nl .lm+
-          'unsigned char *ptr = calloc(30 * 1000, 1);' .nl
-          'if (!ptr) {' .nl .lm+
-          'fprintf(stderr, "Error allocating memory.\\n");' .nl
-          'return 1;' .nl .lm-
-          '}' .nl)
-     SQN
-     .out('free(ptr);' .nl
-          'return 0;' .nl .lm-
-          '}' .nl) ;
-SQN = $( LOOP / OP ) ;
+Right(n)    -> ['ptr +=' n ';'] ;
+Left(n)     -> ['ptr -=' n ';'] ;
+Plus(n)     -> ['*ptr +=' n ';'] ;
+Minus(n)    -> ['*ptr -=' n ';'] ;
+Output      -> ['putchar(*ptr);' ';'] ;
+Input       -> ['*ptr = getchar();' ';'] ;
+Loop(exprs) -> ['while (*ptr) {'] *exprs ['};'] ;
+Program(p)  -> ['#include <stdio.h>',
+                '#include <stdlib.h>',
+                'int main(int argc, char **argv) {',
+                'unsigned char *ptr = calloc(30 * 1000, 1);',
+                'if (!ptr) {',
+                'fprintf(stderr, "Error allocating memory.\\n");',
+                'return 1;',
+                '}'] p ['free(ptr);',
+                'return 0;',
+                '}'] ;
 
-LOOP = WHILE  .out('while (*ptr) {' .nl .lm+)
-       SQN END .out(.lm- '};' .nl) ;
+.grammar BF
 
-OP = RIGHT .out('--ptr;' .nl)
-   / LEFT  .out('++ptr;' .nl)
-   / PLUS  .out('++*ptr;' .nl)
-   / MINUS .out('--*ptr;' .nl)
-   / OUT   .out('putchar(*ptr);' .nl)
-   / IN    .out('*ptr = getchar();' .nl) ;
-
-.tokens
-RIGHT   : COMMENT .token .any('>) .tokout ;
-LEFT    : COMMENT .token .any('<) .tokout ;
-PLUS    : COMMENT .token .any('+) .tokout ;
-MINUS   : COMMENT .token .any('-) .tokout ;
-OUT     : COMMENT .token .any('.) .tokout ;
-IN      : COMMENT .token .any(',) .tokout ;
-WHILE   : COMMENT .token .any('[) .tokout ;
-END     : COMMENT .token .any(']) .tokout ;
-COMMENT : $.not('>!'<!'+!'-!'.!',!'[!']) ;
-.domain
-.end
+BF := SQN:p -> bf.Program(p) ;
+SQN := ( COMMENT OP )*:ops -> *ops ;
+OP := '>'+:cs -> bf.Right(#cs)
+    / '<'+:cs -> bf.Left(#cs)
+    / '+'+:cs -> bf.Plus(#cs)
+    / '-'+:cs -> bf.Minus(#cs)
+    / '.'     -> bf.Output
+    / ','     -> bf.Input
+    / '[' SQN:exprs ']' -> bf.Loop(exprs) ;
+COMMENT := ( !( '>' / '<' / '+' / '-' / '.' / ',' / '[' / ']' ) .any )* ;
