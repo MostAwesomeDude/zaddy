@@ -64,7 +64,9 @@ Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 WS := ( 9 / 10 / 13 / 32 )* ;
 DIGIT := .range(48:57) ;
 ALPHA := .range(65:90) / .range(97:122) ;
-STRING := WS 39 ( !( 10 / 13 / 39 ) .any )*:cs 39 -> cs % '' ;
+ESCAPE := 92 92 -> 92 92
+        / .any ;
+STRING := WS 39 ( !( 10 / 13 / 39 ) ESCAPE )*:cs 39 -> cs % '' ;
 NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] ds) % '' ;
 ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] cs) % '' ;
 
@@ -145,6 +147,19 @@ FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> f fs ;
 FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
        / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
        / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
+
+CHR := ID:name '@' CHRULE ;
+CHRULE := CHEAD '==>' CGUARD CGOAL '.'            -> chr.Propagate
+        / CHEAD '<=>' CGUARD CGOAL '.'            -> chr.Simplify
+        / CHEAD '\\' CHEAD '<=>' CGUARD CGOAL '.' -> chr.Simpagate ;
+CHEAD := CTERM ( ',' CTERM )* ;
+CTERM := CVAR ;
+CVAR := '_'     -> chr.Ignore
+      / ID:name -> chr.Var(name) ;
+CGUARD := CGOAL:g '|' -> g
+        / -> chr.True ;
+CGOAL := 'true'            -> chr.True
+       / CVAR:l '=' CVAR:r -> chr.Eq(l, r) ;
 
 ZADDY := WS
          ( FUNCTOR / GRAMMAR )*:clss

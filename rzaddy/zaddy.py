@@ -209,6 +209,23 @@ class ZADDYParser(object):
             rv = self.s[i]; i += 1
         return i, rv
     @cached
+    def parseESCAPE(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            if ord(self.s[i]) != 92: raise ParseError()
+            rv = self.s[i]; i += 1
+            if i >= len(self.s): raise ParseError()
+            if ord(self.s[i]) != 92: raise ParseError()
+            rv = self.s[i]; i += 1
+            rv = chr(92) + chr(92)
+        except ParseError:
+            i = st.pop()
+            if i >= len(self.s): raise ParseError()
+            rv = self.s[i]; i += 1
+        return i, rv
+    @cached
     def parseSTRING(self, i):
         st = []
         i, rv = self.parseWS(i)
@@ -243,8 +260,7 @@ class ZADDYParser(object):
                     rv = False
                 i = st.pop()
                 if rv: raise ParseError()
-                if i >= len(self.s): raise ParseError()
-                rv = self.s[i]; i += 1
+                i, rv = self.parseESCAPE(i)
                 rvs.append(rv)
             except ParseError:
                 i = st.pop()
@@ -1033,6 +1049,161 @@ class ZADDYParser(object):
                     i = st.pop()
                 name = rv
                 rv = zephyr.Id(ty, name)
+        return i, rv
+    @cached
+    def parseCHR(self, i):
+        st = []
+        i, rv = self.parseID(i)
+        name = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != "@": raise ParseError()
+        rv = "@"; i += 1
+        i, rv = self.parseCHRULE(i)
+        return i, rv
+    @cached
+    def parseCHRULE(self, i):
+        st = []
+        st.append(i)
+        try:
+            i, rv = self.parseCHEAD(i)
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 3] != "==>": raise ParseError()
+            rv = "==>"; i += 3
+            i, rv = self.parseCGUARD(i)
+            i, rv = self.parseCGOAL(i)
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != ".": raise ParseError()
+            rv = "."; i += 1
+            rv = chr.Propagate()
+        except ParseError:
+            i = st.pop()
+            st.append(i)
+            try:
+                i, rv = self.parseCHEAD(i)
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 3] != "<=>": raise ParseError()
+                rv = "<=>"; i += 3
+                i, rv = self.parseCGUARD(i)
+                i, rv = self.parseCGOAL(i)
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != ".": raise ParseError()
+                rv = "."; i += 1
+                rv = chr.Simplify()
+            except ParseError:
+                i = st.pop()
+                i, rv = self.parseCHEAD(i)
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 2] != "\\": raise ParseError()
+                rv = "\\"; i += 2
+                i, rv = self.parseCHEAD(i)
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 3] != "<=>": raise ParseError()
+                rv = "<=>"; i += 3
+                i, rv = self.parseCGUARD(i)
+                i, rv = self.parseCGOAL(i)
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != ".": raise ParseError()
+                rv = "."; i += 1
+                rv = chr.Simpagate()
+        return i, rv
+    @cached
+    def parseCHEAD(self, i):
+        st = []
+        i, rv = self.parseCTERM(i)
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != ",": raise ParseError()
+                rv = ","; i += 1
+                i, rv = self.parseCTERM(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        return i, rv
+    @cached
+    def parseCTERM(self, i):
+        st = []
+        i, rv = self.parseCVAR(i)
+        return i, rv
+    @cached
+    def parseCVAR(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "_": raise ParseError()
+            rv = "_"; i += 1
+            rv = chr.Ignore()
+        except ParseError:
+            i = st.pop()
+            i, rv = self.parseID(i)
+            name = rv
+            rv = chr.Var(name)
+        return i, rv
+    @cached
+    def parseCGUARD(self, i):
+        st = []
+        st.append(i)
+        try:
+            i, rv = self.parseCGOAL(i)
+            g = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "|": raise ParseError()
+            rv = "|"; i += 1
+            rv = g
+        except ParseError:
+            i = st.pop()
+            rv = chr.True()
+        return i, rv
+    @cached
+    def parseCGOAL(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 4] != "true": raise ParseError()
+            rv = "true"; i += 4
+            rv = chr.True()
+        except ParseError:
+            i = st.pop()
+            i, rv = self.parseCVAR(i)
+            l = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "=": raise ParseError()
+            rv = "="; i += 1
+            i, rv = self.parseCVAR(i)
+            r = rv
+            rv = chr.Eq(l, r)
         return i, rv
     @cached
     def parseZADDY(self, i):
