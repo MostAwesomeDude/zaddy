@@ -1,7 +1,22 @@
+.functor py
+
+Statement(line)          -> [.line(line)] ;
+Compound(head, block)    -> .if (block)
+                            .then [.line(head ':'), .block(block)]
+                            .else [.line(head ': pass')] ;
+Conditional(test, block) -> .if (block)
+                            .then [.line('if ' test ':'), .block(block)]
+                            .else [] ;
+Handler(block, handler)  -> .if (block) .then
+                                .if (handler)
+                                .then [.line('try:'), .block(block), .line('except ParseError:'), .block(handler)]
+                                .else [.line('try:'), .block(block), .line('except ParseError: raise')]
+                            .else [] ;
+
 .functor production
 
 Con(ty, con, prods) -> ty '.' con '(' (prods % ', ') ')' ;
-Plus(left, right)   -> left ' + ' right ;
+PlusMany(ps)        -> ps % ' + ' ;
 Mod(left, right)    -> right '.join(' left ')' ;
 Flatten(l)          -> 'flatten(' l ')' ;
 Name(s)             -> s ;
@@ -9,6 +24,7 @@ String(s)           -> 39 s 39 ;
 List(prods)         -> '[' (prods % ', ') ']' ;
 Length(s)           -> 'str(len(' s '))' ;
 Chr(n)              -> 'chr(' n ')' ;
+Cond(t, c, o)       -> '(' c ') if ' t ' else (' o ')' ;
 
 .functor peg
 
@@ -28,6 +44,7 @@ Token(s)                -> [boundcheck,
                             py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'),
                             boundcheck,
                             py.Statement('if self.s[i:i + ' #s '] != "' s '": raise ParseError()'),
+                            py.Statement('self.lastMatch.append(("TOKEN ' s '", i, i + ' #s '))'),
                             py.Statement('rv = "' s '"; i += ' #s)] ;
 Call(s)                 -> [py.Statement('i, rv = self.parse' s '(i)')] ;
 Sequence(exprs)         -> *exprs ;
@@ -70,16 +87,20 @@ STRING := WS 39 ( !( 10 / 13 / 39 ) ESCAPE )*:cs 39 -> cs % '' ;
 NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] ds) % '' ;
 ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] cs) % '' ;
 
-PROD1 := PROD2:this '%' PROD1:that -> production.Mod(this, that)
-       / PROD2:this PROD1:that     -> production.Plus(this, that)
+PROD1 := '.if' PROD1:test '.then' PROD1:cons '.else' PROD1:other -> production.Cond(test, cons, other)
        / PROD2 ;
-PROD2 := '*' PROD3:prod -> production.Flatten(prod)
-       / '#' PROD3:prod -> production.Length(prod)
+PROD2 := PROD3:this '%' PROD2:that -> production.Mod(this, that)
        / PROD3 ;
-PROD3 := ID:ty '.' ID:con
+PROD3 := PROD4+:ps -> production.PlusMany(ps) ;
+PROD4 := '*' PROD5:prod -> production.Flatten(prod)
+       / '#' PROD5:prod -> production.Length(prod)
+       / PROD5 ;
+PROD5 := ID:ty '.' ID:con
          '(' PROD1:prod ( ',' PROD1 )*:prods ')' -> production.Con(ty, con, [prod] prods)
        / ID:ty '.' ID:con                        -> production.Con(ty, con, [])
        / '[]'                                    -> production.List([])
+       / '.line(' PROD1:l ')'                    -> production.Con('builtin', 'Line', [l])
+       / '.block(' PROD1:expr ')'                -> production.Con('builtin', 'Block', [expr])
        / '[' PROD1:expr ( ',' PROD1 )*:exprs ']' -> production.List([expr] exprs)
        / ID:s                                    -> production.Name(s)
        / STRING:s                                -> production.String(s)
