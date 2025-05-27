@@ -76,16 +76,92 @@ Negative(expr)          -> [save,
 Capture(expr, name)     -> expr [py.Statement(name ' = rv')] ;
 Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 
+.functor rules
+
+Fact(t)                      -> '# ' t ;
+Clause(t, goal)              -> '# ' t (goal % '') ;
+Rule(name, r)                -> '# ' name '@' r ;
+True                         -> 'true' ;
+Eq(l, r)                     -> l '=' r ;
+Ignore                       -> '_' ;
+Var(n)                       -> n ;
+Const(n)                     -> n ;
+Compound(func, vars)         -> ([func] vars) % '' ;
+Propagate(head, guard, goal) -> (['Propagate('] head [', ' guard ', '] goal [')']) % '' ;
+Simplify(head, guard, goal)  -> (['Simplify('] head [', ' guard ', '] goal [')']) % '' ;
+Simpagate(keep, discard, guard, goal) -> (['Simpagate('] keep discard [', ' guard ', '] goal [')']) % '' ;
+
+.rules
+
+.constraints zero/0, succ/2, gte/2, max/3,
+             root/2, link/2, branch/2,
+             make/1, union/2, find/2.
+
+gte(N, zero).
+gte(N, M) :- succ(X, N), succ(Y, M), gte(X, Y).
+
+maxLeft   @ max(N, zero, M) <=> N = M.
+maxRight  @ max(N, M, zero) <=> N = M.
+maxSucc   @ succ(X, L), succ(Y, N), succ(Z, M) \ max(L, N, M) <=>
+            max(X, Y, Z).
+
+make      @ make(A) <=> root(A, zero).
+union     @ union(A, B) <=> find(A, X), find(B, Y), link(X, Y).
+findNode  @ branch(A, B), find(A, X) <=> find(B, X), branch(A, X).
+findRoot  @ root(A, _) \ find(A, X) <=> X = A.
+linkEq    @ link(A, A) <=> true.
+linkLeft  @ link(A, B), root(A, N), root(B, M) <=>
+            gte(N, M) | branch(B, A), succ(M, M1), max(R, N, M1), root(A, R).
+linkRight @ link(B, A), root(A, N), root(B, M) <=>
+            gte(N, M) | branch(B, A), succ(M, M1), max(R, N, M1), root(A, R).
+
 .grammar ZADDY
 
 WS := ( 9 / 10 / 13 / 32 )* ;
 DIGIT := .range(48:57) ;
-ALPHA := .range(65:90) / .range(97:122) ;
+UPPER := .range(65:90) ;
+LOWER := .range(97:122) ;
+ALPHA := UPPER / LOWER ;
 ESCAPE := 92 92 -> 92 92
         / .any ;
 STRING := WS 39 ( !( 10 / 13 / 39 ) ESCAPE )*:cs 39 -> cs % '' ;
 NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] ds) % '' ;
 ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] cs) % '' ;
+PVAR := WS UPPER:x ( ALPHA / DIGIT )*:xs -> ([x] xs) % '' ;
+PCONST := WS LOWER+:xs -> xs % '' ;
+
+ZR := ID:name '='
+      ( FIELDS:fs -> zephyr.Product(name, fs)
+      / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons
+        ( 'attributes' FIELDS )?:attrs -> zephyr.Sum(name, attrs, con, cons) ) ;
+CONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
+FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> [f] fs ;
+FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
+       / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
+       / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
+
+RULES := '.rules' CONSTRAINT:cs CHORN*:hs CHANDLER*:rs -> cs hs rs ;
+CONSTRAINT := '.constraints' CFUNCTOR:f ( ',' CFUNCTOR )*:fs '.' -> [f] fs
+            / -> [] ;
+CFUNCTOR := ID:name '/' NUMBER:arity -> py.Statement('# declare ' name arity) ;
+CHORN := CCOMPOUND:t '.'                  -> py.Statement(rules.Fact(t))
+       / CCOMPOUND:t ':-' CGOALS:goal '.' -> py.Statement(rules.Clause(t, goal)) ;
+CHANDLER := ID:name '@' CHRULE:r -> py.Statement(rules.Rule(name, r)) ;
+CHRULE := CHEAD:head '==>' CGUARD:guard CGOALS:goal '.'                    -> rules.Propagate(head, guard, goal)
+        / CHEAD:head '<=>' CGUARD:guard CGOALS:goal '.'                    -> rules.Simplify(head, guard, goal)
+        / CHEAD:keep WS 92 CHEAD:discard '<=>' CGUARD:guard CGOALS:goal '.' -> rules.Simpagate(keep, discard, guard, goal) ;
+CHEAD := CTERM:t ( ',' CTERM )*:ts -> [t] ts ;
+CTERM := CCOMPOUND / CVAR ;
+CCOMPOUND := ID:func '(' CHEAD:vars ')' -> rules.Compound(func, vars) ;
+CVAR := '_'         -> rules.Ignore
+      / PVAR:name   -> rules.Var(name)
+      / PCONST:name -> rules.Const(name) ;
+CGUARD := CGOAL:g '|' -> g
+        / -> rules.True ;
+CGOALS := CGOAL:g ( ',' CGOAL )*:gs -> [g] gs ;
+CGOAL := 'true'            -> rules.True
+       / CVAR:l '=' CVAR:r -> rules.Eq(l, r)
+       / CTERM ;
 
 PROD1 := '.if' PROD1:test '.then' PROD1:cons '.else' PROD1:other -> production.Cond(test, cons, other)
        / PROD2 ;
@@ -159,30 +235,7 @@ PEXPR7 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
         / STRING:s                            -> peg.Token(s)
         / '(' PEXPR1:expr ')'                 -> expr ;
 
-ZR := ID:name '='
-      ( FIELDS:fs -> zephyr.Product(name, fs)
-      / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons
-        ( 'attributes' FIELDS )?:attrs -> zephyr.Sum(name, attrs, con, cons) ) ;
-CONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
-FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> f fs ;
-FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
-       / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
-       / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
-
-CHR := ID:name '@' CHRULE ;
-CHRULE := CHEAD '==>' CGUARD CGOAL '.'            -> chr.Propagate
-        / CHEAD '<=>' CGUARD CGOAL '.'            -> chr.Simplify
-        / CHEAD '\\' CHEAD '<=>' CGUARD CGOAL '.' -> chr.Simpagate ;
-CHEAD := CTERM ( ',' CTERM )* ;
-CTERM := CVAR ;
-CVAR := '_'     -> chr.Ignore
-      / ID:name -> chr.Var(name) ;
-CGUARD := CGOAL:g '|' -> g
-        / -> chr.True ;
-CGOAL := 'true'            -> chr.True
-       / CVAR:l '=' CVAR:r -> chr.Eq(l, r) ;
-
-ZADDY := WS ( FUNCTOR / GRAMMAR )*:clss WS
+ZADDY := WS ( RULES / FUNCTOR / GRAMMAR )*:clss WS
       -> [py.Statement('from rpython.rlib.rfile import create_stdio'),
           py.Statement('from rpython.rlib.objectmodel import specialize'),
           py.Statement('class Result(object): pass'),
