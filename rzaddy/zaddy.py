@@ -67,6 +67,10 @@ def main(argv):
 class pyFunctor(object):
     def Statement(self, line):
         return [builtin.Line(line)]
+    def Ret(self, expr):
+        return [builtin.Line('return ' + expr)]
+    def RaiseIf(self, test):
+        return [builtin.Line('if ' + test + ': raise ParseError()')]
     def Compound(self, head, block):
         return ([builtin.Line(head + ':'), builtin.Block(block)]) if block else ([builtin.Line(head + ': pass')])
     def Conditional(self, test, block):
@@ -98,18 +102,18 @@ class productionFunctor(object):
 production = productionFunctor()
 save = py.Statement('st.append(i)')
 backup = py.Statement('i = st.pop()')
-boundcheck = py.Statement('if i >= len(self.s): raise ParseError()')
+boundcheck = py.RaiseIf('i >= len(self.s)')
 class pegFunctor(object):
     def Null(self):
         return []
     def AnyChar(self):
         return [boundcheck, py.Statement('rv = self.s[i]; i += 1')]
     def Char(self, i):
-        return [boundcheck, py.Statement('if ord(self.s[i]) != ' + i + ': raise ParseError()'), py.Statement('rv = self.s[i]; i += 1')]
+        return [boundcheck, py.RaiseIf('ord(self.s[i]) != ' + i), py.Statement('rv = self.s[i]; i += 1')]
     def Range(self, l, u):
-        return [boundcheck, py.Statement('if not (' + l + ' <= ord(self.s[i]) <= ' + u + '): raise ParseError()'), py.Statement('rv = self.s[i]; i += 1')]
+        return [boundcheck, py.RaiseIf('not (' + l + ' <= ord(self.s[i]) <= ' + u + ')'), py.Statement('rv = self.s[i]; i += 1')]
     def Token(self, s):
-        return [boundcheck, py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'), boundcheck, py.Statement('if self.s[i:i + ' + str(len(s)) + '] != "' + s + '": raise ParseError()'), py.Statement('self.lastMatch.append(("TOKEN ' + s + '", i, i + ' + str(len(s)) + '))'), py.Statement('rv = "' + s + '"; i += ' + str(len(s)))]
+        return [boundcheck, py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'), boundcheck, py.RaiseIf('self.s[i:i + ' + str(len(s)) + '] != "' + s + '"'), py.Statement('self.lastMatch.append(("TOKEN ' + s + '", i, i + ' + str(len(s)) + '))'), py.Statement('rv = "' + s + '"; i += ' + str(len(s)))]
     def Call(self, s):
         return [py.Statement('i, rv = self.parse' + s + '(i)')]
     def Sequence(self, exprs):
@@ -119,13 +123,13 @@ class pegFunctor(object):
     def Any(self, expr):
         return [py.Statement('rvs = []'), py.Compound('while True', [save, py.Handler(expr + [py.Statement('rvs.append(rv)')], [backup, py.Statement('break')])]), py.Statement('rv = rvs')]
     def Some(self, expr):
-        return [py.Statement('rvs = []'), py.Compound('while True', [save, py.Handler(expr + [py.Statement('rvs.append(rv)')], [backup, py.Statement('break')])]), py.Statement('rv = rvs'), py.Statement('if not rv: raise ParseError()')]
+        return [py.Statement('rvs = []'), py.Compound('while True', [save, py.Handler(expr + [py.Statement('rvs.append(rv)')], [backup, py.Statement('break')])]), py.Statement('rv = rvs'), py.RaiseIf('not rv')]
     def Maybe(self, expr):
         return [save, py.Handler(expr, [py.Statement('rv = peg.Null()'), backup])]
     def Positive(self, expr):
-        return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.Statement('if not rv: raise ParseError()')]
+        return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.RaiseIf('not rv')]
     def Negative(self, expr):
-        return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.Statement('if rv: raise ParseError()')]
+        return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.RaiseIf('rv')]
     def Capture(self, expr, name):
         return expr + [py.Statement(name + ' = rv')]
     def Production(self, expr, prod):
@@ -1300,7 +1304,7 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != ";": raise ParseError()
             self.lastMatch.append(("TOKEN ;", i, i + 1))
             rv = ";"; i += 1
-            rv = py.Compound('def ' + tag + '(self, ' + ', '.join(patts) + ')', [py.Statement('return ' + prod)])
+            rv = py.Compound('def ' + tag + '(self, ' + ', '.join(patts) + ')', [py.Ret(prod)])
         except ParseError:
             i = st.pop()
             i, rv = self.parseID(i)
@@ -1319,7 +1323,7 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != ";": raise ParseError()
             self.lastMatch.append(("TOKEN ;", i, i + 1))
             rv = ";"; i += 1
-            rv = py.Compound('def ' + tag + '(self)', [py.Statement('return ' + prod)])
+            rv = py.Compound('def ' + tag + '(self)', [py.Ret(prod)])
         return i, rv
     @cached
     def parseFPATTS(self, i):
@@ -1384,7 +1388,7 @@ class ZADDYParser(object):
                 break
         rv = rvs
         rules = rv
-        rv = [py.Compound('def target(driver, *args)', [py.Statement('driver.exe_name = "' + name + '".lower() + "c"'), py.Statement('return main, None')]), py.Compound('class ' + name + 'Parser(object)', [py.Compound('def __init__(self, s)', [py.Statement('self.s = s; self.lastMatch = []')]), py.Statement('def parse(self): return self.parse' + name + '(0)')] + flatten(rules)), py.Statement('MainParser = ' + name + 'Parser')]
+        rv = [py.Compound('def target(driver, *args)', [py.Statement('driver.exe_name = "' + name + '".lower() + "c"'), py.Ret('main, None')]), py.Compound('class ' + name + 'Parser(object)', [py.Compound('def __init__(self, s)', [py.Statement('self.s = s; self.lastMatch = []')]), py.Compound('def parse(self)', [py.Ret('self.parse' + name + '(0)')])] + flatten(rules)), py.Statement('MainParser = ' + name + 'Parser')]
         return i, rv
     @cached
     def parsePRULE(self, i):
@@ -1405,7 +1409,7 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != ";": raise ParseError()
         self.lastMatch.append(("TOKEN ;", i, i + 1))
         rv = ";"; i += 1
-        rv = [py.Statement('@cached'), py.Compound('def parse' + name + '(self, i)', [py.Statement('st = []')] + expr + [py.Statement('return i, rv')])]
+        rv = [py.Statement('@cached'), py.Compound('def parse' + name + '(self, i)', [py.Statement('st = []')] + expr + [py.Ret('i, rv')])]
         return i, rv
     @cached
     def parsePEXPR1(self, i):
@@ -1662,6 +1666,6 @@ class ZADDYParser(object):
         rv = rvs
         clss = rv
         i, rv = self.parseWS(i)
-        rv = [py.Statement('from rpython.rlib.rfile import create_stdio'), py.Statement('from rpython.rlib.objectmodel import specialize'), py.Statement('class Result(object): pass'), py.Statement('class Failed(Result): pass'), py.Statement('failed = Failed()'), py.Compound('def cached(f, cacheCount=[0])', [py.Statement('attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement('name = f.__name__'), py.Statement('class CacheResult(Result):'), py.Statement('    def __init__(self, i, rv): setattr(self, attr, (i, rv))'), py.Statement('cache = {}'), py.Statement('def deco(self, i):'), py.Statement('    key = i'), py.Statement('    if key in cache and cache[key] is failed: raise ParseError()'), py.Statement('    elif key in cache: return getattr(cache[key], attr)'), py.Statement('    cache[key] = failed'), py.Statement('    i, rv = f(self, i)'), py.Statement('    cache[key] = CacheResult(i, rv)'), py.Statement('    self.lastMatch.append((name, key, i))'), py.Statement('    return i, rv'), py.Statement('deco.__name__ = name'), py.Statement('return deco')]), py.Statement('@specialize.call_location()'), py.Statement('def flatten(xs):'), py.Statement('    rv = []'), py.Statement('    for x in xs: rv.extend(x)'), py.Statement('    return rv'), py.Statement('class Builtin(object): pass'), py.Statement('class Line(Builtin):'), py.Statement('    def __init__(self, s): self.s = s'), py.Statement('    def out(self, m): return [" " * (m * 4) + self.s]'), py.Statement('class Block(Builtin):'), py.Statement('    def __init__(self, ls): self.ls = ls'), py.Statement('    def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])'), py.Statement('class Builder(object):'), py.Statement('    def Line(self, s): return Line(s)'), py.Statement('    def Block(self, ls): return Block(ls)'), py.Statement('builtin = Builder()'), py.Statement('class ParseError(Exception): pass'), py.Statement('def lineNumber(s, i): return s.count(chr(10), 0, i)'), py.Compound('def main(argv)', [py.Statement('stdin, stdout, stderr = create_stdio()'), py.Statement('parser = MainParser(stdin.read())'), py.Handler([py.Statement('i, rules = parser.parse()'), py.Statement('if i != len(parser.s):'), py.Statement('    stderr.write("Failed to consume all input\\n")'), py.Statement('    raise ParseError()'), py.Statement('buf = []'), py.Statement('for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement('stdout.write("\\n".join(buf))'), py.Statement('stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Statement('return 0')], [py.Statement('start = max(len(parser.lastMatch) - 25, 0)'), py.Statement('newlines = [0]'), py.Statement('for line in parser.s.split("\\n"):'), py.Statement('    newlines.append(newlines[-1] + len(line) + 1)'), py.Statement('for k, start, stop in parser.lastMatch[start:]:'), py.Statement('    startLine = lineNumber(parser.s, start)'), py.Statement('    startCol = start - newlines[startLine]'), py.Statement('    stopLine = lineNumber(parser.s, stop)'), py.Statement('    stopCol = stop - newlines[stopLine]'), py.Statement('    t = k, startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement('    stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'), py.Statement('return 1')])])] + flatten(clss)
+        rv = [py.Statement('from rpython.rlib.rfile import create_stdio'), py.Statement('from rpython.rlib.objectmodel import specialize'), py.Compound('class Result(object)', []), py.Compound('class Failed(Result)', []), py.Statement('failed = Failed()'), py.Compound('def cached(f, cacheCount=[0])', [py.Statement('attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement('name = f.__name__'), py.Statement('class CacheResult(Result):'), py.Statement('    def __init__(self, i, rv): setattr(self, attr, (i, rv))'), py.Statement('cache = {}'), py.Compound('def deco(self, i)', [py.Statement('key = i'), py.RaiseIf('key in cache and cache[key] is failed'), py.Statement('elif key in cache: return getattr(cache[key], attr)'), py.Statement('cache[key] = failed'), py.Statement('i, rv = f(self, i)'), py.Statement('cache[key] = CacheResult(i, rv)'), py.Statement('self.lastMatch.append((name, key, i))'), py.Ret('i, rv')]), py.Statement('deco.__name__ = name'), py.Ret('deco')]), py.Statement('@specialize.call_location()'), py.Compound('def flatten(xs)', [py.Statement('rv = []'), py.Statement('for x in xs: rv.extend(x)'), py.Ret('rv')]), py.Compound('class Builtin(object)', []), py.Statement('class Line(Builtin):'), py.Statement('    def __init__(self, s): self.s = s'), py.Statement('    def out(self, m): return [" " * (m * 4) + self.s]'), py.Statement('class Block(Builtin):'), py.Statement('    def __init__(self, ls): self.ls = ls'), py.Statement('    def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])'), py.Statement('class Builder(object):'), py.Statement('    def Line(self, s): return Line(s)'), py.Statement('    def Block(self, ls): return Block(ls)'), py.Statement('builtin = Builder()'), py.Compound('class ParseError(Exception)', []), py.Compound('def lineNumber(s, i)', [py.Ret('s.count(chr(10), 0, i)')]), py.Compound('def main(argv)', [py.Statement('stdin, stdout, stderr = create_stdio()'), py.Statement('parser = MainParser(stdin.read())'), py.Handler([py.Statement('i, rules = parser.parse()'), py.Statement('if i != len(parser.s):'), py.Statement('    stderr.write("Failed to consume all input\\n")'), py.Statement('    raise ParseError()'), py.Statement('buf = []'), py.Statement('for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement('stdout.write("\\n".join(buf))'), py.Statement('stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Ret('0')], [py.Statement('start = max(len(parser.lastMatch) - 25, 0)'), py.Statement('newlines = [0]'), py.Statement('for line in parser.s.split("\\n"):'), py.Statement('    newlines.append(newlines[-1] + len(line) + 1)'), py.Statement('for k, start, stop in parser.lastMatch[start:]:'), py.Statement('    startLine = lineNumber(parser.s, start)'), py.Statement('    startCol = start - newlines[startLine]'), py.Statement('    stopLine = lineNumber(parser.s, stop)'), py.Statement('    stopCol = stop - newlines[stopLine]'), py.Statement('    t = k, startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement('    stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'), py.Ret('1')])])] + flatten(clss)
         return i, rv
 MainParser = ZADDYParser
