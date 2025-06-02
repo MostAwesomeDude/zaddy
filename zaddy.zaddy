@@ -24,6 +24,7 @@ Flatten(l)          -> 'flatten(' l ')' ;
 Name(s)             -> s ;
 String(s)           -> 39 s 39 ;
 List(prods)         -> '[' (prods % ', ') ']' ;
+Tuple(prods)        -> '(' (prods % ', ') ')' ;
 Length(s)           -> 'str(len(' s '))' ;
 Chr(n)              -> 'chr(' n ')' ;
 Cond(t, c, o)       -> '(' c ') if ' t ' else (' o ')' ;
@@ -33,6 +34,9 @@ Cond(t, c, o)       -> '(' c ') if ' t ' else (' o ')' ;
 let save       := py.Statement('st.append(i)') ;
 let backup     := py.Statement('i = st.pop()') ;
 let boundcheck := py.RaiseIf('i >= len(self.s)') ;
+
+NamePatt(name)          -> name ;
+TuplePatt(ps)           -> '(' (ps % ', ') ')' ;
 
 Null                    -> [] ;
 AnyChar                 -> [boundcheck, py.Statement('rv = self.s[i]; i += 1')] ;
@@ -75,7 +79,7 @@ Negative(expr)          -> [save,
                                        [py.Statement('rv = False')]),
                             backup,
                             py.RaiseIf('rv')] ;
-Capture(expr, name)     -> expr [py.Statement(name ' = rv')] ;
+Capture(expr, patt)     -> expr [py.Statement(patt ' = rv')] ;
 Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 
 .functor rules
@@ -183,6 +187,7 @@ PROD5 := ID:ty '.' ID:con
        / ID:s                                    -> production.Name(s)
        / STRING:s                                -> production.String(s)
        / NUMBER:n                                -> production.Chr(n)
+       / '(' PROD1:p ( ',' PROD1 )+:ps ')'       -> production.Tuple([p] ps)
        / '(' PROD1:prod ')'                      -> prod ;
 
 FUNCTOR := '.functor' ID:name FLET*:lets FRULE*:rules
@@ -222,8 +227,10 @@ PEXPR1 := PEXPR2:this '/' PEXPR1:that -> peg.Choice(this, that)
 PEXPR2 := PEXPR3:exprs '->' PROD1:prod -> peg.Production(exprs, prod)
         / PEXPR3 ;
 PEXPR3 := PEXPR4*:exprs -> peg.Sequence(exprs) ;
-PEXPR4 := PEXPR5:expr ':' ID:name -> peg.Capture(expr, name)
+PEXPR4 := PEXPR5:expr ':' PPATT:p -> peg.Capture(expr, p)
         / PEXPR5 ;
+PPATT := '(' PPATT:p ( ',' PPATT )*:ps -> peg.TuplePatt([p] ps)
+       / ID:name                       -> peg.NamePatt(name) ;
 PEXPR5 := '&' PEXPR6:expr -> peg.Positive(expr)
         / '!' PEXPR6:expr -> peg.Negative(expr)
         / PEXPR6 ;

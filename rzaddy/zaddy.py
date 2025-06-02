@@ -37,7 +37,8 @@ class Builder(object):
     def Block(self, ls): return Block(ls)
 builtin = Builder()
 class ParseError(Exception): pass
-def lineNumber(s, i): return s.count(chr(10), 0, i)
+def lineNumber(s, i):
+    return s.count(chr(10), 0, i)
 def main(argv):
     stdin, stdout, stderr = create_stdio()
     parser = MainParser(stdin.read())
@@ -93,6 +94,8 @@ class productionFunctor(object):
         return chr(39) + s + chr(39)
     def List(self, prods):
         return '[' + ', '.join(prods) + ']'
+    def Tuple(self, prods):
+        return '(' + ', '.join(prods) + ')'
     def Length(self, s):
         return 'str(len(' + s + '))'
     def Chr(self, n):
@@ -104,6 +107,10 @@ save = py.Statement('st.append(i)')
 backup = py.Statement('i = st.pop()')
 boundcheck = py.RaiseIf('i >= len(self.s)')
 class pegFunctor(object):
+    def NamePatt(self, name):
+        return name
+    def TuplePatt(self, ps):
+        return '(' + ', '.join(ps) + ')'
     def Null(self):
         return []
     def AnyChar(self):
@@ -130,8 +137,8 @@ class pegFunctor(object):
         return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.RaiseIf('not rv')]
     def Negative(self, expr):
         return [save, py.Handler(expr + [py.Statement('rv = True')], [py.Statement('rv = False')]), backup, py.RaiseIf('rv')]
-    def Capture(self, expr, name):
-        return expr + [py.Statement(name + ' = rv')]
+    def Capture(self, expr, patt):
+        return expr + [py.Statement(patt + ' = rv')]
     def Production(self, expr, prod):
         return expr + [py.Statement('rv = ' + prod)]
 peg = pegFunctor()
@@ -189,7 +196,8 @@ def target(driver, *args):
 class ZADDYParser(object):
     def __init__(self, s):
         self.s = s; self.lastMatch = []
-    def parse(self): return self.parseZADDY(0)
+    def parse(self):
+        return self.parseZADDY(0)
     @cached
     def parseWS(self, i):
         st = []
@@ -1203,21 +1211,58 @@ class ZADDYParser(object):
                                             rv = production.Chr(n)
                                         except ParseError:
                                             i = st.pop()
-                                            if i >= len(self.s): raise ParseError()
-                                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                            if i >= len(self.s): raise ParseError()
-                                            if self.s[i:i + 1] != "(": raise ParseError()
-                                            self.lastMatch.append(("TOKEN (", i, i + 1))
-                                            rv = "("; i += 1
-                                            i, rv = self.parsePROD1(i)
-                                            prod = rv
-                                            if i >= len(self.s): raise ParseError()
-                                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                            if i >= len(self.s): raise ParseError()
-                                            if self.s[i:i + 1] != ")": raise ParseError()
-                                            self.lastMatch.append(("TOKEN )", i, i + 1))
-                                            rv = ")"; i += 1
-                                            rv = prod
+                                            st.append(i)
+                                            try:
+                                                if i >= len(self.s): raise ParseError()
+                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                if i >= len(self.s): raise ParseError()
+                                                if self.s[i:i + 1] != "(": raise ParseError()
+                                                self.lastMatch.append(("TOKEN (", i, i + 1))
+                                                rv = "("; i += 1
+                                                i, rv = self.parsePROD1(i)
+                                                p = rv
+                                                rvs = []
+                                                while True:
+                                                    st.append(i)
+                                                    try:
+                                                        if i >= len(self.s): raise ParseError()
+                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                        if i >= len(self.s): raise ParseError()
+                                                        if self.s[i:i + 1] != ",": raise ParseError()
+                                                        self.lastMatch.append(("TOKEN ,", i, i + 1))
+                                                        rv = ","; i += 1
+                                                        i, rv = self.parsePROD1(i)
+                                                        rvs.append(rv)
+                                                    except ParseError:
+                                                        i = st.pop()
+                                                        break
+                                                rv = rvs
+                                                if not rv: raise ParseError()
+                                                ps = rv
+                                                if i >= len(self.s): raise ParseError()
+                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                if i >= len(self.s): raise ParseError()
+                                                if self.s[i:i + 1] != ")": raise ParseError()
+                                                self.lastMatch.append(("TOKEN )", i, i + 1))
+                                                rv = ")"; i += 1
+                                                rv = production.Tuple([p] + ps)
+                                            except ParseError:
+                                                i = st.pop()
+                                                if i >= len(self.s): raise ParseError()
+                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                if i >= len(self.s): raise ParseError()
+                                                if self.s[i:i + 1] != "(": raise ParseError()
+                                                self.lastMatch.append(("TOKEN (", i, i + 1))
+                                                rv = "("; i += 1
+                                                i, rv = self.parsePROD1(i)
+                                                prod = rv
+                                                if i >= len(self.s): raise ParseError()
+                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                if i >= len(self.s): raise ParseError()
+                                                if self.s[i:i + 1] != ")": raise ParseError()
+                                                self.lastMatch.append(("TOKEN )", i, i + 1))
+                                                rv = ")"; i += 1
+                                                rv = prod
         return i, rv
     @cached
     def parseFUNCTOR(self, i):
@@ -1480,12 +1525,49 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != ":": raise ParseError()
             self.lastMatch.append(("TOKEN :", i, i + 1))
             rv = ":"; i += 1
-            i, rv = self.parseID(i)
-            name = rv
-            rv = peg.Capture(expr, name)
+            i, rv = self.parsePPATT(i)
+            p = rv
+            rv = peg.Capture(expr, p)
         except ParseError:
             i = st.pop()
             i, rv = self.parsePEXPR5(i)
+        return i, rv
+    @cached
+    def parsePPATT(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != "(": raise ParseError()
+            self.lastMatch.append(("TOKEN (", i, i + 1))
+            rv = "("; i += 1
+            i, rv = self.parsePPATT(i)
+            p = rv
+            rvs = []
+            while True:
+                st.append(i)
+                try:
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != ",": raise ParseError()
+                    self.lastMatch.append(("TOKEN ,", i, i + 1))
+                    rv = ","; i += 1
+                    i, rv = self.parsePPATT(i)
+                    rvs.append(rv)
+                except ParseError:
+                    i = st.pop()
+                    break
+            rv = rvs
+            ps = rv
+            rv = peg.TuplePatt([p] + ps)
+        except ParseError:
+            i = st.pop()
+            i, rv = self.parseID(i)
+            name = rv
+            rv = peg.NamePatt(name)
         return i, rv
     @cached
     def parsePEXPR5(self, i):
