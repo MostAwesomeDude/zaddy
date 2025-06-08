@@ -84,42 +84,16 @@ Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 
 .functor rules
 
-Fact(t)                      -> '# ' t ;
-Clause(t, goal)              -> '# ' t (goal % '') ;
-Rule(name, r)                -> '# ' name '@' r ;
-True                         -> 'true' ;
-Eq(l, r)                     -> l '=' r ;
-Ignore                       -> '_' ;
-Var(n)                       -> n ;
-Const(n)                     -> n ;
-Compound(func, vars)         -> ([func] vars) % '' ;
-Propagate(head, guard, goal) -> (['Propagate('] head [', ' guard ', '] goal [')']) % '' ;
-Simplify(head, guard, goal)  -> (['Simplify('] head [', ' guard ', '] goal [')']) % '' ;
-Simpagate(keep, discard, guard, goal) -> (['Simpagate('] keep discard [', ' guard ', '] goal [')']) % '' ;
+Ignore                   -> '_' ;
+Var(n)                   -> n ;
+Const(n)                 -> n ;
+Literal(s)               -> 39 s 39 ;
+StarPatt(p)              -> p '*' ;
+PlusPatt(p)              -> p '+' ;
+Compound(ns, func, vars) -> ([ns func] vars) % '-' ;
+Rewrite(name, ps, prod)  -> [py.Compound('def ' name '()', [py.Statement('pass')])] ;
 
 .rules
-
-.constraints zero/0, succ/2, gte/2, max/3,
-             root/2, link/2, branch/2,
-             make/1, union/2, find/2.
-
-gte(N, zero).
-gte(N, M) :- succ(X, N), succ(Y, M), gte(X, Y).
-
-maxLeft   @ max(N, zero, M) <=> N = M.
-maxRight  @ max(N, M, zero) <=> N = M.
-maxSucc   @ succ(X, L), succ(Y, N), succ(Z, M) \ max(L, N, M) <=>
-            max(X, Y, Z).
-
-make      @ make(A) <=> root(A, zero).
-union     @ union(A, B) <=> find(A, X), find(B, Y), link(X, Y).
-findNode  @ branch(A, B), find(A, X) <=> find(B, X), branch(A, X).
-findRoot  @ root(A, _) \ find(A, X) <=> X = A.
-linkEq    @ link(A, A) <=> true.
-linkLeft  @ link(A, B), root(A, N), root(B, M) <=>
-            gte(N, M) | branch(B, A), succ(M, M1), max(R, N, M1), root(A, R).
-linkRight @ link(B, A), root(A, N), root(B, M) <=>
-            gte(N, M) | branch(B, A), succ(M, M1), max(R, N, M1), root(A, R).
 
 .grammar ZADDY
 
@@ -146,28 +120,26 @@ FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
        / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
        / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
 
-RULES := '.rules' CONSTRAINT:cs CHORN*:hs CHANDLER*:rs -> cs hs rs ;
-CONSTRAINT := '.constraints' CFUNCTOR:f ( ',' CFUNCTOR )*:fs '.' -> [f] fs
-            / -> [] ;
-CFUNCTOR := ID:name '/' NUMBER:arity -> py.Statement('# declare ' name arity) ;
-CHORN := CCOMPOUND:t '.'                  -> py.Statement(rules.Fact(t))
-       / CCOMPOUND:t ':-' CGOALS:goal '.' -> py.Statement(rules.Clause(t, goal)) ;
-CHANDLER := ID:name '@' CHRULE:r -> py.Statement(rules.Rule(name, r)) ;
-CHRULE := CHEAD:head '==>' CGUARD:guard CGOALS:goal '.'                    -> rules.Propagate(head, guard, goal)
-        / CHEAD:head '<=>' CGUARD:guard CGOALS:goal '.'                    -> rules.Simplify(head, guard, goal)
-        / CHEAD:keep WS 92 CHEAD:discard '<=>' CGUARD:guard CGOALS:goal '.' -> rules.Simpagate(keep, discard, guard, goal) ;
-CHEAD := CTERM:t ( ',' CTERM )*:ts -> [t] ts ;
-CTERM := CCOMPOUND / CVAR ;
-CCOMPOUND := ID:func '(' CHEAD:vars ')' -> rules.Compound(func, vars) ;
-CVAR := '_'         -> rules.Ignore
-      / PVAR:name   -> rules.Var(name)
-      / PCONST:name -> rules.Const(name) ;
-CGUARD := CGOAL:g '|' -> g
-        / -> rules.True ;
-CGOALS := CGOAL:g ( ',' CGOAL )*:gs -> [g] gs ;
-CGOAL := 'true'            -> rules.True
-       / CVAR:l '=' CVAR:r -> rules.Eq(l, r)
-       / CTERM ;
+RULES := '.rules' CHRULE*:hs -> *hs ;
+CHRULE := ID:name '@' CPATTS:ps '==>' CPROD1:prod ';' -> rules.Rewrite(name, ps, prod) ;
+CLISTPATTS := CLISTPATT:p ( ',' CLISTPATT )*:ps -> [p] ps ;
+CLISTPATT := PVAR:p '*' -> rules.StarPatt(p)
+           / PVAR:p '+' -> rules.PlusPatt(p)
+           / CPATT ;
+CPATTS := CPATT:p ( ',' CPATT )*:ps -> [p] ps ;
+CPATT := '[' CLISTPATTS:ps ']'               -> rules.Compound('builtin', 'List', ps)
+       / '_'                                 -> rules.Ignore
+       / STRING:s                            -> rules.Literal(s)
+       / ID:ns '.' ID:func '(' CPATTS:ps ')' -> rules.Compound(ns, func, ps)
+       / ID:ns '.' ID:func                   -> rules.Compound(ns, func, [])
+       / PVAR:name                           -> rules.Var(name) ;
+CPRODS := CPROD1:p ( ',' CPROD1 )*:ps -> [p] ps ;
+CPROD1 := CPROD2+:ps -> ps % ' ' ;
+CPROD2 := '[' CPRODS:ps ']'                   -> rules.Compound('builtin', 'List', ps)
+        / STRING:s                            -> rules.Literal(s)
+        / ID:ns '.' ID:func '(' CPRODS:ps ')' -> rules.Compound(ns, func, ps)
+        / ID:ns '.' ID:func                   -> rules.Compound(ns, func, [])
+        / PVAR:name                           -> rules.Var(name) ;
 
 PROD1 := '.if' PROD1:test '.then' PROD1:cons '.else' PROD1:other -> production.Cond(test, cons, other)
        / PROD2 ;
@@ -276,6 +248,21 @@ ZADDY := WS ( RULES / FUNCTOR / GRAMMAR )*:clss WS
               py.Statement('rv = []'),
               py.Statement('for x in xs: rv.extend(x)'),
               py.Ret('rv')
+          ]),
+          py.Statement('uf = []'),
+          py.Compound('def make()', [
+              py.Statement('rv = len(uf)'),
+              py.Statement('uf.append(rv)'),
+              py.Ret('rv')
+          ]),
+          py.Compound('def find(i)', [
+              py.Statement('j = uf[i]'),
+              py.Compound('while uf[j] != j', [py.Statement('uf[i], j, i = uf[j], uf[j], j')]),
+              py.Ret('j')
+          ]),
+          py.Compound('def union(i, j)', [
+              py.Statement('i = find(i); j = find(j)'),
+              py.Conditional('i != j', [py.Statement('uf[i] = j')])
           ]),
           py.Compound('class Builtin(object)', []),
           py.Statement('class Line(Builtin):'),

@@ -26,6 +26,20 @@ def flatten(xs):
     rv = []
     for x in xs: rv.extend(x)
     return rv
+uf = []
+def make():
+    rv = len(uf)
+    uf.append(rv)
+    return rv
+def find(i):
+    j = uf[i]
+    while uf[j] != j:
+        uf[i], j, i = uf[j], uf[j], j
+    return j
+def union(i, j):
+    i = find(i); j = find(j)
+    if i != j:
+        uf[i] = j
 class Builtin(object): pass
 class Line(Builtin):
     def __init__(self, s): self.s = s
@@ -144,53 +158,23 @@ class pegFunctor(object):
         return expr + [py.Statement(u'rv = ' + prod)]
 peg = pegFunctor()
 class rulesFunctor(object):
-    def Fact(self, t):
-        return u'# ' + t
-    def Clause(self, t, goal):
-        return u'# ' + t + u''.join(goal)
-    def Rule(self, name, r):
-        return u'# ' + name + u'@' + r
-    def True(self):
-        return u'true'
-    def Eq(self, l, r):
-        return l + u'=' + r
     def Ignore(self):
         return u'_'
     def Var(self, n):
         return n
     def Const(self, n):
         return n
-    def Compound(self, func, vars):
-        return u''.join([func] + vars)
-    def Propagate(self, head, guard, goal):
-        return u''.join([u'Propagate('] + head + [u', ' + guard + u', '] + goal + [u')'])
-    def Simplify(self, head, guard, goal):
-        return u''.join([u'Simplify('] + head + [u', ' + guard + u', '] + goal + [u')'])
-    def Simpagate(self, keep, discard, guard, goal):
-        return u''.join([u'Simpagate('] + keep + discard + [u', ' + guard + u', '] + goal + [u')'])
+    def Literal(self, s):
+        return unichr(39) + s + unichr(39)
+    def StarPatt(self, p):
+        return p + u'*'
+    def PlusPatt(self, p):
+        return p + u'+'
+    def Compound(self, ns, func, vars):
+        return u'-'.join([ns + func] + vars)
+    def Rewrite(self, name, ps, prod):
+        return [py.Compound(u'def ' + name + u'()', [py.Statement(u'pass')])]
 rules = rulesFunctor()
-# declare zero0
-# declare succ2
-# declare gte2
-# declare max3
-# declare root2
-# declare link2
-# declare branch2
-# declare make1
-# declare union2
-# declare find2
-# gteNzero
-# gteNMsuccXNsuccYMgteXY
-# maxLeft@Simplify(maxNzeroM, true, N=M)
-# maxRight@Simplify(maxNMzero, true, N=M)
-# maxSucc@Simpagate(succXLsuccYNsuccZMmaxLNM, true, maxXYZ)
-# make@Simplify(makeA, true, rootAzero)
-# union@Simplify(unionAB, true, findAXfindBYlinkXY)
-# findNode@Simplify(branchABfindAX, true, findBXbranchAX)
-# findRoot@Simpagate(rootA_findAX, true, X=A)
-# linkEq@Simplify(linkAA, true, true)
-# linkLeft@Simplify(linkABrootANrootBM, gteNM, branchBAsuccMM1maxRNM1rootAR)
-# linkRight@Simplify(linkBArootANrootBM, gteNM, branchBAsuccMM1maxRNM1rootAR)
 def target(driver, *args):
     driver.exe_name = "ZADDY".lower() + "c"
     return main, None
@@ -581,124 +565,21 @@ class ZADDYParser(object):
         if self.s[i:i + 6] != u".rules": raise ParseError()
         self.lastMatch.append((u"TOKEN .rules", i, i + 6))
         rv = u".rules"; i += 6
-        i, rv = self.parseCONSTRAINT(i)
-        cs = rv
         rvs = []
         while True:
             st.append(i)
             try:
-                i, rv = self.parseCHORN(i)
+                i, rv = self.parseCHRULE(i)
                 rvs.append(rv)
             except ParseError:
                 i = st.pop()
                 break
         rv = rvs
         hs = rv
-        rvs = []
-        while True:
-            st.append(i)
-            try:
-                i, rv = self.parseCHANDLER(i)
-                rvs.append(rv)
-            except ParseError:
-                i = st.pop()
-                break
-        rv = rvs
-        rs = rv
-        rv = cs + hs + rs
+        rv = flatten(hs)
         return i, rv
     @cached
-    def parseCONSTRAINT(self, i):
-        st = []
-        st.append(i)
-        try:
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 12] != u".constraints": raise ParseError()
-            self.lastMatch.append((u"TOKEN .constraints", i, i + 12))
-            rv = u".constraints"; i += 12
-            i, rv = self.parseCFUNCTOR(i)
-            f = rv
-            rvs = []
-            while True:
-                st.append(i)
-                try:
-                    if i >= len(self.s): raise ParseError()
-                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                    if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 1] != u",": raise ParseError()
-                    self.lastMatch.append((u"TOKEN ,", i, i + 1))
-                    rv = u","; i += 1
-                    i, rv = self.parseCFUNCTOR(i)
-                    rvs.append(rv)
-                except ParseError:
-                    i = st.pop()
-                    break
-            rv = rvs
-            fs = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u".": raise ParseError()
-            self.lastMatch.append((u"TOKEN .", i, i + 1))
-            rv = u"."; i += 1
-            rv = [f] + fs
-        except ParseError:
-            i = st.pop()
-            rv = []
-        return i, rv
-    @cached
-    def parseCFUNCTOR(self, i):
-        st = []
-        i, rv = self.parseID(i)
-        name = rv
-        if i >= len(self.s): raise ParseError()
-        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-        if i >= len(self.s): raise ParseError()
-        if self.s[i:i + 1] != u"/": raise ParseError()
-        self.lastMatch.append((u"TOKEN /", i, i + 1))
-        rv = u"/"; i += 1
-        i, rv = self.parseNUMBER(i)
-        arity = rv
-        rv = py.Statement(u'# declare ' + name + arity)
-        return i, rv
-    @cached
-    def parseCHORN(self, i):
-        st = []
-        st.append(i)
-        try:
-            i, rv = self.parseCCOMPOUND(i)
-            t = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u".": raise ParseError()
-            self.lastMatch.append((u"TOKEN .", i, i + 1))
-            rv = u"."; i += 1
-            rv = py.Statement(rules.Fact(t))
-        except ParseError:
-            i = st.pop()
-            i, rv = self.parseCCOMPOUND(i)
-            t = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 2] != u":-": raise ParseError()
-            self.lastMatch.append((u"TOKEN :-", i, i + 2))
-            rv = u":-"; i += 2
-            i, rv = self.parseCGOALS(i)
-            goal = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u".": raise ParseError()
-            self.lastMatch.append((u"TOKEN .", i, i + 1))
-            rv = u"."; i += 1
-            rv = py.Statement(rules.Clause(t, goal))
-        return i, rv
-    @cached
-    def parseCHANDLER(self, i):
+    def parseCHRULE(self, i):
         st = []
         i, rv = self.parseID(i)
         name = rv
@@ -708,90 +589,29 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u"@": raise ParseError()
         self.lastMatch.append((u"TOKEN @", i, i + 1))
         rv = u"@"; i += 1
-        i, rv = self.parseCHRULE(i)
-        r = rv
-        rv = py.Statement(rules.Rule(name, r))
+        i, rv = self.parseCPATTS(i)
+        ps = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 3] != u"==>": raise ParseError()
+        self.lastMatch.append((u"TOKEN ==>", i, i + 3))
+        rv = u"==>"; i += 3
+        i, rv = self.parseCPROD1(i)
+        prod = rv
+        if i >= len(self.s): raise ParseError()
+        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+        if i >= len(self.s): raise ParseError()
+        if self.s[i:i + 1] != u";": raise ParseError()
+        self.lastMatch.append((u"TOKEN ;", i, i + 1))
+        rv = u";"; i += 1
+        rv = rules.Rewrite(name, ps, prod)
         return i, rv
     @cached
-    def parseCHRULE(self, i):
+    def parseCLISTPATTS(self, i):
         st = []
-        st.append(i)
-        try:
-            i, rv = self.parseCHEAD(i)
-            head = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 3] != u"==>": raise ParseError()
-            self.lastMatch.append((u"TOKEN ==>", i, i + 3))
-            rv = u"==>"; i += 3
-            i, rv = self.parseCGUARD(i)
-            guard = rv
-            i, rv = self.parseCGOALS(i)
-            goal = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u".": raise ParseError()
-            self.lastMatch.append((u"TOKEN .", i, i + 1))
-            rv = u"."; i += 1
-            rv = rules.Propagate(head, guard, goal)
-        except ParseError:
-            i = st.pop()
-            st.append(i)
-            try:
-                i, rv = self.parseCHEAD(i)
-                head = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 3] != u"<=>": raise ParseError()
-                self.lastMatch.append((u"TOKEN <=>", i, i + 3))
-                rv = u"<=>"; i += 3
-                i, rv = self.parseCGUARD(i)
-                guard = rv
-                i, rv = self.parseCGOALS(i)
-                goal = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != u".": raise ParseError()
-                self.lastMatch.append((u"TOKEN .", i, i + 1))
-                rv = u"."; i += 1
-                rv = rules.Simplify(head, guard, goal)
-            except ParseError:
-                i = st.pop()
-                i, rv = self.parseCHEAD(i)
-                keep = rv
-                i, rv = self.parseWS(i)
-                if i >= len(self.s): raise ParseError()
-                if ord(self.s[i]) != 92: raise ParseError()
-                rv = self.s[i]; i += 1
-                i, rv = self.parseCHEAD(i)
-                discard = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 3] != u"<=>": raise ParseError()
-                self.lastMatch.append((u"TOKEN <=>", i, i + 3))
-                rv = u"<=>"; i += 3
-                i, rv = self.parseCGUARD(i)
-                guard = rv
-                i, rv = self.parseCGOALS(i)
-                goal = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != u".": raise ParseError()
-                self.lastMatch.append((u"TOKEN .", i, i + 1))
-                rv = u"."; i += 1
-                rv = rules.Simpagate(keep, discard, guard, goal)
-        return i, rv
-    @cached
-    def parseCHEAD(self, i):
-        st = []
-        i, rv = self.parseCTERM(i)
-        t = rv
+        i, rv = self.parseCLISTPATT(i)
+        p = rv
         rvs = []
         while True:
             st.append(i)
@@ -802,94 +622,51 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                i, rv = self.parseCTERM(i)
+                i, rv = self.parseCLISTPATT(i)
                 rvs.append(rv)
             except ParseError:
                 i = st.pop()
                 break
         rv = rvs
-        ts = rv
-        rv = [t] + ts
+        ps = rv
+        rv = [p] + ps
         return i, rv
     @cached
-    def parseCTERM(self, i):
+    def parseCLISTPATT(self, i):
         st = []
         st.append(i)
         try:
-            i, rv = self.parseCCOMPOUND(i)
-        except ParseError:
-            i = st.pop()
-            i, rv = self.parseCVAR(i)
-        return i, rv
-    @cached
-    def parseCCOMPOUND(self, i):
-        st = []
-        i, rv = self.parseID(i)
-        func = rv
-        if i >= len(self.s): raise ParseError()
-        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-        if i >= len(self.s): raise ParseError()
-        if self.s[i:i + 1] != u"(": raise ParseError()
-        self.lastMatch.append((u"TOKEN (", i, i + 1))
-        rv = u"("; i += 1
-        i, rv = self.parseCHEAD(i)
-        vars = rv
-        if i >= len(self.s): raise ParseError()
-        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-        if i >= len(self.s): raise ParseError()
-        if self.s[i:i + 1] != u")": raise ParseError()
-        self.lastMatch.append((u"TOKEN )", i, i + 1))
-        rv = u")"; i += 1
-        rv = rules.Compound(func, vars)
-        return i, rv
-    @cached
-    def parseCVAR(self, i):
-        st = []
-        st.append(i)
-        try:
+            i, rv = self.parsePVAR(i)
+            p = rv
             if i >= len(self.s): raise ParseError()
             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
             if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"_": raise ParseError()
-            self.lastMatch.append((u"TOKEN _", i, i + 1))
-            rv = u"_"; i += 1
-            rv = rules.Ignore()
+            if self.s[i:i + 1] != u"*": raise ParseError()
+            self.lastMatch.append((u"TOKEN *", i, i + 1))
+            rv = u"*"; i += 1
+            rv = rules.StarPatt(p)
         except ParseError:
             i = st.pop()
             st.append(i)
             try:
                 i, rv = self.parsePVAR(i)
-                name = rv
-                rv = rules.Var(name)
+                p = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u"+": raise ParseError()
+                self.lastMatch.append((u"TOKEN +", i, i + 1))
+                rv = u"+"; i += 1
+                rv = rules.PlusPatt(p)
             except ParseError:
                 i = st.pop()
-                i, rv = self.parsePCONST(i)
-                name = rv
-                rv = rules.Const(name)
+                i, rv = self.parseCPATT(i)
         return i, rv
     @cached
-    def parseCGUARD(self, i):
+    def parseCPATTS(self, i):
         st = []
-        st.append(i)
-        try:
-            i, rv = self.parseCGOAL(i)
-            g = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"|": raise ParseError()
-            self.lastMatch.append((u"TOKEN |", i, i + 1))
-            rv = u"|"; i += 1
-            rv = g
-        except ParseError:
-            i = st.pop()
-            rv = rules.True()
-        return i, rv
-    @cached
-    def parseCGOALS(self, i):
-        st = []
-        i, rv = self.parseCGOAL(i)
-        g = rv
+        i, rv = self.parseCPATT(i)
+        p = rv
         rvs = []
         while True:
             st.append(i)
@@ -900,45 +677,220 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                i, rv = self.parseCGOAL(i)
+                i, rv = self.parseCPATT(i)
                 rvs.append(rv)
             except ParseError:
                 i = st.pop()
                 break
         rv = rvs
-        gs = rv
-        rv = [g] + gs
+        ps = rv
+        rv = [p] + ps
         return i, rv
     @cached
-    def parseCGOAL(self, i):
+    def parseCPATT(self, i):
         st = []
         st.append(i)
         try:
             if i >= len(self.s): raise ParseError()
             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
             if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 4] != u"true": raise ParseError()
-            self.lastMatch.append((u"TOKEN true", i, i + 4))
-            rv = u"true"; i += 4
-            rv = rules.True()
+            if self.s[i:i + 1] != u"[": raise ParseError()
+            self.lastMatch.append((u"TOKEN [", i, i + 1))
+            rv = u"["; i += 1
+            i, rv = self.parseCLISTPATTS(i)
+            ps = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != u"]": raise ParseError()
+            self.lastMatch.append((u"TOKEN ]", i, i + 1))
+            rv = u"]"; i += 1
+            rv = rules.Compound(u'builtin', u'List', ps)
         except ParseError:
             i = st.pop()
             st.append(i)
             try:
-                i, rv = self.parseCVAR(i)
-                l = rv
                 if i >= len(self.s): raise ParseError()
                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                 if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != u"=": raise ParseError()
-                self.lastMatch.append((u"TOKEN =", i, i + 1))
-                rv = u"="; i += 1
-                i, rv = self.parseCVAR(i)
-                r = rv
-                rv = rules.Eq(l, r)
+                if self.s[i:i + 1] != u"_": raise ParseError()
+                self.lastMatch.append((u"TOKEN _", i, i + 1))
+                rv = u"_"; i += 1
+                rv = rules.Ignore()
             except ParseError:
                 i = st.pop()
-                i, rv = self.parseCTERM(i)
+                st.append(i)
+                try:
+                    i, rv = self.parseSTRING(i)
+                    s = rv
+                    rv = rules.Literal(s)
+                except ParseError:
+                    i = st.pop()
+                    st.append(i)
+                    try:
+                        i, rv = self.parseID(i)
+                        ns = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u".": raise ParseError()
+                        self.lastMatch.append((u"TOKEN .", i, i + 1))
+                        rv = u"."; i += 1
+                        i, rv = self.parseID(i)
+                        func = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u"(": raise ParseError()
+                        self.lastMatch.append((u"TOKEN (", i, i + 1))
+                        rv = u"("; i += 1
+                        i, rv = self.parseCPATTS(i)
+                        ps = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u")": raise ParseError()
+                        self.lastMatch.append((u"TOKEN )", i, i + 1))
+                        rv = u")"; i += 1
+                        rv = rules.Compound(ns, func, ps)
+                    except ParseError:
+                        i = st.pop()
+                        st.append(i)
+                        try:
+                            i, rv = self.parseID(i)
+                            ns = rv
+                            if i >= len(self.s): raise ParseError()
+                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                            if i >= len(self.s): raise ParseError()
+                            if self.s[i:i + 1] != u".": raise ParseError()
+                            self.lastMatch.append((u"TOKEN .", i, i + 1))
+                            rv = u"."; i += 1
+                            i, rv = self.parseID(i)
+                            func = rv
+                            rv = rules.Compound(ns, func, [])
+                        except ParseError:
+                            i = st.pop()
+                            i, rv = self.parsePVAR(i)
+                            name = rv
+                            rv = rules.Var(name)
+        return i, rv
+    @cached
+    def parseCPRODS(self, i):
+        st = []
+        i, rv = self.parseCPROD1(i)
+        p = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u",": raise ParseError()
+                self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                rv = u","; i += 1
+                i, rv = self.parseCPROD1(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        ps = rv
+        rv = [p] + ps
+        return i, rv
+    @cached
+    def parseCPROD1(self, i):
+        st = []
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                i, rv = self.parseCPROD2(i)
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        if not rv: raise ParseError()
+        ps = rv
+        rv = u' '.join(ps)
+        return i, rv
+    @cached
+    def parseCPROD2(self, i):
+        st = []
+        st.append(i)
+        try:
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != u"[": raise ParseError()
+            self.lastMatch.append((u"TOKEN [", i, i + 1))
+            rv = u"["; i += 1
+            i, rv = self.parseCPRODS(i)
+            ps = rv
+            if i >= len(self.s): raise ParseError()
+            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+            if i >= len(self.s): raise ParseError()
+            if self.s[i:i + 1] != u"]": raise ParseError()
+            self.lastMatch.append((u"TOKEN ]", i, i + 1))
+            rv = u"]"; i += 1
+            rv = rules.Compound(u'builtin', u'List', ps)
+        except ParseError:
+            i = st.pop()
+            st.append(i)
+            try:
+                i, rv = self.parseSTRING(i)
+                s = rv
+                rv = rules.Literal(s)
+            except ParseError:
+                i = st.pop()
+                st.append(i)
+                try:
+                    i, rv = self.parseID(i)
+                    ns = rv
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u".": raise ParseError()
+                    self.lastMatch.append((u"TOKEN .", i, i + 1))
+                    rv = u"."; i += 1
+                    i, rv = self.parseID(i)
+                    func = rv
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u"(": raise ParseError()
+                    self.lastMatch.append((u"TOKEN (", i, i + 1))
+                    rv = u"("; i += 1
+                    i, rv = self.parseCPRODS(i)
+                    ps = rv
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u")": raise ParseError()
+                    self.lastMatch.append((u"TOKEN )", i, i + 1))
+                    rv = u")"; i += 1
+                    rv = rules.Compound(ns, func, ps)
+                except ParseError:
+                    i = st.pop()
+                    st.append(i)
+                    try:
+                        i, rv = self.parseID(i)
+                        ns = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u".": raise ParseError()
+                        self.lastMatch.append((u"TOKEN .", i, i + 1))
+                        rv = u"."; i += 1
+                        i, rv = self.parseID(i)
+                        func = rv
+                        rv = rules.Compound(ns, func, [])
+                    except ParseError:
+                        i = st.pop()
+                        i, rv = self.parsePVAR(i)
+                        name = rv
+                        rv = rules.Var(name)
         return i, rv
     @cached
     def parsePROD1(self, i):
@@ -1749,6 +1701,6 @@ class ZADDYParser(object):
         rv = rvs
         clss = rv
         i, rv = self.parseWS(i)
-        rv = [py.Statement(u'from rpython.rlib.rfile import create_stdio'), py.Statement(u'from rpython.rlib.objectmodel import specialize'), py.Compound(u'class Result(object)', []), py.Compound(u'class Failed(Result)', []), py.Statement(u'failed = Failed()'), py.Compound(u'def cached(f, cacheCount=[0])', [py.Statement(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement(u'name = f.__name__'), py.Statement(u'uname = unicode(name)'), py.Statement(u'class CacheResult(Result):'), py.Statement(u'    def __init__(self, i, rv): setattr(self, attr, (i, rv))'), py.Statement(u'cache = {}'), py.Compound(u'def deco(self, i)', [py.Statement(u'key = i'), py.RaiseIf(u'key in cache and cache[key] is failed'), py.Statement(u'elif key in cache: return getattr(cache[key], attr)'), py.Statement(u'cache[key] = failed'), py.Statement(u'i, rv = f(self, i)'), py.Statement(u'cache[key] = CacheResult(i, rv)'), py.Statement(u'self.lastMatch.append((uname, key, i))'), py.Ret(u'i, rv')]), py.Statement(u'deco.__name__ = name'), py.Ret(u'deco')]), py.Statement(u'@specialize.call_location()'), py.Compound(u'def flatten(xs)', [py.Statement(u'rv = []'), py.Statement(u'for x in xs: rv.extend(x)'), py.Ret(u'rv')]), py.Compound(u'class Builtin(object)', []), py.Statement(u'class Line(Builtin):'), py.Statement(u'    def __init__(self, s): self.s = s'), py.Statement(u'    def out(self, m): return [u" " * (m * 4) + self.s]'), py.Statement(u'class Block(Builtin):'), py.Statement(u'    def __init__(self, ls): self.ls = ls'), py.Statement(u'    def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])'), py.Statement(u'class Builder(object):'), py.Statement(u'    def Line(self, s): return Line(s)'), py.Statement(u'    def Block(self, ls): return Block(ls)'), py.Statement(u'builtin = Builder()'), py.Compound(u'class ParseError(Exception)', []), py.Compound(u'def lineNumber(s, i)', [py.Ret(u's.count(unichr(10), 0, i)')]), py.Compound(u'def main(argv)', [py.Statement(u'stdin, stdout, stderr = create_stdio()'), py.Statement(u'parser = MainParser(stdin.read().decode("utf-8"))'), py.Handler([py.Statement(u'i, rules = parser.parse()'), py.Statement(u'if i != len(parser.s):'), py.Statement(u'    stderr.write("Failed to consume all input\\n")'), py.Statement(u'    raise ParseError()'), py.Statement(u'buf = []'), py.Statement(u'for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement(u'stdout.write(u"\\n".join(buf).encode("utf-8"))'), py.Statement(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Ret(u'0')], [py.Statement(u'start = max(len(parser.lastMatch) - 25, 0)'), py.Statement(u'newlines = [0]'), py.Statement(u'for line in parser.s.split(u"\\n"):'), py.Statement(u'    newlines.append(newlines[-1] + len(line) + 1)'), py.Statement(u'for k, start, stop in parser.lastMatch[start:]:'), py.Statement(u'    startLine = lineNumber(parser.s, start)'), py.Statement(u'    startCol = start - newlines[startLine]'), py.Statement(u'    stopLine = lineNumber(parser.s, stop)'), py.Statement(u'    stopCol = stop - newlines[stopLine]'), py.Statement(u'    t = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement(u'    stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'), py.Ret(u'1')])])] + flatten(clss)
+        rv = [py.Statement(u'from rpython.rlib.rfile import create_stdio'), py.Statement(u'from rpython.rlib.objectmodel import specialize'), py.Compound(u'class Result(object)', []), py.Compound(u'class Failed(Result)', []), py.Statement(u'failed = Failed()'), py.Compound(u'def cached(f, cacheCount=[0])', [py.Statement(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement(u'name = f.__name__'), py.Statement(u'uname = unicode(name)'), py.Statement(u'class CacheResult(Result):'), py.Statement(u'    def __init__(self, i, rv): setattr(self, attr, (i, rv))'), py.Statement(u'cache = {}'), py.Compound(u'def deco(self, i)', [py.Statement(u'key = i'), py.RaiseIf(u'key in cache and cache[key] is failed'), py.Statement(u'elif key in cache: return getattr(cache[key], attr)'), py.Statement(u'cache[key] = failed'), py.Statement(u'i, rv = f(self, i)'), py.Statement(u'cache[key] = CacheResult(i, rv)'), py.Statement(u'self.lastMatch.append((uname, key, i))'), py.Ret(u'i, rv')]), py.Statement(u'deco.__name__ = name'), py.Ret(u'deco')]), py.Statement(u'@specialize.call_location()'), py.Compound(u'def flatten(xs)', [py.Statement(u'rv = []'), py.Statement(u'for x in xs: rv.extend(x)'), py.Ret(u'rv')]), py.Statement(u'uf = []'), py.Compound(u'def make()', [py.Statement(u'rv = len(uf)'), py.Statement(u'uf.append(rv)'), py.Ret(u'rv')]), py.Compound(u'def find(i)', [py.Statement(u'j = uf[i]'), py.Compound(u'while uf[j] != j', [py.Statement(u'uf[i], j, i = uf[j], uf[j], j')]), py.Ret(u'j')]), py.Compound(u'def union(i, j)', [py.Statement(u'i = find(i); j = find(j)'), py.Conditional(u'i != j', [py.Statement(u'uf[i] = j')])]), py.Compound(u'class Builtin(object)', []), py.Statement(u'class Line(Builtin):'), py.Statement(u'    def __init__(self, s): self.s = s'), py.Statement(u'    def out(self, m): return [u" " * (m * 4) + self.s]'), py.Statement(u'class Block(Builtin):'), py.Statement(u'    def __init__(self, ls): self.ls = ls'), py.Statement(u'    def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])'), py.Statement(u'class Builder(object):'), py.Statement(u'    def Line(self, s): return Line(s)'), py.Statement(u'    def Block(self, ls): return Block(ls)'), py.Statement(u'builtin = Builder()'), py.Compound(u'class ParseError(Exception)', []), py.Compound(u'def lineNumber(s, i)', [py.Ret(u's.count(unichr(10), 0, i)')]), py.Compound(u'def main(argv)', [py.Statement(u'stdin, stdout, stderr = create_stdio()'), py.Statement(u'parser = MainParser(stdin.read().decode("utf-8"))'), py.Handler([py.Statement(u'i, rules = parser.parse()'), py.Statement(u'if i != len(parser.s):'), py.Statement(u'    stderr.write("Failed to consume all input\\n")'), py.Statement(u'    raise ParseError()'), py.Statement(u'buf = []'), py.Statement(u'for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement(u'stdout.write(u"\\n".join(buf).encode("utf-8"))'), py.Statement(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Ret(u'0')], [py.Statement(u'start = max(len(parser.lastMatch) - 25, 0)'), py.Statement(u'newlines = [0]'), py.Statement(u'for line in parser.s.split(u"\\n"):'), py.Statement(u'    newlines.append(newlines[-1] + len(line) + 1)'), py.Statement(u'for k, start, stop in parser.lastMatch[start:]:'), py.Statement(u'    startLine = lineNumber(parser.s, start)'), py.Statement(u'    startCol = start - newlines[startLine]'), py.Statement(u'    stopLine = lineNumber(parser.s, stop)'), py.Statement(u'    stopCol = stop - newlines[stopLine]'), py.Statement(u'    t = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement(u'    stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'), py.Ret(u'1')])])] + flatten(clss)
         return i, rv
 MainParser = ZADDYParser
