@@ -2,7 +2,7 @@
   description = "A collection of metacompiling programs";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/release-25.05";
     flake-utils.url = "github:numtide/flake-utils";
     rpypkgs = {
       url = "github:rpypkgs/rpypkgs";
