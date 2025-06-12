@@ -1,3 +1,12 @@
+.signature py
+
+statement = Statement(string line)
+          | Ret(string expr)
+          | RaiseIf(string test)
+          | Compound(string head, statement* block)
+          | Conditional(string test, statement* block)
+          | Handler(statement* block, statement* handler)
+
 .functor py
 
 Statement(line)          -> [.line(line)] ;
@@ -39,12 +48,8 @@ NamePatt(name)          -> name ;
 TuplePatt(ps)           -> '(' (ps % ', ') ')' ;
 
 Null                    -> [] ;
-AnyChar                 -> [boundcheck, py.Statement('rv = self.s[i]; i += 1')] ;
 Char(i)                 -> [boundcheck,
                             py.RaiseIf('ord(self.s[i]) != ' i),
-                            py.Statement('rv = self.s[i]; i += 1')] ;
-Range(l, u)             -> [boundcheck,
-                            py.RaiseIf('not (' l ' <= ord(self.s[i]) <= ' u ')'),
                             py.Statement('rv = self.s[i]; i += 1')] ;
 Token(s)                -> [boundcheck,
                             py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'),
@@ -118,13 +123,23 @@ PlusPatt(p)              -> p '+' ;
 Compound(ns, func, vars) -> ([ns func] vars) % '-' ;
 Rewrite(name, ps, prod)  -> [py.Compound('def ' name '()', [py.Statement('pass')])] ;
 
+.signature char
+
+set = Any
+    | Exactly(char c)
+    | Range(set l, set u)
+    | Call(string n)
+    | Complement(set s)
+    | Either(set l, set r)
+
 .functor char
 
-Any          -> 'True' ;
-Exactly(c)   -> 'c == ' c ;
-Range(l, u)  -> l ' <= c <= ' u ;
-Call(n)      -> 'self.cls' n '(c)' ;
-Either(l, r) -> '(' l ') or (' r ')' ;
+Any           -> 'True' ;
+Exactly(c)    -> 'c == ' c ;
+Range(l, u)   -> l ' <= c <= ' u ;
+Call(n)       -> 'self.cls' n '(c)' ;
+Complement(s) -> 'not (' s ')' ;
+Either(l, r)  -> '(' l ') or (' r ')' ;
 
 .rules
 
@@ -136,11 +151,12 @@ class Upper = .range(65:90) ;
 class Lower = .range(97:122) ;
 class Alpha = Upper | Lower ;
 class Alphanumeric = Alpha | Digit ;
+class Quoted = ~( 10 | 13 | 39 | 92 ) ;
 
 WS := .class(Whitespace)* ;
-ESCAPE := 92 92 -> 92 92
-        / .any ;
-STRING := WS 39 ( !( 10 / 13 / 39 ) ESCAPE )*:cs 39 -> cs % '' ;
+ESCAPE := .class(Quoted)
+        / 92 92 -> 92 92 ;
+STRING := WS 39 ESCAPE*:cs 39 -> cs % '' ;
 NUMBER := WS .class(Digit):d .class(Digit)*:ds -> ([d] ds) % '' ;
 ID := WS .class(Alpha):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
 PVAR := WS .class(Upper):x .class(Alphanumeric)*:xs -> ([x] xs) % '' ;
@@ -236,6 +252,8 @@ CLASSEXPR1 := CLASSEXPR2:l '|' CLASSEXPR1:r -> char.Either(l, r)
             / CLASSEXPR2 ;
 CLASSEXPR2 := '.any'                              -> char.Any
             / '.range(' NUMBER:l ':' NUMBER:u ')' -> char.Range(l, u)
+            / '~' CLASSEXPR2:s                    -> char.Complement(s)
+            / '(' CLASSEXPR1:s ')'                -> s
             / NUMBER:c                            -> char.Exactly(c)
             / ID:n                                -> char.Call(n) ;
 
@@ -259,13 +277,11 @@ PEXPR6 := PEXPR7:expr '*' -> peg.Any(expr)
         / PEXPR7:expr '+' -> peg.Some(expr)
         / PEXPR7:expr '?' -> peg.Maybe(expr)
         / PEXPR7 ;
-PEXPR7 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
-        / '.any'                              -> peg.AnyChar
-        / '.class(' ID:name ')'               -> peg.CallClass(name)
-        / NUMBER:c                            -> peg.Char(c)
-        / ID:name                             -> peg.Call(name)
-        / STRING:s                            -> peg.Token(s)
-        / '(' PEXPR1:expr ')'                 -> expr ;
+PEXPR7 := '.class(' ID:name ')' -> peg.CallClass(name)
+        / NUMBER:c              -> peg.Char(c)
+        / ID:name               -> peg.Call(name)
+        / STRING:s              -> peg.Token(s)
+        / '(' PEXPR1:expr ')'   -> expr ;
 
 ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
       -> [py.Statement('from rpython.rlib.rfile import create_stdio'),
