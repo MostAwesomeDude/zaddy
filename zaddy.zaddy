@@ -52,6 +52,9 @@ Token(s)                -> [boundcheck,
                             py.RaiseIf('self.s[i:i + ' #s '] != u"' s '"'),
                             py.Statement('self.lastMatch.append((u"TOKEN ' s '", i, i + ' #s '))'),
                             py.Statement('rv = u"' s '"; i += ' #s)] ;
+CallClass(s)            -> [boundcheck,
+                            py.RaiseIf('not self.cls' s '(ord(self.s[i]))'),
+                            py.Statement('rv = self.s[i]; i += 1')] ;
 Call(s)                 -> [py.Statement('i, rv = self.parse' s '(i)')] ;
 Sequence(exprs)         -> *exprs ;
 Choice(this, that)      -> [save, py.Handler(this, [backup] that)] ;
@@ -82,9 +85,19 @@ Negative(expr)          -> [save,
 Capture(expr, patt)     -> expr [py.Statement(patt ' = rv')] ;
 Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 
+.functor zephyr
+
+Signature(name, tys)        -> [py.Statement('# signature ' name)] ;
+Product(name, fs)           -> 'product ' name ;
+Sum(name, attrs, con, cons) -> 'sum ' name ;
+Con(tag, args)              -> 'con ' tag ;
+Option(ty, name)            -> 'option ' name ;
+Sequence(ty, name)          -> 'sequence ' name ;
+Id(ty, name)                -> 'id ' name ;
+
 .functor rules
 
-Ignore                   -> '_' ;
+IgnorePatt               -> '_' ;
 Var(n)                   -> n ;
 Const(n)                 -> n ;
 Literal(s)               -> 39 s 39 ;
@@ -93,32 +106,45 @@ PlusPatt(p)              -> p '+' ;
 Compound(ns, func, vars) -> ([ns func] vars) % '-' ;
 Rewrite(name, ps, prod)  -> [py.Compound('def ' name '()', [py.Statement('pass')])] ;
 
+.functor char
+
+Any          -> 'True' ;
+Exactly(c)   -> 'c == ' c ;
+Range(l, u)  -> l ' <= c <= ' u ;
+Call(n)      -> 'self.cls' n '(c)' ;
+Either(l, r) -> '(' l ') or (' r ')' ;
+
 .rules
 
 .grammar ZADDY
 
-WS := ( 9 / 10 / 13 / 32 )* ;
-DIGIT := .range(48:57) ;
-UPPER := .range(65:90) ;
-LOWER := .range(97:122) ;
-ALPHA := UPPER / LOWER ;
+class Whitespace = 9 | 10 | 13 | 32 ;
+class Digit = .range(48:57) ;
+class Upper = .range(65:90) ;
+class Lower = .range(97:122) ;
+class Alpha = Upper | Lower ;
+class Alphanumeric = Alpha | Digit ;
+
+WS := .class(Whitespace)* ;
 ESCAPE := 92 92 -> 92 92
         / .any ;
 STRING := WS 39 ( !( 10 / 13 / 39 ) ESCAPE )*:cs 39 -> cs % '' ;
-NUMBER := WS DIGIT:d DIGIT*:ds -> ([d] ds) % '' ;
-ID := WS ALPHA:c ( ALPHA / DIGIT )*:cs -> ([c] cs) % '' ;
-PVAR := WS UPPER:x ( ALPHA / DIGIT )*:xs -> ([x] xs) % '' ;
-PCONST := WS LOWER+:xs -> xs % '' ;
+NUMBER := WS .class(Digit):d .class(Digit)*:ds -> ([d] ds) % '' ;
+ID := WS .class(Alpha):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
+PVAR := WS .class(Upper):x .class(Alphanumeric)*:xs -> ([x] xs) % '' ;
+PCONST := WS .class(Lower)+:xs -> xs % '' ;
 
-ZR := ID:name '='
+SIGNATURE := '.signature' ID:name ZTY*:tys -> zephyr.Signature(name, tys) ;
+ZTY := ID:name '='
       ( FIELDS:fs -> zephyr.Product(name, fs)
-      / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons
-        ( 'attributes' FIELDS )?:attrs -> zephyr.Sum(name, attrs, con, cons) ) ;
-CONSTRUCTOR := ID:tag FIELDS?:args -> zephyr.Con(tag, args) ;
+        / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons 'attributes' FIELDS:attrs -> zephyr.Sum(name, attrs, con, cons)
+        / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons -> zephyr.Sum(name, [], con, cons) ) ;
+CONSTRUCTOR := ID:tag FIELDS:args -> zephyr.Con(tag, args)
+             / ID:tag -> zephyr.Con(tag, []) ;
 FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> [f] fs ;
-FIELD := ID:ty ID?:name '?' -> zephyr.Option(ty, name)
-       / ID:ty ID?:name '*' -> zephyr.Sequence(ty, name)
-       / ID:ty ID?:name     -> zephyr.Id(ty, name) ;
+FIELD := ID:ty ID:name '?' -> zephyr.Option(ty, name)
+       / ID:ty ID:name '*' -> zephyr.Sequence(ty, name)
+       / ID:ty ID:name     -> zephyr.Id(ty, name) ;
 
 RULES := '.rules' CHRULE*:hs -> *hs ;
 CHRULE := ID:name '@' CPATTS:ps '==>' CPROD1:prod ';' -> rules.Rewrite(name, ps, prod) ;
@@ -128,7 +154,7 @@ CLISTPATT := PVAR:p '*' -> rules.StarPatt(p)
            / CPATT ;
 CPATTS := CPATT:p ( ',' CPATT )*:ps -> [p] ps ;
 CPATT := '[' CLISTPATTS:ps ']'               -> rules.Compound('builtin', 'List', ps)
-       / '_'                                 -> rules.Ignore
+       / '_'                                 -> rules.IgnorePatt
        / STRING:s                            -> rules.Literal(s)
        / ID:ns '.' ID:func '(' CPATTS:ps ')' -> rules.Compound(ns, func, ps)
        / ID:ns '.' ID:func                   -> rules.Compound(ns, func, [])
@@ -178,7 +204,7 @@ FRULE := ID:tag FPATTS:patts '->' PROD1:prod ';'
 FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> [p] ps ;
 FPATT := ID ;
 
-GRAMMAR := '.grammar' ID:name PRULE*:rules
+GRAMMAR := '.grammar' ID:name ( PCLASS / PRULE )*:rules
         -> [py.Compound('def target(driver, *args)',
                [py.Statement('driver.exe_name = "' name '".lower() + "c"'),
                 py.Ret('main, None')]),
@@ -189,6 +215,14 @@ GRAMMAR := '.grammar' ID:name PRULE*:rules
                     [py.Ret('self.parse' name '(0)')])]
                *rules),
             py.Statement('MainParser = ' name 'Parser')] ;
+
+PCLASS := 'class' ID:name '=' CLASSEXPR1:c ';' -> [py.Compound('def cls' name '(self, c)', [py.Ret(c)])] ;
+CLASSEXPR1 := CLASSEXPR2:l '|' CLASSEXPR1:r -> char.Either(l, r)
+            / CLASSEXPR2 ;
+CLASSEXPR2 := '.any'                              -> char.Any
+            / '.range(' NUMBER:l ':' NUMBER:u ')' -> char.Range(l, u)
+            / NUMBER:c                            -> char.Exactly(c)
+            / ID:n                                -> char.Call(n) ;
 
 PRULE := ID:name ':=' PEXPR1:expr ';'
        -> [py.Statement('@cached'),
@@ -212,12 +246,13 @@ PEXPR6 := PEXPR7:expr '*' -> peg.Any(expr)
         / PEXPR7 ;
 PEXPR7 := '.range(' NUMBER:l ':' NUMBER:u ')' -> peg.Range(l, u)
         / '.any'                              -> peg.AnyChar
+        / '.class(' ID:name ')'               -> peg.CallClass(name)
         / NUMBER:c                            -> peg.Char(c)
         / ID:name                             -> peg.Call(name)
         / STRING:s                            -> peg.Token(s)
         / '(' PEXPR1:expr ')'                 -> expr ;
 
-ZADDY := WS ( RULES / FUNCTOR / GRAMMAR )*:clss WS
+ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
       -> [py.Statement('from rpython.rlib.rfile import create_stdio'),
           py.Statement('from rpython.rlib.objectmodel import specialize'),
           py.Compound('class Result(object)', []),
@@ -264,6 +299,7 @@ ZADDY := WS ( RULES / FUNCTOR / GRAMMAR )*:clss WS
               py.Statement('i = find(i); j = find(j)'),
               py.Conditional('i != j', [py.Statement('uf[i] = j')])
           ]),
+          py.Statement('regNone = make()'),
           py.Compound('class Builtin(object)', []),
           py.Statement('class Line(Builtin):'),
           py.Statement('    def __init__(self, s): self.s = s'),
