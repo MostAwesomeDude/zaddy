@@ -160,6 +160,7 @@ class pegFunctor(object):
     def Production(self, expr, prod):
         return expr + [py.Statement(u'rv = ' + prod)]
 peg = pegFunctor()
+# signature zephyr
 class zephyrFunctor(object):
     def Signature(self, name, tys):
         return [py.Statement(u'# signature ' + name)]
@@ -396,6 +397,52 @@ class ZADDYParser(object):
         rv = u''.join(xs)
         return i, rv
     @cached
+    def parseZTID(self, i):
+        st = []
+        i, rv = self.parseWS(i)
+        if i >= len(self.s): raise ParseError()
+        if not self.clsLower(ord(self.s[i])): raise ParseError()
+        rv = self.s[i]; i += 1
+        c = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                if not self.clsAlphanumeric(ord(self.s[i])): raise ParseError()
+                rv = self.s[i]; i += 1
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        cs = rv
+        rv = u''.join([c] + cs)
+        return i, rv
+    @cached
+    def parseZCID(self, i):
+        st = []
+        i, rv = self.parseWS(i)
+        if i >= len(self.s): raise ParseError()
+        if not self.clsUpper(ord(self.s[i])): raise ParseError()
+        rv = self.s[i]; i += 1
+        c = rv
+        rvs = []
+        while True:
+            st.append(i)
+            try:
+                if i >= len(self.s): raise ParseError()
+                if not self.clsAlphanumeric(ord(self.s[i])): raise ParseError()
+                rv = self.s[i]; i += 1
+                rvs.append(rv)
+            except ParseError:
+                i = st.pop()
+                break
+        rv = rvs
+        cs = rv
+        rv = u''.join([c] + cs)
+        return i, rv
+    @cached
     def parseSIGNATURE(self, i):
         st = []
         if i >= len(self.s): raise ParseError()
@@ -437,27 +484,27 @@ class ZADDYParser(object):
             rv = zephyr.Product(name, fs)
         except ParseError:
             i = st.pop()
+            i, rv = self.parseZCON(i)
+            con = rv
+            rvs = []
+            while True:
+                st.append(i)
+                try:
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u"|": raise ParseError()
+                    self.lastMatch.append((u"TOKEN |", i, i + 1))
+                    rv = u"|"; i += 1
+                    i, rv = self.parseZCON(i)
+                    rvs.append(rv)
+                except ParseError:
+                    i = st.pop()
+                    break
+            rv = rvs
+            cons = rv
             st.append(i)
             try:
-                i, rv = self.parseCONSTRUCTOR(i)
-                con = rv
-                rvs = []
-                while True:
-                    st.append(i)
-                    try:
-                        if i >= len(self.s): raise ParseError()
-                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                        if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != u"|": raise ParseError()
-                        self.lastMatch.append((u"TOKEN |", i, i + 1))
-                        rv = u"|"; i += 1
-                        i, rv = self.parseCONSTRUCTOR(i)
-                        rvs.append(rv)
-                    except ParseError:
-                        i = st.pop()
-                        break
-                rv = rvs
-                cons = rv
                 if i >= len(self.s): raise ParseError()
                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                 if i >= len(self.s): raise ParseError()
@@ -469,40 +516,21 @@ class ZADDYParser(object):
                 rv = zephyr.Sum(name, attrs, con, cons)
             except ParseError:
                 i = st.pop()
-                i, rv = self.parseCONSTRUCTOR(i)
-                con = rv
-                rvs = []
-                while True:
-                    st.append(i)
-                    try:
-                        if i >= len(self.s): raise ParseError()
-                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                        if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != u"|": raise ParseError()
-                        self.lastMatch.append((u"TOKEN |", i, i + 1))
-                        rv = u"|"; i += 1
-                        i, rv = self.parseCONSTRUCTOR(i)
-                        rvs.append(rv)
-                    except ParseError:
-                        i = st.pop()
-                        break
-                rv = rvs
-                cons = rv
                 rv = zephyr.Sum(name, [], con, cons)
         return i, rv
     @cached
-    def parseCONSTRUCTOR(self, i):
+    def parseZCON(self, i):
         st = []
         st.append(i)
         try:
-            i, rv = self.parseID(i)
+            i, rv = self.parseZCID(i)
             tag = rv
             i, rv = self.parseFIELDS(i)
             args = rv
             rv = zephyr.Con(tag, args)
         except ParseError:
             i = st.pop()
-            i, rv = self.parseID(i)
+            i, rv = self.parseZCID(i)
             tag = rv
             rv = zephyr.Con(tag, [])
         return i, rv
@@ -547,35 +575,35 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            i, rv = self.parseID(i)
+            i, rv = self.parseZTID(i)
             ty = rv
-            i, rv = self.parseID(i)
-            name = rv
             if i >= len(self.s): raise ParseError()
             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
             if i >= len(self.s): raise ParseError()
             if self.s[i:i + 1] != u"?": raise ParseError()
             self.lastMatch.append((u"TOKEN ?", i, i + 1))
             rv = u"?"; i += 1
+            i, rv = self.parseID(i)
+            name = rv
             rv = zephyr.Option(ty, name)
         except ParseError:
             i = st.pop()
             st.append(i)
             try:
-                i, rv = self.parseID(i)
+                i, rv = self.parseZTID(i)
                 ty = rv
-                i, rv = self.parseID(i)
-                name = rv
                 if i >= len(self.s): raise ParseError()
                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                 if i >= len(self.s): raise ParseError()
                 if self.s[i:i + 1] != u"*": raise ParseError()
                 self.lastMatch.append((u"TOKEN *", i, i + 1))
                 rv = u"*"; i += 1
+                i, rv = self.parseID(i)
+                name = rv
                 rv = zephyr.Sequence(ty, name)
             except ParseError:
                 i = st.pop()
-                i, rv = self.parseID(i)
+                i, rv = self.parseZTID(i)
                 ty = rv
                 i, rv = self.parseID(i)
                 name = rv

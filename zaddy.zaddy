@@ -85,6 +85,16 @@ Negative(expr)          -> [save,
 Capture(expr, patt)     -> expr [py.Statement(patt ' = rv')] ;
 Production(expr, prod)  -> expr [py.Statement('rv = ' prod)] ;
 
+.signature zephyr
+
+signature = Signature(string name, type* tys)
+type = Product(string name, field* fs)
+     | Sum(string name, string* attrs, constructor con, constructor* cons)
+constructor = Con(string tag, field* args)
+field = Id(string ty, string name)
+      | Option(string ty, string name)
+      | Sequence(string ty, string name)
+
 .functor zephyr
 
 Signature(name, tys)        -> [py.Statement('# signature ' name)] ;
@@ -133,18 +143,21 @@ NUMBER := WS .class(Digit):d .class(Digit)*:ds -> ([d] ds) % '' ;
 ID := WS .class(Alpha):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
 PVAR := WS .class(Upper):x .class(Alphanumeric)*:xs -> ([x] xs) % '' ;
 PCONST := WS .class(Lower)+:xs -> xs % '' ;
+ZTID := WS .class(Lower):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
+ZCID := WS .class(Upper):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
 
 SIGNATURE := '.signature' ID:name ZTY*:tys -> zephyr.Signature(name, tys) ;
 ZTY := ID:name '='
       ( FIELDS:fs -> zephyr.Product(name, fs)
-        / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons 'attributes' FIELDS:attrs -> zephyr.Sum(name, attrs, con, cons)
-        / CONSTRUCTOR:con ( '|' CONSTRUCTOR )*:cons -> zephyr.Sum(name, [], con, cons) ) ;
-CONSTRUCTOR := ID:tag FIELDS:args -> zephyr.Con(tag, args)
-             / ID:tag -> zephyr.Con(tag, []) ;
+        / ZCON:con ( '|' ZCON )*:cons
+          ( 'attributes' FIELDS:attrs -> zephyr.Sum(name, attrs, con, cons)
+          / -> zephyr.Sum(name, [], con, cons) ) ) ;
+ZCON := ZCID:tag FIELDS:args -> zephyr.Con(tag, args)
+      / ZCID:tag -> zephyr.Con(tag, []) ;
 FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> [f] fs ;
-FIELD := ID:ty ID:name '?' -> zephyr.Option(ty, name)
-       / ID:ty ID:name '*' -> zephyr.Sequence(ty, name)
-       / ID:ty ID:name     -> zephyr.Id(ty, name) ;
+FIELD := ZTID:ty '?' ID:name -> zephyr.Option(ty, name)
+       / ZTID:ty '*' ID:name -> zephyr.Sequence(ty, name)
+       / ZTID:ty ID:name     -> zephyr.Id(ty, name) ;
 
 RULES := '.rules' CHRULE*:hs -> *hs ;
 CHRULE := ID:name '@' CPATTS:ps '==>' CPROD1:prod ';' -> rules.Rewrite(name, ps, prod) ;
