@@ -4,6 +4,18 @@ Include(h)      -> [.line('#include ' h)] ;
 Statement(l)    -> [.line(l ';')] ;
 Block(head, cs) -> [.line(head ' {'), .block(cs), .line('}')] ;
 
+.signature bf
+
+program = Program(program* ps)
+        | Right(int n)
+        | Left(int n)
+        | Plus(int n)
+        | Minus(int n)
+        | Zero
+        | ScaleAdd(int n, int k)
+        | Output | Input
+        | Loop(program* exprs)
+
 .functor bf
 
 Right(n)       -> [c.Statement('ptr += ' n)] ;
@@ -27,6 +39,18 @@ Program(p)     -> [c.Include('<stdio.h>'),
                        c.Statement('return 0')
                    ])] ;
 
+.rules
+
+zeroZero @ [Xs*, bf.Zero, bf.Zero, Ys*] ==> Xs [bf.Zero] Ys ;
+
+scaleAddDec @ bf.Loop([bf.Minus('1'), bf.Right(N), bf.Plus(K), bf.Left(N)])
+          ==> bf.ScaleAdd(N, K) ;
+scaleAddInc @ bf.Loop([bf.Right(N), bf.Plus(K), bf.Left(N), bf.Minus('1')])
+          ==> bf.ScaleAdd(N, K) ;
+
+loopMinusZero @ bf.Loop([bf.Minus('1')]) ==> bf.Zero ;
+loopPlusZero  @ bf.Loop([bf.Plus('1')])  ==> bf.Zero ;
+
 .grammar BF
 
 BF := SQN:p COMMENT -> bf.Program(p) ;
@@ -37,6 +61,5 @@ OP := '>'+:cs -> bf.Right(#cs)
     / '-'+:cs -> bf.Minus(#cs)
     / '.'     -> bf.Output
     / ','     -> bf.Input
-    / '[' COMMENT ( '-' / '+' ) COMMENT ']' -> bf.Zero
     / '[' SQN:exprs ']' -> bf.Loop(exprs) ;
 COMMENT := ( !( '>' / '<' / '+' / '-' / '.' / ',' / '[' / ']' ) .any )* ;
