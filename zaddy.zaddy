@@ -293,8 +293,9 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
               py.Statement('attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'),
               py.Statement('name = f.__name__'),
               py.Statement('uname = unicode(name)'),
-              py.Statement('class CacheResult(Result):'),
-              py.Statement('    def __init__(self, i, rv): setattr(self, attr, (i, rv))'),
+              py.Compound('class CacheResult(Result)', [
+                  py.Statement('def __init__(self, i, rv): setattr(self, attr, (i, rv))')
+              ]),
               py.Statement('cache = {}'),
               py.Compound('def deco(self, i)', [
                   py.Statement('key = i'),
@@ -328,19 +329,23 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
           ]),
           py.Compound('def union(i, j)', [
               py.Statement('i = find(i); j = find(j)'),
-              py.Conditional('i != j', [py.Statement('uf[i] = j')])
+              py.Conditional('i != j', [py.Statement('uf[i] = j')]),
+              py.Ret('j')
           ]),
           py.Statement('regNone = make()'),
           py.Compound('class Builtin(object)', []),
-          py.Statement('class Line(Builtin):'),
-          py.Statement('    def __init__(self, s): self.s = s'),
-          py.Statement('    def out(self, m): return [u" " * (m * 4) + self.s]'),
-          py.Statement('class Block(Builtin):'),
-          py.Statement('    def __init__(self, ls): self.ls = ls'),
-          py.Statement('    def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])'),
-          py.Statement('class Builder(object):'),
-          py.Statement('    def Line(self, s): return Line(s)'),
-          py.Statement('    def Block(self, ls): return Block(ls)'),
+          py.Compound('class Line(Builtin)', [
+              py.Statement('def __init__(self, s): self.s = s'),
+              py.Statement('def out(self, m): return [u" " * (m * 4) + self.s]')
+          ]),
+          py.Compound('class Block(Builtin)', [
+              py.Statement('def __init__(self, ls): self.ls = ls'),
+              py.Statement('def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])')
+          ]),
+          py.Compound('class Builder(object)', [
+              py.Statement('def Line(self, s): return Line(s)'),
+              py.Statement('def Block(self, ls): return Block(ls)')
+          ]),
           py.Statement('builtin = Builder()'),
           py.Compound('class ParseError(Exception)', []),
           py.Compound('def lineNumber(s, i)', [py.Ret('s.count(unichr(10), 0, i)')]),
@@ -349,9 +354,10 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
               py.Statement('parser = MainParser(stdin.read().decode("utf-8"))'),
               py.Handler([
                   py.Statement('i, rules = parser.parse()'),
-                  py.Statement('if i != len(parser.s):'),
-                  py.Statement('    stderr.write("Failed to consume all input\\n")'),
-                  py.Statement('    raise ParseError()'),
+                  py.Conditional('i != len(parser.s)', [
+                      py.Statement('stderr.write("Failed to consume all input\\n")'),
+                      py.Statement('raise ParseError()')
+                  ]),
                   py.Statement('buf = []'),
                   py.Statement('for rule in flatten(rules): buf.extend(rule.out(0))'),
                   py.Statement('stdout.write(u"\\n".join(buf).encode("utf-8"))'),
@@ -360,15 +366,17 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
               ], [
                   py.Statement('start = max(len(parser.lastMatch) - 25, 0)'),
                   py.Statement('newlines = [0]'),
-                  py.Statement('for line in parser.s.split(u"\\n"):'),
-                  py.Statement('    newlines.append(newlines[-1] + len(line) + 1)'),
-                  py.Statement('for k, start, stop in parser.lastMatch[start:]:'),
-                  py.Statement('    startLine = lineNumber(parser.s, start)'),
-                  py.Statement('    startCol = start - newlines[startLine]'),
-                  py.Statement('    stopLine = lineNumber(parser.s, stop)'),
-                  py.Statement('    stopCol = stop - newlines[stopLine]'),
-                  py.Statement('    t = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'),
-                  py.Statement('    stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'),
+                  py.Compound('for line in parser.s.split(u"\\n")', [
+                      py.Statement('newlines.append(newlines[-1] + len(line) + 1)')
+                  ]),
+                  py.Compound('for k, start, stop in parser.lastMatch[start:]', [
+                      py.Statement('startLine = lineNumber(parser.s, start)'),
+                      py.Statement('startCol = start - newlines[startLine]'),
+                      py.Statement('stopLine = lineNumber(parser.s, stop)'),
+                      py.Statement('stopCol = stop - newlines[stopLine]'),
+                      py.Statement('t = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'),
+                      py.Statement('stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))')
+                  ]),
                   py.Ret('1')
               ])
           ])]
