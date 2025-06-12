@@ -160,16 +160,23 @@ class pegFunctor(object):
     def Production(self, expr, prod):
         return expr + [py.Statement(u'rv = ' + prod)]
 peg = pegFunctor()
-# signature zephyr
+class zephyrRels(object):
+    Signature = {}
+    Product = {}
+    Sum = {}
+    Con = {}
+    Id = {}
+    Option = {}
+    Sequence = {}
 class zephyrFunctor(object):
     def Signature(self, name, tys):
-        return [py.Statement(u'# signature ' + name)]
+        return [py.Compound(u'class ' + name + u'Rels(object)', flatten(tys))]
     def Product(self, name, fs):
-        return u'product ' + name
+        return [py.Statement(u'# product ' + name)]
     def Sum(self, name, attrs, con, cons):
-        return u'sum ' + name
+        return [con] + cons
     def Con(self, tag, args):
-        return u'con ' + tag
+        return (py.Statement(tag + u' = {}')) if args else (py.Statement(tag + u' = make()'))
     def Option(self, ty, name):
         return u'option ' + name
     def Sequence(self, ty, name):

@@ -97,10 +97,12 @@ field = Id(string ty, string name)
 
 .functor zephyr
 
-Signature(name, tys)        -> [py.Statement('# signature ' name)] ;
-Product(name, fs)           -> 'product ' name ;
-Sum(name, attrs, con, cons) -> 'sum ' name ;
-Con(tag, args)              -> 'con ' tag ;
+Signature(name, tys)        -> [py.Compound('class ' name 'Rels(object)', *tys)] ;
+Product(name, fs)           -> [py.Statement('# product ' name)] ;
+Sum(name, attrs, con, cons) -> [con] cons ;
+Con(tag, args)              -> .if (args)
+                               .then py.Statement(tag ' = {}')
+                               .else py.Statement(tag ' = make()') ;
 Option(ty, name)            -> 'option ' name ;
 Sequence(ty, name)          -> 'sequence ' name ;
 Id(ty, name)                -> 'id ' name ;
