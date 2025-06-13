@@ -1,3 +1,9 @@
+.signature c
+
+statement = Include(string h)
+          | Statement(string l)
+          | Block(string head, statement* cs)
+
 .functor c
 
 Include(h)      -> [.line('#include ' h)] ;
@@ -53,13 +59,24 @@ loopPlusZero  @ bf.Loop([bf.Plus('1')])  ==> bf.Zero ;
 
 .grammar BF
 
-BF := SQN:p COMMENT -> bf.Program(p) ;
-SQN := ( COMMENT OP )*:ops -> *ops ;
-OP := '>'+:cs -> bf.Right(#cs)
-    / '<'+:cs -> bf.Left(#cs)
-    / '+'+:cs -> bf.Plus(#cs)
-    / '-'+:cs -> bf.Minus(#cs)
-    / '.'     -> bf.Output
-    / ','     -> bf.Input
-    / '[' SQN:exprs ']' -> bf.Loop(exprs) ;
-COMMENT := ( !( '>' / '<' / '+' / '-' / '.' / ',' / '[' / ']' ) .any )* ;
+class Right = 62 ;
+class Left = 60 ;
+class Plus = 43 ;
+class Minus = 45 ;
+class Output = 46 ;
+class Input = 44 ;
+class LoopOpen = 91 ;
+class LoopClose = 93 ;
+class Comment = ~( Right | Left | Plus | Minus | Output | Input | LoopOpen | LoopClose ) ;
+
+BF := SQN:p .class(Comment)* -> bf.Program(p) ;
+SQN := OP*:ops -> *ops ;
+OP := .class(Comment)*
+    ( .class(Right)+:cs -> bf.Right(#cs)
+    / .class(Left)+:cs  -> bf.Left(#cs)
+    / .class(Plus)+:cs  -> bf.Plus(#cs)
+    / .class(Minus)+:cs -> bf.Minus(#cs)
+    / .class(Output)    -> bf.Output
+    / .class(Input)     -> bf.Input
+    / .class(LoopOpen) .class(Comment)* SQN:exprs .class(Comment)* .class(LoopClose)
+      -> bf.Loop(exprs) ) ;
