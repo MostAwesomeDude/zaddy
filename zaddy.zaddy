@@ -24,6 +24,20 @@ Handler(block, handler)  -> .if (block) .then
                                 .else (*block)
                             .else [] ;
 
+.signature production
+
+prod = Con(string ty, string con, prod* prods)
+     | PlusMany(prod* ps)
+     | Mod(prod left, prod right)
+     | Flatten(prod l)
+     | Name(string s)
+     | String(string s)
+     | List(prod* prods)
+     | Tuple(prod* prods)
+     | Length(string s)
+     | Chr(int n)
+     | Cond(prod t, prod c, prod o)
+
 .functor production
 
 Con(ty, con, prods) -> ty '.' con '(' (prods % ', ') ')' ;
@@ -37,6 +51,26 @@ Tuple(prods)        -> '(' (prods % ', ') ')' ;
 Length(s)           -> 'str(len(' s ')).decode("utf-8")' ;
 Chr(n)              -> 'unichr(' n ')' ;
 Cond(t, c, o)       -> '(' c ') if ' t ' else (' o ')' ;
+
+.signature peg
+
+pattern = NamePatt(string name)
+        | TuplePatt(pattern* ps)
+
+expr = Null
+     | Char(int i)
+     | Token(string s)
+     | CallClass(string s)
+     | Call(string s)
+     | Sequence(expr* exprs)
+     | Choice(expr this, expr that)
+     | Any(expr expr)
+     | Some(expr expr)
+     | Maybe(expr expr)
+     | Positive(expr expr)
+     | Negative(expr expr)
+     | Capture(expr expr, pattern patt)
+     | Production(expr expr, prod prod)
 
 .functor peg
 
@@ -111,6 +145,17 @@ Con(tag, args)              -> .if (args)
 Option(ty, name)            -> 'option ' name ;
 Sequence(ty, name)          -> 'sequence ' name ;
 Id(ty, name)                -> 'id ' name ;
+
+.signature rules
+
+patt = IgnorePatt
+     | Var(string n)
+     | Const(string n)
+     | Literal(string s)
+     | StarPatt(patt patt)
+     | PlusPatt(patt patt)
+     | Compound(string ns, string func, patt* vars)
+rule = Rewrite(string name, patt* ps, production prod)
 
 .functor rules
 
