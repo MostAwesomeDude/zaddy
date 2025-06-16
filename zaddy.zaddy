@@ -58,9 +58,8 @@ pattern = NamePatt(string name)
         | TuplePatt(pattern* ps)
 
 expr = Null
-     | Char(int i)
      | Token(string s)
-     | CallClass(string s)
+     | CallToken(string s)
      | Call(string s)
      | Sequence(expr* exprs)
      | Choice(expr this, expr that)
@@ -82,18 +81,14 @@ NamePatt(name)          -> name ;
 TuplePatt(ps)           -> '(' (ps % ', ') ')' ;
 
 Null                    -> [] ;
-Char(i)                 -> [boundcheck,
-                            py.RaiseIf('ord(self.s[i]) != ' i),
-                            py.Statement('rv = self.s[i]; i += 1')] ;
 Token(s)                -> [boundcheck,
                             py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'),
                             boundcheck,
                             py.RaiseIf('self.s[i:i + ' #s '] != u"' s '"'),
                             py.Statement('self.lastMatch.append((u"TOKEN ' s '", i, i + ' #s '))'),
                             py.Statement('rv = u"' s '"; i += ' #s)] ;
-CallClass(s)            -> [boundcheck,
-                            py.RaiseIf('not self.cls' s '(ord(self.s[i]))'),
-                            py.Statement('rv = self.s[i]; i += 1')] ;
+CallToken(s)            -> [boundcheck,
+                            py.Statement('i, rv = self.token' s '(i)')] ;
 Call(s)                 -> [py.Statement('i, rv = self.parse' s '(i)')] ;
 Sequence(exprs)         -> *exprs ;
 Choice(this, that)      -> [save, py.Handler(this, [backup] that)] ;
@@ -196,18 +191,26 @@ class Upper = .range(65:90) ;
 class Lower = .range(97:122) ;
 class Alpha = Upper | Lower ;
 class Alphanumeric = Alpha | Digit ;
-class Quoted = ~( 10 | 13 | 39 | 92 ) ;
+class Quote = 39 ;
+class Quoted = ~( 10 | 13 | 39 ) ;
 
-WS := .class(Whitespace)* ;
-ESCAPE := .class(Quoted)
-        / 92 92 -> 92 92 ;
-STRING := WS 39 ESCAPE*:cs 39 -> cs % '' ;
-NUMBER := WS .class(Digit):d .class(Digit)*:ds -> ([d] ds) % '' ;
-ID := WS .class(Alpha):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
-PVAR := WS .class(Upper):x .class(Alphanumeric)*:xs -> ([x] xs) % '' ;
-PCONST := WS .class(Lower)+:xs -> xs % '' ;
-ZTID := WS .class(Lower):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
-ZCID := WS .class(Upper):c .class(Alphanumeric)*:cs -> ([c] cs) % '' ;
+token WS = Whitespace* ;
+token Number = Digit+ ;
+token Id = Alpha Alphanumeric* ;
+token PVar = Upper Alphanumeric* ;
+token PConst = Lower+ ;
+token ZTId = Lower Alphanumeric* ;
+token ZCId = Upper Alphanumeric* ;
+token Quote = Quote ;
+token Quoted = Quoted* ;
+
+STRING := .token(WS) .token(Quote) .token(Quoted):q .token(Quote) -> q ;
+NUMBER := .token(WS) .token(Number) ;
+ID     := .token(WS) .token(Id) ;
+PVAR   := .token(WS) .token(PVar) ;
+PCONST := .token(WS) .token(PConst) ;
+ZTID   := .token(WS) .token(ZTId) ;
+ZCID   := .token(WS) .token(ZCId) ;
 
 SIGNATURE := '.signature' ID:name ZTY*:tys -> zephyr.Signature(name, tys) ;
 ZTY := ID:name '='
@@ -280,7 +283,7 @@ FRULE := ID:tag FPATTS:patts '->' PROD1:prod ';'
 FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> [p] ps ;
 FPATT := ID ;
 
-GRAMMAR := '.grammar' ID:name ( PCLASS / PRULE )*:rules
+GRAMMAR := '.grammar' ID:name ( PCLASS / PTOKEN / PRULE )*:rules
         -> [py.Compound('def target(driver, *args)',
                [py.Statement('driver.exe_name = "' name '".lower() + "c"'),
                 py.Ret('main, None')]),
@@ -302,6 +305,17 @@ CLASSEXPR2 := '.any'                              -> char.Any
             / NUMBER:c                            -> char.Exactly(c)
             / ID:n                                -> char.Call(n) ;
 
+PTOKEN := 'token' ID:name '=' PSCAN+:scans ';'
+       -> [py.Compound('def token' name '(self, i)',
+                       [py.Statement('start = i')]
+                       *scans
+                       [py.Ret('i, self.s[start:i]')])] ;
+PSCAN := ID:cls '*' -> [py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]
+       / ID:cls '+' -> [py.RaiseIf('i >= len(self.s) or not self.cls' cls '(ord(self.s[i]))'),
+                        py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]
+       / ID:cls     -> [py.RaiseIf('i >= len(self.s) or not self.cls' cls '(ord(self.s[i]))'),
+                        py.Statement('i += 1')] ;
+
 PRULE := ID:name ':=' PEXPR1:expr ';'
        -> [py.Statement('@cached'),
            py.Compound('def parse' name '(self, i)',
@@ -322,13 +336,12 @@ PEXPR6 := PEXPR7:expr '*' -> peg.Any(expr)
         / PEXPR7:expr '+' -> peg.Some(expr)
         / PEXPR7:expr '?' -> peg.Maybe(expr)
         / PEXPR7 ;
-PEXPR7 := '.class(' ID:name ')' -> peg.CallClass(name)
-        / NUMBER:c              -> peg.Char(c)
+PEXPR7 := '.token(' ID:name ')' -> peg.CallToken(name)
         / ID:name               -> peg.Call(name)
         / STRING:s              -> peg.Token(s)
         / '(' PEXPR1:expr ')'   -> expr ;
 
-ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
+ZADDY := .token(WS) ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss .token(WS)
       -> [py.Statement('from rpython.rlib.rfile import create_stdio'),
           py.Statement('from rpython.rlib.objectmodel import specialize'),
           py.Compound('class Result(object)', []),
