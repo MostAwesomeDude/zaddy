@@ -69,14 +69,22 @@ class LoopOpen = 91 ;
 class LoopClose = 93 ;
 class Comment = ~( Right | Left | Plus | Minus | Output | Input | LoopOpen | LoopClose ) ;
 
-BF := SQN:p .class(Comment)* -> bf.Program(p) ;
+token Right = Right+ ;
+token Left = Left+ ;
+token Plus = Plus+ ;
+token Minus = Minus+ ;
+token Output = Comment* Output ;
+token Input = Comment* Input ;
+token LoopOpen = Comment* LoopOpen ;
+token LoopClose = Comment* LoopClose ;
+token Comment = Comment* ;
+
+BF := SQN:p .token(Comment) -> bf.Program(p) ;
 SQN := OP*:ops -> *ops ;
-OP := .class(Comment)*
-    ( .class(Right)+:cs -> bf.Right(#cs)
-    / .class(Left)+:cs  -> bf.Left(#cs)
-    / .class(Plus)+:cs  -> bf.Plus(#cs)
-    / .class(Minus)+:cs -> bf.Minus(#cs)
-    / .class(Output)    -> bf.Output
-    / .class(Input)     -> bf.Input
-    / .class(LoopOpen) .class(Comment)* SQN:exprs .class(Comment)* .class(LoopClose)
-      -> bf.Loop(exprs) ) ;
+OP := .token(Comment) .token(Right)+:cs -> bf.Right(#cs)
+    / .token(Comment) .token(Left)+:cs  -> bf.Left(#cs)
+    / .token(Comment) .token(Plus)+:cs  -> bf.Plus(#cs)
+    / .token(Comment) .token(Minus)+:cs -> bf.Minus(#cs)
+    / .token(Output)                    -> bf.Output
+    / .token(Input)                     -> bf.Input
+    / .token(LoopOpen) SQN:exprs .token(LoopClose) -> bf.Loop(exprs) ;
