@@ -36,14 +36,9 @@ Loop(exprs)    -> [c.Block('while (*ptr)', exprs)] ;
 Program(p)     -> [c.Include('<stdio.h>'),
                    c.Include('<stdlib.h>'),
                    c.Block('int main(int argc, char **argv)', [
-                       c.Statement('unsigned char *ptr = calloc(30 * 1000, 1)'),
-                       c.Block('if (!ptr)', [
-                           c.Statement('fprintf(stderr, "Error allocating memory.\\n")'),
-                           c.Statement('return 1')
-                       ])] p [
-                       c.Statement('free(ptr)'),
-                       c.Statement('return 0')
-                   ])] ;
+                       c.Statement('unsigned char arr[30 * 1024] = { 0 }'),
+                       c.Statement('unsigned char *ptr = arr')
+                   ] p [c.Statement('return 0')])] ;
 
 .rules
 
