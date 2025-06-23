@@ -86,7 +86,7 @@ Token(s)                -> [boundcheck,
                             py.RaiseIf('self.s[i:i + ' #s '] != u"' s '"'),
                             py.Statement('self.lastMatch.append((u"TOKEN ' s '", i, i + ' #s '))'),
                             py.Statement('rv = u"' s '"; i += ' #s)] ;
-Call(s)                 -> [boundcheck, py.Statement('i, rv = self.parse' s '(i)')] ;
+Call(s)                 -> [py.Statement('i, rv = self.parse' s '(i)')] ;
 Sequence(exprs)         -> *exprs ;
 Choice(this, that)      -> [save, py.Handler(this, [backup] that)] ;
 Any(expr)               -> [py.Statement('rvs = []'),
@@ -286,7 +286,8 @@ GRAMMAR := '.grammar' ID:name ( PCLASS / PTOKEN / PRULE )*:rules
                *rules),
             py.Statement('MainParser = ' name 'Parser')] ;
 
-PCLASS := 'class' ID:name '=' CLASSEXPR1:c ';' -> [py.Compound('def cls' name '(self, c)', [py.Ret(c)])] ;
+PCLASS := 'class' ID:name '=' CLASSEXPR1:c ';'
+       -> [py.Compound('def cls' name '(self, c)', [py.Ret(c)])] ;
 CLASSEXPR1 := CLASSEXPR2:l '|' CLASSEXPR1:r -> char.Either(l, r)
             / CLASSEXPR2 ;
 CLASSEXPR2 := '.any'                                    -> char.Any
@@ -298,7 +299,7 @@ CLASSEXPR2 := '.any'                                    -> char.Any
 
 PTOKEN := 'token' ID:name '=' PSCAN+:scans ';'
        -> [py.Compound('def parse' name '(self, i)',
-                       [py.Statement('start = i')]
+                       [boundcheck, py.Statement('start = i')]
                        *scans
                        [py.Ret('i, self.s[start:i]')])] ;
 PSCAN := ID:cls '*' -> [py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]

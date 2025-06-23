@@ -167,7 +167,7 @@ class pegFunctor(object):
     def Token(self, s):
         return [boundcheck, py.Statement(u'while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1'), boundcheck, py.RaiseIf(u'self.s[i:i + ' + str(len(s)).decode("utf-8") + u'] != u"' + s + u'"'), py.Statement(u'self.lastMatch.append((u"TOKEN ' + s + u'", i, i + ' + str(len(s)).decode("utf-8") + u'))'), py.Statement(u'rv = u"' + s + u'"; i += ' + str(len(s)).decode("utf-8"))]
     def Call(self, s):
-        return [boundcheck, py.Statement(u'i, rv = self.parse' + s + u'(i)')]
+        return [py.Statement(u'i, rv = self.parse' + s + u'(i)')]
     def Sequence(self, exprs):
         return flatten(exprs)
     def Choice(self, this, that):
@@ -284,67 +284,69 @@ class ZADDYParser(object):
     def clsQuoted(self, c):
         return not ((c == 10) or ((c == 13) or (c == 39)))
     def parseWS(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         while i < len(self.s) and self.clsWhitespace(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     def parseNumber(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsDigit(ord(self.s[i])): raise ParseError()
         while i < len(self.s) and self.clsDigit(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     def parseId(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsAlpha(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     def parsePVar(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsUpper(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     def parseZTId(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsLower(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     def parseZCId(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsUpper(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     def parseQuote(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsQuote(ord(self.s[i])): raise ParseError()
         i += 1
         return i, self.s[start:i]
     def parseQuoted(self, i):
+        if i >= len(self.s): raise ParseError()
         start = i
         while i < len(self.s) and self.clsQuoted(ord(self.s[i])): i += 1
         return i, self.s[start:i]
     @cached
     def parseSTRING(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseWS(i)
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseQuote(i)
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseQuoted(i)
         q = rv
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseQuote(i)
         rv = q
         return i, rv
     @cached
     def parseID(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseWS(i)
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseId(i)
         return i, rv
     @cached
@@ -356,14 +358,12 @@ class ZADDYParser(object):
         if self.s[i:i + 10] != u".signature": raise ParseError()
         self.lastMatch.append((u"TOKEN .signature", i, i + 10))
         rv = u".signature"; i += 10
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         rvs = []
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseZTY(i)
                 rvs.append(rv)
             except ParseError:
@@ -376,7 +376,6 @@ class ZADDYParser(object):
     @cached
     def parseZTY(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         if i >= len(self.s): raise ParseError()
@@ -387,13 +386,11 @@ class ZADDYParser(object):
         rv = u"="; i += 1
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseFIELDS(i)
             fs = rv
             rv = zephyr.Product(name, fs)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseZCON(i)
             con = rv
             rvs = []
@@ -406,7 +403,6 @@ class ZADDYParser(object):
                     if self.s[i:i + 1] != u"|": raise ParseError()
                     self.lastMatch.append((u"TOKEN |", i, i + 1))
                     rv = u"|"; i += 1
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseZCON(i)
                     rvs.append(rv)
                 except ParseError:
@@ -422,7 +418,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 10] != u"attributes": raise ParseError()
                 self.lastMatch.append((u"TOKEN attributes", i, i + 10))
                 rv = u"attributes"; i += 10
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseFIELDS(i)
                 attrs = rv
                 rv = zephyr.Sum(name, attrs, con, cons)
@@ -433,20 +428,16 @@ class ZADDYParser(object):
     @cached
     def parseZCON(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseWS(i)
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseZCId(i)
             tag = rv
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseFIELDS(i)
             args = rv
             rv = zephyr.Con(tag, args)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseZCId(i)
             tag = rv
             rv = zephyr.Con(tag, [])
@@ -460,7 +451,6 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u"(": raise ParseError()
         self.lastMatch.append((u"TOKEN (", i, i + 1))
         rv = u"("; i += 1
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseFIELD(i)
         f = rv
         rvs = []
@@ -473,7 +463,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseFIELD(i)
                 rvs.append(rv)
             except ParseError:
@@ -492,11 +481,9 @@ class ZADDYParser(object):
     @cached
     def parseFIELD(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseWS(i)
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseZTId(i)
             ty = rv
             if i >= len(self.s): raise ParseError()
@@ -505,7 +492,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"?": raise ParseError()
             self.lastMatch.append((u"TOKEN ?", i, i + 1))
             rv = u"?"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             name = rv
             rv = zephyr.Option(ty, name)
@@ -513,7 +499,6 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseZTId(i)
                 ty = rv
                 if i >= len(self.s): raise ParseError()
@@ -522,16 +507,13 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u"*": raise ParseError()
                 self.lastMatch.append((u"TOKEN *", i, i + 1))
                 rv = u"*"; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 name = rv
                 rv = zephyr.Sequence(ty, name)
             except ParseError:
                 i = st.pop()
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseZTId(i)
                 ty = rv
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 name = rv
                 rv = zephyr.Id(ty, name)
@@ -549,7 +531,6 @@ class ZADDYParser(object):
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseCHRULE(i)
                 rvs.append(rv)
             except ParseError:
@@ -562,7 +543,6 @@ class ZADDYParser(object):
     @cached
     def parseCHRULE(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         if i >= len(self.s): raise ParseError()
@@ -571,7 +551,6 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u"@": raise ParseError()
         self.lastMatch.append((u"TOKEN @", i, i + 1))
         rv = u"@"; i += 1
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseCPATTS(i)
         ps = rv
         if i >= len(self.s): raise ParseError()
@@ -580,7 +559,6 @@ class ZADDYParser(object):
         if self.s[i:i + 3] != u"==>": raise ParseError()
         self.lastMatch.append((u"TOKEN ==>", i, i + 3))
         rv = u"==>"; i += 3
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseCPROD1(i)
         prod = rv
         if i >= len(self.s): raise ParseError()
@@ -594,7 +572,6 @@ class ZADDYParser(object):
     @cached
     def parseCLISTPATTS(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseCLISTPATT(i)
         p = rv
         rvs = []
@@ -607,7 +584,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseCLISTPATT(i)
                 rvs.append(rv)
             except ParseError:
@@ -622,9 +598,7 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseWS(i)
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePVar(i)
             p = rv
             if i >= len(self.s): raise ParseError()
@@ -638,9 +612,7 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseWS(i)
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePVar(i)
                 p = rv
                 if i >= len(self.s): raise ParseError()
@@ -652,13 +624,11 @@ class ZADDYParser(object):
                 rv = rules.PlusPatt(p)
             except ParseError:
                 i = st.pop()
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseCPATT(i)
         return i, rv
     @cached
     def parseCPATTS(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseCPATT(i)
         p = rv
         rvs = []
@@ -671,7 +641,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseCPATT(i)
                 rvs.append(rv)
             except ParseError:
@@ -692,7 +661,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"[": raise ParseError()
             self.lastMatch.append((u"TOKEN [", i, i + 1))
             rv = u"["; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseCLISTPATTS(i)
             ps = rv
             if i >= len(self.s): raise ParseError()
@@ -717,7 +685,6 @@ class ZADDYParser(object):
                 i = st.pop()
                 st.append(i)
                 try:
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseSTRING(i)
                     s = rv
                     rv = rules.Literal(s)
@@ -725,7 +692,6 @@ class ZADDYParser(object):
                     i = st.pop()
                     st.append(i)
                     try:
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseID(i)
                         ns = rv
                         if i >= len(self.s): raise ParseError()
@@ -734,7 +700,6 @@ class ZADDYParser(object):
                         if self.s[i:i + 1] != u".": raise ParseError()
                         self.lastMatch.append((u"TOKEN .", i, i + 1))
                         rv = u"."; i += 1
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseID(i)
                         func = rv
                         if i >= len(self.s): raise ParseError()
@@ -743,7 +708,6 @@ class ZADDYParser(object):
                         if self.s[i:i + 1] != u"(": raise ParseError()
                         self.lastMatch.append((u"TOKEN (", i, i + 1))
                         rv = u"("; i += 1
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseCPATTS(i)
                         ps = rv
                         if i >= len(self.s): raise ParseError()
@@ -757,7 +721,6 @@ class ZADDYParser(object):
                         i = st.pop()
                         st.append(i)
                         try:
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseID(i)
                             ns = rv
                             if i >= len(self.s): raise ParseError()
@@ -766,15 +729,12 @@ class ZADDYParser(object):
                             if self.s[i:i + 1] != u".": raise ParseError()
                             self.lastMatch.append((u"TOKEN .", i, i + 1))
                             rv = u"."; i += 1
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseID(i)
                             func = rv
                             rv = rules.Compound(ns, func, [])
                         except ParseError:
                             i = st.pop()
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseWS(i)
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parsePVar(i)
                             name = rv
                             rv = rules.Var(name)
@@ -782,7 +742,6 @@ class ZADDYParser(object):
     @cached
     def parseCPRODS(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseCPROD1(i)
         p = rv
         rvs = []
@@ -795,7 +754,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseCPROD1(i)
                 rvs.append(rv)
             except ParseError:
@@ -812,7 +770,6 @@ class ZADDYParser(object):
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseCPROD2(i)
                 rvs.append(rv)
             except ParseError:
@@ -834,7 +791,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"[": raise ParseError()
             self.lastMatch.append((u"TOKEN [", i, i + 1))
             rv = u"["; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseCPRODS(i)
             ps = rv
             if i >= len(self.s): raise ParseError()
@@ -848,7 +804,6 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseSTRING(i)
                 s = rv
                 rv = rules.Literal(s)
@@ -856,7 +811,6 @@ class ZADDYParser(object):
                 i = st.pop()
                 st.append(i)
                 try:
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseID(i)
                     ns = rv
                     if i >= len(self.s): raise ParseError()
@@ -865,7 +819,6 @@ class ZADDYParser(object):
                     if self.s[i:i + 1] != u".": raise ParseError()
                     self.lastMatch.append((u"TOKEN .", i, i + 1))
                     rv = u"."; i += 1
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseID(i)
                     func = rv
                     if i >= len(self.s): raise ParseError()
@@ -874,7 +827,6 @@ class ZADDYParser(object):
                     if self.s[i:i + 1] != u"(": raise ParseError()
                     self.lastMatch.append((u"TOKEN (", i, i + 1))
                     rv = u"("; i += 1
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseCPRODS(i)
                     ps = rv
                     if i >= len(self.s): raise ParseError()
@@ -888,7 +840,6 @@ class ZADDYParser(object):
                     i = st.pop()
                     st.append(i)
                     try:
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseID(i)
                         ns = rv
                         if i >= len(self.s): raise ParseError()
@@ -897,15 +848,12 @@ class ZADDYParser(object):
                         if self.s[i:i + 1] != u".": raise ParseError()
                         self.lastMatch.append((u"TOKEN .", i, i + 1))
                         rv = u"."; i += 1
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseID(i)
                         func = rv
                         rv = rules.Compound(ns, func, [])
                     except ParseError:
                         i = st.pop()
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseWS(i)
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parsePVar(i)
                         name = rv
                         rv = rules.Var(name)
@@ -921,7 +869,6 @@ class ZADDYParser(object):
             if self.s[i:i + 3] != u".if": raise ParseError()
             self.lastMatch.append((u"TOKEN .if", i, i + 3))
             rv = u".if"; i += 3
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             test = rv
             if i >= len(self.s): raise ParseError()
@@ -930,7 +877,6 @@ class ZADDYParser(object):
             if self.s[i:i + 5] != u".then": raise ParseError()
             self.lastMatch.append((u"TOKEN .then", i, i + 5))
             rv = u".then"; i += 5
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             cons = rv
             if i >= len(self.s): raise ParseError()
@@ -939,13 +885,11 @@ class ZADDYParser(object):
             if self.s[i:i + 5] != u".else": raise ParseError()
             self.lastMatch.append((u"TOKEN .else", i, i + 5))
             rv = u".else"; i += 5
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             other = rv
             rv = production.Cond(test, cons, other)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD2(i)
         return i, rv
     @cached
@@ -953,7 +897,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD3(i)
             this = rv
             if i >= len(self.s): raise ParseError()
@@ -962,13 +905,11 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"%": raise ParseError()
             self.lastMatch.append((u"TOKEN %", i, i + 1))
             rv = u"%"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD2(i)
             that = rv
             rv = production.Mod(this, that)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD3(i)
         return i, rv
     @cached
@@ -978,7 +919,6 @@ class ZADDYParser(object):
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePROD4(i)
                 rvs.append(rv)
             except ParseError:
@@ -1000,7 +940,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"*": raise ParseError()
             self.lastMatch.append((u"TOKEN *", i, i + 1))
             rv = u"*"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD5(i)
             prod = rv
             rv = production.Flatten(prod)
@@ -1014,13 +953,11 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u"#": raise ParseError()
                 self.lastMatch.append((u"TOKEN #", i, i + 1))
                 rv = u"#"; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePROD5(i)
                 prod = rv
                 rv = production.Length(prod)
             except ParseError:
                 i = st.pop()
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePROD5(i)
         return i, rv
     @cached
@@ -1028,7 +965,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             ty = rv
             if i >= len(self.s): raise ParseError()
@@ -1037,7 +973,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u".": raise ParseError()
             self.lastMatch.append((u"TOKEN .", i, i + 1))
             rv = u"."; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             con = rv
             if i >= len(self.s): raise ParseError()
@@ -1046,7 +981,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"(": raise ParseError()
             self.lastMatch.append((u"TOKEN (", i, i + 1))
             rv = u"("; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             prod = rv
             rvs = []
@@ -1059,7 +993,6 @@ class ZADDYParser(object):
                     if self.s[i:i + 1] != u",": raise ParseError()
                     self.lastMatch.append((u"TOKEN ,", i, i + 1))
                     rv = u","; i += 1
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parsePROD1(i)
                     rvs.append(rv)
                 except ParseError:
@@ -1078,7 +1011,6 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 ty = rv
                 if i >= len(self.s): raise ParseError()
@@ -1087,7 +1019,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u".": raise ParseError()
                 self.lastMatch.append((u"TOKEN .", i, i + 1))
                 rv = u"."; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 con = rv
                 rv = production.Con(ty, con, [])
@@ -1112,7 +1043,6 @@ class ZADDYParser(object):
                         if self.s[i:i + 6] != u".line(": raise ParseError()
                         self.lastMatch.append((u"TOKEN .line(", i, i + 6))
                         rv = u".line("; i += 6
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parsePROD1(i)
                         l = rv
                         if i >= len(self.s): raise ParseError()
@@ -1132,7 +1062,6 @@ class ZADDYParser(object):
                             if self.s[i:i + 7] != u".block(": raise ParseError()
                             self.lastMatch.append((u"TOKEN .block(", i, i + 7))
                             rv = u".block("; i += 7
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parsePROD1(i)
                             expr = rv
                             if i >= len(self.s): raise ParseError()
@@ -1152,7 +1081,6 @@ class ZADDYParser(object):
                                 if self.s[i:i + 1] != u"[": raise ParseError()
                                 self.lastMatch.append((u"TOKEN [", i, i + 1))
                                 rv = u"["; i += 1
-                                if i >= len(self.s): raise ParseError()
                                 i, rv = self.parsePROD1(i)
                                 expr = rv
                                 rvs = []
@@ -1165,7 +1093,6 @@ class ZADDYParser(object):
                                         if self.s[i:i + 1] != u",": raise ParseError()
                                         self.lastMatch.append((u"TOKEN ,", i, i + 1))
                                         rv = u","; i += 1
-                                        if i >= len(self.s): raise ParseError()
                                         i, rv = self.parsePROD1(i)
                                         rvs.append(rv)
                                     except ParseError:
@@ -1184,7 +1111,6 @@ class ZADDYParser(object):
                                 i = st.pop()
                                 st.append(i)
                                 try:
-                                    if i >= len(self.s): raise ParseError()
                                     i, rv = self.parseID(i)
                                     s = rv
                                     rv = production.Name(s)
@@ -1192,7 +1118,6 @@ class ZADDYParser(object):
                                     i = st.pop()
                                     st.append(i)
                                     try:
-                                        if i >= len(self.s): raise ParseError()
                                         i, rv = self.parseSTRING(i)
                                         s = rv
                                         rv = production.String(s)
@@ -1200,9 +1125,7 @@ class ZADDYParser(object):
                                         i = st.pop()
                                         st.append(i)
                                         try:
-                                            if i >= len(self.s): raise ParseError()
                                             i, rv = self.parseWS(i)
-                                            if i >= len(self.s): raise ParseError()
                                             i, rv = self.parseNumber(i)
                                             n = rv
                                             rv = production.Chr(n)
@@ -1216,7 +1139,6 @@ class ZADDYParser(object):
                                                 if self.s[i:i + 1] != u"(": raise ParseError()
                                                 self.lastMatch.append((u"TOKEN (", i, i + 1))
                                                 rv = u"("; i += 1
-                                                if i >= len(self.s): raise ParseError()
                                                 i, rv = self.parsePROD1(i)
                                                 p = rv
                                                 rvs = []
@@ -1229,7 +1151,6 @@ class ZADDYParser(object):
                                                         if self.s[i:i + 1] != u",": raise ParseError()
                                                         self.lastMatch.append((u"TOKEN ,", i, i + 1))
                                                         rv = u","; i += 1
-                                                        if i >= len(self.s): raise ParseError()
                                                         i, rv = self.parsePROD1(i)
                                                         rvs.append(rv)
                                                     except ParseError:
@@ -1253,7 +1174,6 @@ class ZADDYParser(object):
                                                 if self.s[i:i + 1] != u"(": raise ParseError()
                                                 self.lastMatch.append((u"TOKEN (", i, i + 1))
                                                 rv = u"("; i += 1
-                                                if i >= len(self.s): raise ParseError()
                                                 i, rv = self.parsePROD1(i)
                                                 prod = rv
                                                 if i >= len(self.s): raise ParseError()
@@ -1273,14 +1193,12 @@ class ZADDYParser(object):
         if self.s[i:i + 8] != u".functor": raise ParseError()
         self.lastMatch.append((u"TOKEN .functor", i, i + 8))
         rv = u".functor"; i += 8
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         rvs = []
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseFLET(i)
                 rvs.append(rv)
             except ParseError:
@@ -1292,7 +1210,6 @@ class ZADDYParser(object):
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseFRULE(i)
                 rvs.append(rv)
             except ParseError:
@@ -1311,7 +1228,6 @@ class ZADDYParser(object):
         if self.s[i:i + 3] != u"let": raise ParseError()
         self.lastMatch.append((u"TOKEN let", i, i + 3))
         rv = u"let"; i += 3
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         if i >= len(self.s): raise ParseError()
@@ -1320,7 +1236,6 @@ class ZADDYParser(object):
         if self.s[i:i + 2] != u":=": raise ParseError()
         self.lastMatch.append((u"TOKEN :=", i, i + 2))
         rv = u":="; i += 2
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parsePROD1(i)
         prod = rv
         if i >= len(self.s): raise ParseError()
@@ -1336,10 +1251,8 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             tag = rv
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseFPATTS(i)
             patts = rv
             if i >= len(self.s): raise ParseError()
@@ -1348,7 +1261,6 @@ class ZADDYParser(object):
             if self.s[i:i + 2] != u"->": raise ParseError()
             self.lastMatch.append((u"TOKEN ->", i, i + 2))
             rv = u"->"; i += 2
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             prod = rv
             if i >= len(self.s): raise ParseError()
@@ -1360,7 +1272,6 @@ class ZADDYParser(object):
             rv = py.Compound(u'def ' + tag + u'(self, ' + u', '.join(patts) + u')', [py.Ret(prod)])
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             tag = rv
             if i >= len(self.s): raise ParseError()
@@ -1369,7 +1280,6 @@ class ZADDYParser(object):
             if self.s[i:i + 2] != u"->": raise ParseError()
             self.lastMatch.append((u"TOKEN ->", i, i + 2))
             rv = u"->"; i += 2
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             prod = rv
             if i >= len(self.s): raise ParseError()
@@ -1389,7 +1299,6 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u"(": raise ParseError()
         self.lastMatch.append((u"TOKEN (", i, i + 1))
         rv = u"("; i += 1
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseFPATT(i)
         p = rv
         rvs = []
@@ -1402,7 +1311,6 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseFPATT(i)
                 rvs.append(rv)
             except ParseError:
@@ -1421,7 +1329,6 @@ class ZADDYParser(object):
     @cached
     def parseFPATT(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         return i, rv
     @cached
@@ -1433,7 +1340,6 @@ class ZADDYParser(object):
         if self.s[i:i + 8] != u".grammar": raise ParseError()
         self.lastMatch.append((u"TOKEN .grammar", i, i + 8))
         rv = u".grammar"; i += 8
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         rvs = []
@@ -1442,17 +1348,14 @@ class ZADDYParser(object):
             try:
                 st.append(i)
                 try:
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parsePCLASS(i)
                 except ParseError:
                     i = st.pop()
                     st.append(i)
                     try:
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parsePTOKEN(i)
                     except ParseError:
                         i = st.pop()
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parsePRULE(i)
                 rvs.append(rv)
             except ParseError:
@@ -1471,7 +1374,6 @@ class ZADDYParser(object):
         if self.s[i:i + 5] != u"class": raise ParseError()
         self.lastMatch.append((u"TOKEN class", i, i + 5))
         rv = u"class"; i += 5
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         if i >= len(self.s): raise ParseError()
@@ -1480,7 +1382,6 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u"=": raise ParseError()
         self.lastMatch.append((u"TOKEN =", i, i + 1))
         rv = u"="; i += 1
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseCLASSEXPR1(i)
         c = rv
         if i >= len(self.s): raise ParseError()
@@ -1496,7 +1397,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseCLASSEXPR2(i)
             l = rv
             if i >= len(self.s): raise ParseError()
@@ -1505,13 +1405,11 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"|": raise ParseError()
             self.lastMatch.append((u"TOKEN |", i, i + 1))
             rv = u"|"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseCLASSEXPR1(i)
             r = rv
             rv = char.Either(l, r)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseCLASSEXPR2(i)
         return i, rv
     @cached
@@ -1536,9 +1434,7 @@ class ZADDYParser(object):
                 if self.s[i:i + 7] != u".range(": raise ParseError()
                 self.lastMatch.append((u"TOKEN .range(", i, i + 7))
                 rv = u".range("; i += 7
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseWS(i)
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseNumber(i)
                 l = rv
                 if i >= len(self.s): raise ParseError()
@@ -1547,9 +1443,7 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u":": raise ParseError()
                 self.lastMatch.append((u"TOKEN :", i, i + 1))
                 rv = u":"; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseWS(i)
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseNumber(i)
                 u = rv
                 if i >= len(self.s): raise ParseError()
@@ -1569,7 +1463,6 @@ class ZADDYParser(object):
                     if self.s[i:i + 1] != u"~": raise ParseError()
                     self.lastMatch.append((u"TOKEN ~", i, i + 1))
                     rv = u"~"; i += 1
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseCLASSEXPR2(i)
                     s = rv
                     rv = char.Complement(s)
@@ -1583,7 +1476,6 @@ class ZADDYParser(object):
                         if self.s[i:i + 1] != u"(": raise ParseError()
                         self.lastMatch.append((u"TOKEN (", i, i + 1))
                         rv = u"("; i += 1
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseCLASSEXPR1(i)
                         s = rv
                         if i >= len(self.s): raise ParseError()
@@ -1597,15 +1489,12 @@ class ZADDYParser(object):
                         i = st.pop()
                         st.append(i)
                         try:
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseWS(i)
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseNumber(i)
                             c = rv
                             rv = char.Exactly(c)
                         except ParseError:
                             i = st.pop()
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseID(i)
                             n = rv
                             rv = char.Call(n)
@@ -1619,7 +1508,6 @@ class ZADDYParser(object):
         if self.s[i:i + 5] != u"token": raise ParseError()
         self.lastMatch.append((u"TOKEN token", i, i + 5))
         rv = u"token"; i += 5
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         if i >= len(self.s): raise ParseError()
@@ -1632,7 +1520,6 @@ class ZADDYParser(object):
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePSCAN(i)
                 rvs.append(rv)
             except ParseError:
@@ -1647,14 +1534,13 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u";": raise ParseError()
         self.lastMatch.append((u"TOKEN ;", i, i + 1))
         rv = u";"; i += 1
-        rv = [py.Compound(u'def parse' + name + u'(self, i)', [py.Statement(u'start = i')] + flatten(scans) + [py.Ret(u'i, self.s[start:i]')])]
+        rv = [py.Compound(u'def parse' + name + u'(self, i)', [boundcheck, py.Statement(u'start = i')] + flatten(scans) + [py.Ret(u'i, self.s[start:i]')])]
         return i, rv
     @cached
     def parsePSCAN(self, i):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             cls = rv
             if i >= len(self.s): raise ParseError()
@@ -1668,7 +1554,6 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 cls = rv
                 if i >= len(self.s): raise ParseError()
@@ -1680,7 +1565,6 @@ class ZADDYParser(object):
                 rv = [py.RaiseIf(u'i >= len(self.s) or not self.cls' + cls + u'(ord(self.s[i]))'), py.Statement(u'while i < len(self.s) and self.cls' + cls + u'(ord(self.s[i])): i += 1')]
             except ParseError:
                 i = st.pop()
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 cls = rv
                 rv = [py.RaiseIf(u'i >= len(self.s) or not self.cls' + cls + u'(ord(self.s[i]))'), py.Statement(u'i += 1')]
@@ -1688,7 +1572,6 @@ class ZADDYParser(object):
     @cached
     def parsePRULE(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseID(i)
         name = rv
         if i >= len(self.s): raise ParseError()
@@ -1697,7 +1580,6 @@ class ZADDYParser(object):
         if self.s[i:i + 2] != u":=": raise ParseError()
         self.lastMatch.append((u"TOKEN :=", i, i + 2))
         rv = u":="; i += 2
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parsePEXPR1(i)
         expr = rv
         if i >= len(self.s): raise ParseError()
@@ -1713,7 +1595,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR2(i)
             this = rv
             if i >= len(self.s): raise ParseError()
@@ -1722,13 +1603,11 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"/": raise ParseError()
             self.lastMatch.append((u"TOKEN /", i, i + 1))
             rv = u"/"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR1(i)
             that = rv
             rv = peg.Choice(this, that)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR2(i)
         return i, rv
     @cached
@@ -1736,7 +1615,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR3(i)
             exprs = rv
             if i >= len(self.s): raise ParseError()
@@ -1745,13 +1623,11 @@ class ZADDYParser(object):
             if self.s[i:i + 2] != u"->": raise ParseError()
             self.lastMatch.append((u"TOKEN ->", i, i + 2))
             rv = u"->"; i += 2
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePROD1(i)
             prod = rv
             rv = peg.Production(exprs, prod)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR3(i)
         return i, rv
     @cached
@@ -1761,7 +1637,6 @@ class ZADDYParser(object):
         while True:
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePEXPR4(i)
                 rvs.append(rv)
             except ParseError:
@@ -1776,7 +1651,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR5(i)
             expr = rv
             if i >= len(self.s): raise ParseError()
@@ -1785,13 +1659,11 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u":": raise ParseError()
             self.lastMatch.append((u"TOKEN :", i, i + 1))
             rv = u":"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePPATT(i)
             p = rv
             rv = peg.Capture(expr, p)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR5(i)
         return i, rv
     @cached
@@ -1805,7 +1677,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"(": raise ParseError()
             self.lastMatch.append((u"TOKEN (", i, i + 1))
             rv = u"("; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePPATT(i)
             p = rv
             rvs = []
@@ -1818,7 +1689,6 @@ class ZADDYParser(object):
                     if self.s[i:i + 1] != u",": raise ParseError()
                     self.lastMatch.append((u"TOKEN ,", i, i + 1))
                     rv = u","; i += 1
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parsePPATT(i)
                     rvs.append(rv)
                 except ParseError:
@@ -1829,7 +1699,6 @@ class ZADDYParser(object):
             rv = peg.TuplePatt([p] + ps)
         except ParseError:
             i = st.pop()
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parseID(i)
             name = rv
             rv = peg.NamePatt(name)
@@ -1845,7 +1714,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"&": raise ParseError()
             self.lastMatch.append((u"TOKEN &", i, i + 1))
             rv = u"&"; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR6(i)
             expr = rv
             rv = peg.Positive(expr)
@@ -1859,13 +1727,11 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u"!": raise ParseError()
                 self.lastMatch.append((u"TOKEN !", i, i + 1))
                 rv = u"!"; i += 1
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePEXPR6(i)
                 expr = rv
                 rv = peg.Negative(expr)
             except ParseError:
                 i = st.pop()
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePEXPR6(i)
         return i, rv
     @cached
@@ -1873,7 +1739,6 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR7(i)
             expr = rv
             if i >= len(self.s): raise ParseError()
@@ -1887,7 +1752,6 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parsePEXPR7(i)
                 expr = rv
                 if i >= len(self.s): raise ParseError()
@@ -1901,7 +1765,6 @@ class ZADDYParser(object):
                 i = st.pop()
                 st.append(i)
                 try:
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parsePEXPR7(i)
                     expr = rv
                     if i >= len(self.s): raise ParseError()
@@ -1913,7 +1776,6 @@ class ZADDYParser(object):
                     rv = peg.Maybe(expr)
                 except ParseError:
                     i = st.pop()
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parsePEXPR7(i)
         return i, rv
     @cached
@@ -1927,7 +1789,6 @@ class ZADDYParser(object):
             if self.s[i:i + 1] != u"(": raise ParseError()
             self.lastMatch.append((u"TOKEN (", i, i + 1))
             rv = u"("; i += 1
-            if i >= len(self.s): raise ParseError()
             i, rv = self.parsePEXPR1(i)
             expr = rv
             if i >= len(self.s): raise ParseError()
@@ -1941,13 +1802,11 @@ class ZADDYParser(object):
             i = st.pop()
             st.append(i)
             try:
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseSTRING(i)
                 s = rv
                 rv = peg.Token(s)
             except ParseError:
                 i = st.pop()
-                if i >= len(self.s): raise ParseError()
                 i, rv = self.parseID(i)
                 name = rv
                 rv = peg.Call(name)
@@ -1955,7 +1814,6 @@ class ZADDYParser(object):
     @cached
     def parseZADDY(self, i):
         st = []
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseWS(i)
         rvs = []
         while True:
@@ -1963,23 +1821,19 @@ class ZADDYParser(object):
             try:
                 st.append(i)
                 try:
-                    if i >= len(self.s): raise ParseError()
                     i, rv = self.parseRULES(i)
                 except ParseError:
                     i = st.pop()
                     st.append(i)
                     try:
-                        if i >= len(self.s): raise ParseError()
                         i, rv = self.parseSIGNATURE(i)
                     except ParseError:
                         i = st.pop()
                         st.append(i)
                         try:
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseFUNCTOR(i)
                         except ParseError:
                             i = st.pop()
-                            if i >= len(self.s): raise ParseError()
                             i, rv = self.parseGRAMMAR(i)
                 rvs.append(rv)
             except ParseError:
@@ -1987,7 +1841,6 @@ class ZADDYParser(object):
                 break
         rv = rvs
         clss = rv
-        if i >= len(self.s): raise ParseError()
         i, rv = self.parseWS(i)
         rv = [py.Statement(u'from rpython.rlib.rfile import create_stdio'), py.Statement(u'from rpython.rlib.objectmodel import specialize'), py.Compound(u'class Result(object)', []), py.Compound(u'class Failed(Result)', []), py.Statement(u'failed = Failed()'), py.Compound(u'def cached(f, cacheCount=[0])', [py.Statement(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement(u'name = f.__name__'), py.Statement(u'uname = unicode(name)'), py.Compound(u'class CacheResult(Result)', [py.Statement(u'def __init__(self, i, rv): setattr(self, attr, (i, rv))')]), py.Statement(u'cache = {}'), py.Compound(u'def deco(self, i)', [py.Statement(u'key = i'), py.RaiseIf(u'key in cache and cache[key] is failed'), py.Statement(u'elif key in cache: return getattr(cache[key], attr)'), py.Statement(u'cache[key] = failed'), py.Statement(u'i, rv = f(self, i)'), py.Statement(u'cache[key] = CacheResult(i, rv)'), py.Statement(u'self.lastMatch.append((uname, key, i))'), py.Ret(u'i, rv')]), py.Statement(u'deco.__name__ = name'), py.Ret(u'deco')]), py.Statement(u'@specialize.call_location()'), py.Compound(u'def flatten(xs)', [py.Statement(u'rv = []'), py.Statement(u'for x in xs: rv.extend(x)'), py.Ret(u'rv')]), py.Statement(u'uf = []'), py.Compound(u'def make()', [py.Statement(u'rv = len(uf)'), py.Statement(u'uf.append(rv)'), py.Ret(u'rv')]), py.Compound(u'def find(i)', [py.Statement(u'j = uf[i]'), py.Compound(u'while uf[j] != j', [py.Statement(u'uf[i], j, i = uf[j], uf[j], j')]), py.Ret(u'j')]), py.Compound(u'def union(i, j)', [py.Statement(u'i = find(i); j = find(j)'), py.Conditional(u'i != j', [py.Statement(u'uf[i] = j')]), py.Ret(u'j')]), py.Statement(u'regNone = make()'), py.Compound(u'class Builtin(object)', []), py.Compound(u'class Line(Builtin)', [py.Statement(u'def __init__(self, s): self.s = s'), py.Statement(u'def out(self, m): return [u" " * (m * 4) + self.s]')]), py.Compound(u'class Block(Builtin)', [py.Statement(u'def __init__(self, ls): self.ls = ls'), py.Statement(u'def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])')]), py.Compound(u'class Builder(object)', [py.Statement(u'def Line(self, s): return Line(s)'), py.Statement(u'def Block(self, ls): return Block(ls)')]), py.Statement(u'builtin = Builder()'), py.Compound(u'class ParseError(Exception)', []), py.Compound(u'def lineNumber(s, i)', [py.Ret(u's.count(unichr(10), 0, i)')]), py.Compound(u'def main(argv)', [py.Statement(u'stdin, stdout, stderr = create_stdio()'), py.Statement(u'parser = MainParser(stdin.read().decode("utf-8"))'), py.Handler([py.Statement(u'i, rules = parser.parse()'), py.Conditional(u'i != len(parser.s)', [py.Statement(u'stderr.write("Failed to consume all input\\n")'), py.Statement(u'raise ParseError()')]), py.Statement(u'buf = []'), py.Statement(u'for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement(u'stdout.write(u"\\n".join(buf).encode("utf-8"))'), py.Statement(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Ret(u'0')], [py.Statement(u'start = max(len(parser.lastMatch) - 25, 0)'), py.Statement(u'newlines = [0]'), py.Compound(u'for line in parser.s.split(u"\\n")', [py.Statement(u'newlines.append(newlines[-1] + len(line) + 1)')]), py.Compound(u'for k, start, stop in parser.lastMatch[start:]', [py.Statement(u'startLine = lineNumber(parser.s, start)'), py.Statement(u'startCol = start - newlines[startLine]'), py.Statement(u'stopLine = lineNumber(parser.s, stop)'), py.Statement(u'stopCol = stop - newlines[stopLine]'), py.Statement(u't = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement(u'stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))')]), py.Ret(u'1')])])] + flatten(clss)
         return i, rv

@@ -76,10 +76,10 @@ token Comment = Comment* ;
 
 BF := SQN:p Comment -> bf.Program(p) ;
 SQN := OP*:ops -> *ops ;
-OP := Comment Right+:cs            -> bf.Right(#cs)
-    / Comment Left+:cs             -> bf.Left(#cs)
-    / Comment Plus+:cs             -> bf.Plus(#cs)
-    / Comment Minus+:cs            -> bf.Minus(#cs)
+OP := Comment Right:cs             -> bf.Right(#cs)
+    / Comment Left:cs              -> bf.Left(#cs)
+    / Comment Plus:cs              -> bf.Plus(#cs)
+    / Comment Minus:cs             -> bf.Minus(#cs)
     / Output                       -> bf.Output
     / Input                        -> bf.Input
     / LoopOpen SQN:exprs LoopClose -> bf.Loop(exprs) ;
