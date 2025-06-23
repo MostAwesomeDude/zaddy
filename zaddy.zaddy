@@ -141,24 +141,45 @@ Id(ty, name)                -> 'id ' name ;
 .signature rules
 
 patt = IgnorePatt
-     | Var(string n)
-     | Const(string n)
-     | Literal(string s)
-     | StarPatt(patt patt)
-     | PlusPatt(patt patt)
-     | Compound(string ns, string func, patt* vars)
-rule = Rewrite(string name, patt* ps, production prod)
+     | VarPatt(string n)
+     | StrPatt(string s)
+     | StructPatt(string ns, string func, patt* vars)
+     | ListHeadPatt(patt head, patt* ps)
+     | ListTailPatt(patt tail, patt* ps)
+     | ListMidPatt(patt head, patt tail, patt* ps)
+production = VarProd(string name)
+           | StrProd(string s)
+           | StructProd(string ns, string func, production* ps)
+           | ListHeadProd(production head, production* ps)
+           | ListTailProd(production tail, production* ps)
+           | ListMidProd(production head, production tail, production* ps)
+rule = Rewrite(string name, patt* ps, production* prods)
 
 .functor rules
 
-IgnorePatt               -> '_' ;
 Var(n)                   -> n ;
 Const(n)                 -> n ;
 Literal(s)               -> 39 s 39 ;
 StarPatt(p)              -> p '*' ;
 PlusPatt(p)              -> p '+' ;
 Compound(ns, func, vars) -> ([ns func] vars) % '-' ;
-Rewrite(name, ps, prod)  -> [py.Compound('def ' name '()', [py.Statement('pass')])] ;
+IgnorePatt                  -> '_' ;
+VarPatt(n)                  -> n ;
+StrPatt(s)                  -> 39 s 39 ;
+StructPatt(ns, func, vars)  -> ns '.' func '(' (vars % ', ') ')' ;
+ListHeadPatt(head, ps)      -> 'listhead' head (ps % ', ') ;
+ListTailPatt(tail, ps)      -> 'listtail' tail (ps % ', ') ;
+ListMidPatt(head, tail, ps) -> 'listmid' head tail (ps % ', ') ;
+VarProd(name)               -> name ;
+StrProd(s)                  -> 39 s 39 ;
+StructProd(ns, func, ps)    -> ns '.' func '(' (ps % ', ') ')' ;
+ListHeadProd(head, ps)      -> 'listhead' head (ps % ', ') ;
+ListTailProd(tail, ps)      -> 'listtail' tail (ps % ', ') ;
+ListMidProd(head, tail, ps) -> 'listmid' head tail (ps % ', ') ;
+Rewrite(name, ps, prods) -> [py.Compound('def ' name '()', [
+                             py.Statement('# ' (ps % ', ')),
+                             py.Statement('# ' (prods % ', ')),
+                             py.Statement('pass')])] ;
 
 .signature char
 
@@ -190,6 +211,7 @@ class Alpha = Upper | Lower ;
 class Alphanumeric = Alpha | Digit ;
 class Quote = 39 ;
 class Quoted = ~( 10 | 13 | 39 ) ;
+class Ellipsis = 8230 ;
 
 token WS = Whitespace* ;
 token Number = Digit+ ;
@@ -199,6 +221,7 @@ token ZTId = Lower Alphanumeric* ;
 token ZCId = Upper Alphanumeric* ;
 token Quote = Quote ;
 token Quoted = Quoted* ;
+token Ellipsis = Ellipsis ;
 
 STRING := WS Quote Quoted:q Quote -> q ;
 ID := WS Id ;
@@ -217,25 +240,31 @@ FIELD := WS ( ZTId:ty '?' ID:name -> zephyr.Option(ty, name)
             / ZTId:ty ID:name     -> zephyr.Id(ty, name) ) ;
 
 RULES := '.rules' CHRULE*:hs -> *hs ;
-CHRULE := ID:name '@' CPATTS:ps '==>' CPROD1:prod ';' -> rules.Rewrite(name, ps, prod) ;
-CLISTPATTS := CLISTPATT:p ( ',' CLISTPATT )*:ps -> [p] ps ;
-CLISTPATT := WS PVar:p '*' -> rules.StarPatt(p)
-           / WS PVar:p '+' -> rules.PlusPatt(p)
-           / CPATT ;
-CPATTS := CPATT:p ( ',' CPATT )*:ps -> [p] ps ;
-CPATT := '[' CLISTPATTS:ps ']'               -> rules.Compound('builtin', 'List', ps)
-       / '_'                                 -> rules.IgnorePatt
-       / STRING:s                            -> rules.Literal(s)
-       / ID:ns '.' ID:func '(' CPATTS:ps ')' -> rules.Compound(ns, func, ps)
-       / ID:ns '.' ID:func                   -> rules.Compound(ns, func, [])
-       / WS PVar:name                        -> rules.Var(name) ;
-CPRODS := CPROD1:p ( ',' CPROD1 )*:ps -> [p] ps ;
+CHRULE := ID:name '@' CPATTS:ps '==>' CPRODS:prods ';'
+       -> rules.Rewrite(name, ps, prods) ;
+CPATTS := WS CPATT:p ( ',' WS CPATT )*:ps -> [p] ps ;
+PATTDOTS := WS PVar:n Ellipsis -> n ;
+CPATT := '_'                                 -> rules.IgnorePatt
+       / '[' PATTDOTS:head ',' CPATTS:ps ',' PATTDOTS:tail ']'
+         -> rules.ListMidPatt(head, tail, ps)
+       / '[' PATTDOTS:head ',' CPATTS:ps ']' -> rules.ListHeadPatt(head, ps)
+       / '[' CPATTS:ps ',' PATTDOTS:tail ']' -> rules.ListTailPatt(tail, ps)
+       / '[' CPATTS:ps ']'                   -> rules.StructPatt('builtin', 'List', ps)
+       / STRING:s                            -> rules.StrPatt(s)
+       / ID:ns '.' ID:func '(' CPATTS:ps ')' -> rules.StructPatt(ns, func, ps)
+       / ID:ns '.' ID:func                   -> rules.StructPatt(ns, func, [])
+       / PVar:name !Ellipsis                 -> rules.VarPatt(name) ;
+CPRODS := WS CPROD1:p ( ',' WS CPROD1 )*:ps -> [p] ps ;
 CPROD1 := CPROD2+:ps -> ps % ' ' ;
-CPROD2 := '[' CPRODS:ps ']'                   -> rules.Compound('builtin', 'List', ps)
-        / STRING:s                            -> rules.Literal(s)
-        / ID:ns '.' ID:func '(' CPRODS:ps ')' -> rules.Compound(ns, func, ps)
-        / ID:ns '.' ID:func                   -> rules.Compound(ns, func, [])
-        / WS PVar:name                        -> rules.Var(name) ;
+CPROD2 := STRING:s                            -> rules.StrProd(s)
+        / '[' PATTDOTS:head ',' CPRODS:ps ',' PATTDOTS:tail ']'
+          -> rules.ListMidProd(head, tail, ps)
+        / '[' PATTDOTS:head ',' CPRODS:ps ']' -> rules.ListHeadProd(head, ps)
+        / '[' CPRODS:ps ',' PATTDOTS:tail ']' -> rules.ListTailProd(tail, ps)
+        / '[' CPRODS:ps ']'                   -> rules.StructProd('builtin', 'List', ps)
+        / ID:ns '.' ID:func '(' CPRODS:ps ')' -> rules.StructProd(ns, func, ps)
+        / ID:ns '.' ID:func                   -> rules.StructProd(ns, func, [])
+        / PVar:name !Ellipsis                 -> rules.VarProd(name) ;
 
 PROD1 := '.if' PROD1:test '.then' PROD1:cons '.else' PROD1:other -> production.Cond(test, cons, other)
        / PROD2 ;
@@ -301,7 +330,9 @@ PTOKEN := 'token' ID:name '=' PSCAN+:scans ';'
        -> [py.Compound('def parse' name '(self, i)',
                        [boundcheck, py.Statement('start = i')]
                        *scans
-                       [py.Ret('i, self.s[start:i]')])] ;
+                       [py.Statement('rv = self.s[start:i]'),
+                        py.Statement('self.lastMatch.append((u"TOKEN ' name '", start, i))'),
+                        py.Ret('i, rv')])] ;
 PSCAN := ID:cls '*' -> [py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]
        / ID:cls '+' -> [py.RaiseIf('i >= len(self.s) or not self.cls' cls '(ord(self.s[i]))'),
                         py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]

@@ -18,6 +18,7 @@ program = Program(program* ps)
         | Plus(int n)
         | Minus(int n)
         | Zero
+        | Set(int n)
         | ScaleAdd(int n, int k)
         | Output | Input
         | Loop(program* exprs)
@@ -29,6 +30,7 @@ Left(n)        -> [c.Statement('ptr -= ' n)] ;
 Plus(n)        -> [c.Statement('*ptr += ' n)] ;
 Minus(n)       -> [c.Statement('*ptr -= ' n)] ;
 Zero           -> [c.Statement('*ptr = 0')] ;
+Set(n)         -> [c.Statement('*ptr = ' n)] ;
 ScaleAdd(n, k) -> [c.Statement('*(ptr + ' n ') += *ptr * ' k)] bf.Zero ;
 Output         -> [c.Statement('putchar(*ptr)')] ;
 Input          -> [c.Statement('*ptr = getchar()')] ;
@@ -42,7 +44,8 @@ Program(p)     -> [c.Include('<stdio.h>'),
 
 .rules
 
-zeroZero @ [Xs*, bf.Zero, bf.Zero, Ys*] ==> Xs [bf.Zero] Ys ;
+zeroZero @ [Xs…, bf.Zero, bf.Zero, Ys…] ==> [Xs…, bf.Zero, Ys…] ;
+zeroPlus @ [Xs…, bf.Zero, bf.Plus(N), Ys…] ==> [Xs…, bf.Set(N), Ys…] ;
 
 scaleAddDec @ bf.Loop([bf.Minus('1'), bf.Right(N), bf.Plus(K), bf.Left(N)])
           ==> bf.ScaleAdd(N, K) ;

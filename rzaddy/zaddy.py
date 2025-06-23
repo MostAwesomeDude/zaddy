@@ -213,16 +213,20 @@ class zephyrFunctor(object):
 zephyr = zephyrFunctor()
 class rulesRels(object):
     IgnorePatt = make()
-    Var = {}
-    Const = {}
-    Literal = {}
-    StarPatt = {}
-    PlusPatt = {}
-    Compound = {}
+    VarPatt = {}
+    StrPatt = {}
+    StructPatt = {}
+    ListHeadPatt = {}
+    ListTailPatt = {}
+    ListMidPatt = {}
+    VarProd = {}
+    StrProd = {}
+    StructProd = {}
+    ListHeadProd = {}
+    ListTailProd = {}
+    ListMidProd = {}
     Rewrite = {}
 class rulesFunctor(object):
-    def IgnorePatt(self):
-        return u'_'
     def Var(self, n):
         return n
     def Const(self, n):
@@ -235,8 +239,34 @@ class rulesFunctor(object):
         return p + u'+'
     def Compound(self, ns, func, vars):
         return u'-'.join([ns + func] + vars)
-    def Rewrite(self, name, ps, prod):
-        return [py.Compound(u'def ' + name + u'()', [py.Statement(u'pass')])]
+    def IgnorePatt(self):
+        return u'_'
+    def VarPatt(self, n):
+        return n
+    def StrPatt(self, s):
+        return unichr(39) + s + unichr(39)
+    def StructPatt(self, ns, func, vars):
+        return ns + u'.' + func + u'(' + u', '.join(vars) + u')'
+    def ListHeadPatt(self, head, ps):
+        return u'listhead' + head + u', '.join(ps)
+    def ListTailPatt(self, tail, ps):
+        return u'listtail' + tail + u', '.join(ps)
+    def ListMidPatt(self, head, tail, ps):
+        return u'listmid' + head + tail + u', '.join(ps)
+    def VarProd(self, name):
+        return name
+    def StrProd(self, s):
+        return unichr(39) + s + unichr(39)
+    def StructProd(self, ns, func, ps):
+        return ns + u'.' + func + u'(' + u', '.join(ps) + u')'
+    def ListHeadProd(self, head, ps):
+        return u'listhead' + head + u', '.join(ps)
+    def ListTailProd(self, tail, ps):
+        return u'listtail' + tail + u', '.join(ps)
+    def ListMidProd(self, head, tail, ps):
+        return u'listmid' + head + tail + u', '.join(ps)
+    def Rewrite(self, name, ps, prods):
+        return [py.Compound(u'def ' + name + u'()', [py.Statement(u'# ' + u', '.join(ps)), py.Statement(u'# ' + u', '.join(prods)), py.Statement(u'pass')])]
 rules = rulesFunctor()
 class charRels(object):
     Any = make()
@@ -283,56 +313,82 @@ class ZADDYParser(object):
         return c == 39
     def clsQuoted(self, c):
         return not ((c == 10) or ((c == 13) or (c == 39)))
+    def clsEllipsis(self, c):
+        return c == 8230
     def parseWS(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         while i < len(self.s) and self.clsWhitespace(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN WS", start, i))
+        return i, rv
     def parseNumber(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsDigit(ord(self.s[i])): raise ParseError()
         while i < len(self.s) and self.clsDigit(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN Number", start, i))
+        return i, rv
     def parseId(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsAlpha(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN Id", start, i))
+        return i, rv
     def parsePVar(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsUpper(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN PVar", start, i))
+        return i, rv
     def parseZTId(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsLower(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN ZTId", start, i))
+        return i, rv
     def parseZCId(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsUpper(ord(self.s[i])): raise ParseError()
         i += 1
         while i < len(self.s) and self.clsAlphanumeric(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN ZCId", start, i))
+        return i, rv
     def parseQuote(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         if i >= len(self.s) or not self.clsQuote(ord(self.s[i])): raise ParseError()
         i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN Quote", start, i))
+        return i, rv
     def parseQuoted(self, i):
         if i >= len(self.s): raise ParseError()
         start = i
         while i < len(self.s) and self.clsQuoted(ord(self.s[i])): i += 1
-        return i, self.s[start:i]
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN Quoted", start, i))
+        return i, rv
+    def parseEllipsis(self, i):
+        if i >= len(self.s): raise ParseError()
+        start = i
+        if i >= len(self.s) or not self.clsEllipsis(ord(self.s[i])): raise ParseError()
+        i += 1
+        rv = self.s[start:i]
+        self.lastMatch.append((u"TOKEN Ellipsis", start, i))
+        return i, rv
     @cached
     def parseSTRING(self, i):
         st = []
@@ -559,76 +615,20 @@ class ZADDYParser(object):
         if self.s[i:i + 3] != u"==>": raise ParseError()
         self.lastMatch.append((u"TOKEN ==>", i, i + 3))
         rv = u"==>"; i += 3
-        i, rv = self.parseCPROD1(i)
-        prod = rv
+        i, rv = self.parseCPRODS(i)
+        prods = rv
         if i >= len(self.s): raise ParseError()
         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
         if i >= len(self.s): raise ParseError()
         if self.s[i:i + 1] != u";": raise ParseError()
         self.lastMatch.append((u"TOKEN ;", i, i + 1))
         rv = u";"; i += 1
-        rv = rules.Rewrite(name, ps, prod)
-        return i, rv
-    @cached
-    def parseCLISTPATTS(self, i):
-        st = []
-        i, rv = self.parseCLISTPATT(i)
-        p = rv
-        rvs = []
-        while True:
-            st.append(i)
-            try:
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != u",": raise ParseError()
-                self.lastMatch.append((u"TOKEN ,", i, i + 1))
-                rv = u","; i += 1
-                i, rv = self.parseCLISTPATT(i)
-                rvs.append(rv)
-            except ParseError:
-                i = st.pop()
-                break
-        rv = rvs
-        ps = rv
-        rv = [p] + ps
-        return i, rv
-    @cached
-    def parseCLISTPATT(self, i):
-        st = []
-        st.append(i)
-        try:
-            i, rv = self.parseWS(i)
-            i, rv = self.parsePVar(i)
-            p = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"*": raise ParseError()
-            self.lastMatch.append((u"TOKEN *", i, i + 1))
-            rv = u"*"; i += 1
-            rv = rules.StarPatt(p)
-        except ParseError:
-            i = st.pop()
-            st.append(i)
-            try:
-                i, rv = self.parseWS(i)
-                i, rv = self.parsePVar(i)
-                p = rv
-                if i >= len(self.s): raise ParseError()
-                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != u"+": raise ParseError()
-                self.lastMatch.append((u"TOKEN +", i, i + 1))
-                rv = u"+"; i += 1
-                rv = rules.PlusPatt(p)
-            except ParseError:
-                i = st.pop()
-                i, rv = self.parseCPATT(i)
+        rv = rules.Rewrite(name, ps, prods)
         return i, rv
     @cached
     def parseCPATTS(self, i):
         st = []
+        i, rv = self.parseWS(i)
         i, rv = self.parseCPATT(i)
         p = rv
         rvs = []
@@ -641,6 +641,7 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
+                i, rv = self.parseWS(i)
                 i, rv = self.parseCPATT(i)
                 rvs.append(rv)
             except ParseError:
@@ -651,6 +652,15 @@ class ZADDYParser(object):
         rv = [p] + ps
         return i, rv
     @cached
+    def parsePATTDOTS(self, i):
+        st = []
+        i, rv = self.parseWS(i)
+        i, rv = self.parsePVar(i)
+        n = rv
+        i, rv = self.parseEllipsis(i)
+        rv = n
+        return i, rv
+    @cached
     def parseCPATT(self, i):
         st = []
         st.append(i)
@@ -658,18 +668,10 @@ class ZADDYParser(object):
             if i >= len(self.s): raise ParseError()
             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
             if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"[": raise ParseError()
-            self.lastMatch.append((u"TOKEN [", i, i + 1))
-            rv = u"["; i += 1
-            i, rv = self.parseCLISTPATTS(i)
-            ps = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"]": raise ParseError()
-            self.lastMatch.append((u"TOKEN ]", i, i + 1))
-            rv = u"]"; i += 1
-            rv = rules.Compound(u'builtin', u'List', ps)
+            if self.s[i:i + 1] != u"_": raise ParseError()
+            self.lastMatch.append((u"TOKEN _", i, i + 1))
+            rv = u"_"; i += 1
+            rv = rules.IgnorePatt()
         except ParseError:
             i = st.pop()
             st.append(i)
@@ -677,71 +679,176 @@ class ZADDYParser(object):
                 if i >= len(self.s): raise ParseError()
                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                 if i >= len(self.s): raise ParseError()
-                if self.s[i:i + 1] != u"_": raise ParseError()
-                self.lastMatch.append((u"TOKEN _", i, i + 1))
-                rv = u"_"; i += 1
-                rv = rules.IgnorePatt()
+                if self.s[i:i + 1] != u"[": raise ParseError()
+                self.lastMatch.append((u"TOKEN [", i, i + 1))
+                rv = u"["; i += 1
+                i, rv = self.parsePATTDOTS(i)
+                head = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u",": raise ParseError()
+                self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                rv = u","; i += 1
+                i, rv = self.parseCPATTS(i)
+                ps = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u",": raise ParseError()
+                self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                rv = u","; i += 1
+                i, rv = self.parsePATTDOTS(i)
+                tail = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u"]": raise ParseError()
+                self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                rv = u"]"; i += 1
+                rv = rules.ListMidPatt(head, tail, ps)
             except ParseError:
                 i = st.pop()
                 st.append(i)
                 try:
-                    i, rv = self.parseSTRING(i)
-                    s = rv
-                    rv = rules.Literal(s)
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u"[": raise ParseError()
+                    self.lastMatch.append((u"TOKEN [", i, i + 1))
+                    rv = u"["; i += 1
+                    i, rv = self.parsePATTDOTS(i)
+                    head = rv
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u",": raise ParseError()
+                    self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                    rv = u","; i += 1
+                    i, rv = self.parseCPATTS(i)
+                    ps = rv
+                    if i >= len(self.s): raise ParseError()
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError()
+                    if self.s[i:i + 1] != u"]": raise ParseError()
+                    self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                    rv = u"]"; i += 1
+                    rv = rules.ListHeadPatt(head, ps)
                 except ParseError:
                     i = st.pop()
                     st.append(i)
                     try:
-                        i, rv = self.parseID(i)
-                        ns = rv
                         if i >= len(self.s): raise ParseError()
                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                         if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != u".": raise ParseError()
-                        self.lastMatch.append((u"TOKEN .", i, i + 1))
-                        rv = u"."; i += 1
-                        i, rv = self.parseID(i)
-                        func = rv
-                        if i >= len(self.s): raise ParseError()
-                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                        if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != u"(": raise ParseError()
-                        self.lastMatch.append((u"TOKEN (", i, i + 1))
-                        rv = u"("; i += 1
+                        if self.s[i:i + 1] != u"[": raise ParseError()
+                        self.lastMatch.append((u"TOKEN [", i, i + 1))
+                        rv = u"["; i += 1
                         i, rv = self.parseCPATTS(i)
                         ps = rv
                         if i >= len(self.s): raise ParseError()
                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                         if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != u")": raise ParseError()
-                        self.lastMatch.append((u"TOKEN )", i, i + 1))
-                        rv = u")"; i += 1
-                        rv = rules.Compound(ns, func, ps)
+                        if self.s[i:i + 1] != u",": raise ParseError()
+                        self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                        rv = u","; i += 1
+                        i, rv = self.parsePATTDOTS(i)
+                        tail = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u"]": raise ParseError()
+                        self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                        rv = u"]"; i += 1
+                        rv = rules.ListTailPatt(tail, ps)
                     except ParseError:
                         i = st.pop()
                         st.append(i)
                         try:
-                            i, rv = self.parseID(i)
-                            ns = rv
                             if i >= len(self.s): raise ParseError()
                             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                             if i >= len(self.s): raise ParseError()
-                            if self.s[i:i + 1] != u".": raise ParseError()
-                            self.lastMatch.append((u"TOKEN .", i, i + 1))
-                            rv = u"."; i += 1
-                            i, rv = self.parseID(i)
-                            func = rv
-                            rv = rules.Compound(ns, func, [])
+                            if self.s[i:i + 1] != u"[": raise ParseError()
+                            self.lastMatch.append((u"TOKEN [", i, i + 1))
+                            rv = u"["; i += 1
+                            i, rv = self.parseCPATTS(i)
+                            ps = rv
+                            if i >= len(self.s): raise ParseError()
+                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                            if i >= len(self.s): raise ParseError()
+                            if self.s[i:i + 1] != u"]": raise ParseError()
+                            self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                            rv = u"]"; i += 1
+                            rv = rules.StructPatt(u'builtin', u'List', ps)
                         except ParseError:
                             i = st.pop()
-                            i, rv = self.parseWS(i)
-                            i, rv = self.parsePVar(i)
-                            name = rv
-                            rv = rules.Var(name)
+                            st.append(i)
+                            try:
+                                i, rv = self.parseSTRING(i)
+                                s = rv
+                                rv = rules.StrPatt(s)
+                            except ParseError:
+                                i = st.pop()
+                                st.append(i)
+                                try:
+                                    i, rv = self.parseID(i)
+                                    ns = rv
+                                    if i >= len(self.s): raise ParseError()
+                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                    if i >= len(self.s): raise ParseError()
+                                    if self.s[i:i + 1] != u".": raise ParseError()
+                                    self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                    rv = u"."; i += 1
+                                    i, rv = self.parseID(i)
+                                    func = rv
+                                    if i >= len(self.s): raise ParseError()
+                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                    if i >= len(self.s): raise ParseError()
+                                    if self.s[i:i + 1] != u"(": raise ParseError()
+                                    self.lastMatch.append((u"TOKEN (", i, i + 1))
+                                    rv = u"("; i += 1
+                                    i, rv = self.parseCPATTS(i)
+                                    ps = rv
+                                    if i >= len(self.s): raise ParseError()
+                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                    if i >= len(self.s): raise ParseError()
+                                    if self.s[i:i + 1] != u")": raise ParseError()
+                                    self.lastMatch.append((u"TOKEN )", i, i + 1))
+                                    rv = u")"; i += 1
+                                    rv = rules.StructPatt(ns, func, ps)
+                                except ParseError:
+                                    i = st.pop()
+                                    st.append(i)
+                                    try:
+                                        i, rv = self.parseID(i)
+                                        ns = rv
+                                        if i >= len(self.s): raise ParseError()
+                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                        if i >= len(self.s): raise ParseError()
+                                        if self.s[i:i + 1] != u".": raise ParseError()
+                                        self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                        rv = u"."; i += 1
+                                        i, rv = self.parseID(i)
+                                        func = rv
+                                        rv = rules.StructPatt(ns, func, [])
+                                    except ParseError:
+                                        i = st.pop()
+                                        i, rv = self.parsePVar(i)
+                                        name = rv
+                                        st.append(i)
+                                        try:
+                                            i, rv = self.parseEllipsis(i)
+                                            rv = True
+                                        except ParseError:
+                                            rv = False
+                                        i = st.pop()
+                                        if rv: raise ParseError()
+                                        rv = rules.VarPatt(name)
         return i, rv
     @cached
     def parseCPRODS(self, i):
         st = []
+        i, rv = self.parseWS(i)
         i, rv = self.parseCPROD1(i)
         p = rv
         rvs = []
@@ -754,6 +861,7 @@ class ZADDYParser(object):
                 if self.s[i:i + 1] != u",": raise ParseError()
                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                 rv = u","; i += 1
+                i, rv = self.parseWS(i)
                 i, rv = self.parseCPROD1(i)
                 rvs.append(rv)
             except ParseError:
@@ -785,78 +893,174 @@ class ZADDYParser(object):
         st = []
         st.append(i)
         try:
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"[": raise ParseError()
-            self.lastMatch.append((u"TOKEN [", i, i + 1))
-            rv = u"["; i += 1
-            i, rv = self.parseCPRODS(i)
-            ps = rv
-            if i >= len(self.s): raise ParseError()
-            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-            if i >= len(self.s): raise ParseError()
-            if self.s[i:i + 1] != u"]": raise ParseError()
-            self.lastMatch.append((u"TOKEN ]", i, i + 1))
-            rv = u"]"; i += 1
-            rv = rules.Compound(u'builtin', u'List', ps)
+            i, rv = self.parseSTRING(i)
+            s = rv
+            rv = rules.StrProd(s)
         except ParseError:
             i = st.pop()
             st.append(i)
             try:
-                i, rv = self.parseSTRING(i)
-                s = rv
-                rv = rules.Literal(s)
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u"[": raise ParseError()
+                self.lastMatch.append((u"TOKEN [", i, i + 1))
+                rv = u"["; i += 1
+                i, rv = self.parsePATTDOTS(i)
+                head = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u",": raise ParseError()
+                self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                rv = u","; i += 1
+                i, rv = self.parseCPRODS(i)
+                ps = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u",": raise ParseError()
+                self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                rv = u","; i += 1
+                i, rv = self.parsePATTDOTS(i)
+                tail = rv
+                if i >= len(self.s): raise ParseError()
+                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                if i >= len(self.s): raise ParseError()
+                if self.s[i:i + 1] != u"]": raise ParseError()
+                self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                rv = u"]"; i += 1
+                rv = rules.ListMidProd(head, tail, ps)
             except ParseError:
                 i = st.pop()
                 st.append(i)
                 try:
-                    i, rv = self.parseID(i)
-                    ns = rv
                     if i >= len(self.s): raise ParseError()
                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                     if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 1] != u".": raise ParseError()
-                    self.lastMatch.append((u"TOKEN .", i, i + 1))
-                    rv = u"."; i += 1
-                    i, rv = self.parseID(i)
-                    func = rv
+                    if self.s[i:i + 1] != u"[": raise ParseError()
+                    self.lastMatch.append((u"TOKEN [", i, i + 1))
+                    rv = u"["; i += 1
+                    i, rv = self.parsePATTDOTS(i)
+                    head = rv
                     if i >= len(self.s): raise ParseError()
                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                     if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 1] != u"(": raise ParseError()
-                    self.lastMatch.append((u"TOKEN (", i, i + 1))
-                    rv = u"("; i += 1
+                    if self.s[i:i + 1] != u",": raise ParseError()
+                    self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                    rv = u","; i += 1
                     i, rv = self.parseCPRODS(i)
                     ps = rv
                     if i >= len(self.s): raise ParseError()
                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                     if i >= len(self.s): raise ParseError()
-                    if self.s[i:i + 1] != u")": raise ParseError()
-                    self.lastMatch.append((u"TOKEN )", i, i + 1))
-                    rv = u")"; i += 1
-                    rv = rules.Compound(ns, func, ps)
+                    if self.s[i:i + 1] != u"]": raise ParseError()
+                    self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                    rv = u"]"; i += 1
+                    rv = rules.ListHeadProd(head, ps)
                 except ParseError:
                     i = st.pop()
                     st.append(i)
                     try:
-                        i, rv = self.parseID(i)
-                        ns = rv
                         if i >= len(self.s): raise ParseError()
                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                         if i >= len(self.s): raise ParseError()
-                        if self.s[i:i + 1] != u".": raise ParseError()
-                        self.lastMatch.append((u"TOKEN .", i, i + 1))
-                        rv = u"."; i += 1
-                        i, rv = self.parseID(i)
-                        func = rv
-                        rv = rules.Compound(ns, func, [])
+                        if self.s[i:i + 1] != u"[": raise ParseError()
+                        self.lastMatch.append((u"TOKEN [", i, i + 1))
+                        rv = u"["; i += 1
+                        i, rv = self.parseCPRODS(i)
+                        ps = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u",": raise ParseError()
+                        self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                        rv = u","; i += 1
+                        i, rv = self.parsePATTDOTS(i)
+                        tail = rv
+                        if i >= len(self.s): raise ParseError()
+                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                        if i >= len(self.s): raise ParseError()
+                        if self.s[i:i + 1] != u"]": raise ParseError()
+                        self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                        rv = u"]"; i += 1
+                        rv = rules.ListTailProd(tail, ps)
                     except ParseError:
                         i = st.pop()
-                        i, rv = self.parseWS(i)
-                        i, rv = self.parsePVar(i)
-                        name = rv
-                        rv = rules.Var(name)
+                        st.append(i)
+                        try:
+                            if i >= len(self.s): raise ParseError()
+                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                            if i >= len(self.s): raise ParseError()
+                            if self.s[i:i + 1] != u"[": raise ParseError()
+                            self.lastMatch.append((u"TOKEN [", i, i + 1))
+                            rv = u"["; i += 1
+                            i, rv = self.parseCPRODS(i)
+                            ps = rv
+                            if i >= len(self.s): raise ParseError()
+                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                            if i >= len(self.s): raise ParseError()
+                            if self.s[i:i + 1] != u"]": raise ParseError()
+                            self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                            rv = u"]"; i += 1
+                            rv = rules.StructProd(u'builtin', u'List', ps)
+                        except ParseError:
+                            i = st.pop()
+                            st.append(i)
+                            try:
+                                i, rv = self.parseID(i)
+                                ns = rv
+                                if i >= len(self.s): raise ParseError()
+                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                if i >= len(self.s): raise ParseError()
+                                if self.s[i:i + 1] != u".": raise ParseError()
+                                self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                rv = u"."; i += 1
+                                i, rv = self.parseID(i)
+                                func = rv
+                                if i >= len(self.s): raise ParseError()
+                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                if i >= len(self.s): raise ParseError()
+                                if self.s[i:i + 1] != u"(": raise ParseError()
+                                self.lastMatch.append((u"TOKEN (", i, i + 1))
+                                rv = u"("; i += 1
+                                i, rv = self.parseCPRODS(i)
+                                ps = rv
+                                if i >= len(self.s): raise ParseError()
+                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                if i >= len(self.s): raise ParseError()
+                                if self.s[i:i + 1] != u")": raise ParseError()
+                                self.lastMatch.append((u"TOKEN )", i, i + 1))
+                                rv = u")"; i += 1
+                                rv = rules.StructProd(ns, func, ps)
+                            except ParseError:
+                                i = st.pop()
+                                st.append(i)
+                                try:
+                                    i, rv = self.parseID(i)
+                                    ns = rv
+                                    if i >= len(self.s): raise ParseError()
+                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                    if i >= len(self.s): raise ParseError()
+                                    if self.s[i:i + 1] != u".": raise ParseError()
+                                    self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                    rv = u"."; i += 1
+                                    i, rv = self.parseID(i)
+                                    func = rv
+                                    rv = rules.StructProd(ns, func, [])
+                                except ParseError:
+                                    i = st.pop()
+                                    i, rv = self.parsePVar(i)
+                                    name = rv
+                                    st.append(i)
+                                    try:
+                                        i, rv = self.parseEllipsis(i)
+                                        rv = True
+                                    except ParseError:
+                                        rv = False
+                                    i = st.pop()
+                                    if rv: raise ParseError()
+                                    rv = rules.VarProd(name)
         return i, rv
     @cached
     def parsePROD1(self, i):
@@ -1534,7 +1738,7 @@ class ZADDYParser(object):
         if self.s[i:i + 1] != u";": raise ParseError()
         self.lastMatch.append((u"TOKEN ;", i, i + 1))
         rv = u";"; i += 1
-        rv = [py.Compound(u'def parse' + name + u'(self, i)', [boundcheck, py.Statement(u'start = i')] + flatten(scans) + [py.Ret(u'i, self.s[start:i]')])]
+        rv = [py.Compound(u'def parse' + name + u'(self, i)', [boundcheck, py.Statement(u'start = i')] + flatten(scans) + [py.Statement(u'rv = self.s[start:i]'), py.Statement(u'self.lastMatch.append((u"TOKEN ' + name + u'", start, i))'), py.Ret(u'i, rv')])]
         return i, rv
     @cached
     def parsePSCAN(self, i):
