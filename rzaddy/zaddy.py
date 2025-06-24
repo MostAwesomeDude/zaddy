@@ -42,17 +42,52 @@ def union(i, j):
         uf[i] = j
     return j
 regNone = make()
+interned = {}
+def makeStr(s):
+    rv = make()
+    interned[rv] = s
+    return rv
+def findStr(i): return interned[find(i)]
+allLists = []
+def makeList(l):
+    rv = make()
+    allLists.append([rv] + l)
+    return rv
+def findList(i):
+    i = find(i)
+    return next([l[1:] for l in allLists if l[0] == i])
 class Builtin(object): pass
-class Line(Builtin):
+class EmitLine(Builtin):
     def __init__(self, s): self.s = s
     def out(self, m): return [u" " * (m * 4) + self.s]
-class Block(Builtin):
+class EmitBlock(Builtin):
     def __init__(self, ls): self.ls = ls
     def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])
 class Builder(object):
-    def Line(self, s): return Line(s)
-    def Block(self, ls): return Block(ls)
+    def Line(self, s): return EmitLine(s)
+    def Block(self, ls): return EmitBlock(ls)
 builtin = Builder()
+class builtinRels:
+    Line = {}; Block = {}
+    def makeLine(self, s):
+        rv = make()
+        self.Line[rv, s] = None
+        return rv
+    def findLine(self, i):
+        ss = [s for (x, s) in self.Line if x == i]
+        return EmitLine(findStr(next(ss)))
+    def makeBlock(self, ls):
+        rv = make()
+        self.Block[rv, ls] = None
+        return rv
+    def findBlock(self, i):
+        lss = [ls for (x, ls) in self.Block if x == i]
+        return EmitBlock([self.findbuiltin(x) for x in findList(next(lss))])
+    def findbuiltin(self, i):
+        try:
+            return self.findLine(i)
+        except StopIteration:
+            return self.findBlock(i)
 class ParseError(Exception): pass
 def lineNumber(s, i):
     return s.count(unichr(10), 0, i)
@@ -84,11 +119,35 @@ def main(argv):
         return 1
 class pyRels(object):
     Statement = {}
+    def makeStatement(self, line):
+        rv = make()
+        self.Statement[rv, line] = None
+        return rv
     Ret = {}
+    def makeRet(self, expr):
+        rv = make()
+        self.Ret[rv, expr] = None
+        return rv
     RaiseIf = {}
+    def makeRaiseIf(self, test):
+        rv = make()
+        self.RaiseIf[rv, test] = None
+        return rv
     Compound = {}
+    def makeCompound(self, head, block):
+        rv = make()
+        self.Compound[rv, head, block] = None
+        return rv
     Conditional = {}
+    def makeConditional(self, test, block):
+        rv = make()
+        self.Conditional[rv, test, block] = None
+        return rv
     Handler = {}
+    def makeHandler(self, block, handler):
+        rv = make()
+        self.Handler[rv, block, handler] = None
+        return rv
 class pyFunctor(object):
     def Statement(self, line):
         return [builtin.Line(line)]
@@ -105,16 +164,55 @@ class pyFunctor(object):
 py = pyFunctor()
 class productionRels(object):
     Con = {}
+    def makeCon(self, ty, con, prods):
+        rv = make()
+        self.Con[rv, ty, con, prods] = None
+        return rv
     PlusMany = {}
+    def makePlusMany(self, ps):
+        rv = make()
+        self.PlusMany[rv, ps] = None
+        return rv
     Mod = {}
+    def makeMod(self, left, right):
+        rv = make()
+        self.Mod[rv, left, right] = None
+        return rv
     Flatten = {}
+    def makeFlatten(self, l):
+        rv = make()
+        self.Flatten[rv, l] = None
+        return rv
     Name = {}
+    def makeName(self, s):
+        rv = make()
+        self.Name[rv, s] = None
+        return rv
     String = {}
+    def makeString(self, s):
+        rv = make()
+        self.String[rv, s] = None
+        return rv
     List = {}
-    Tuple = {}
+    def makeList(self, prods):
+        rv = make()
+        self.List[rv, prods] = None
+        return rv
     Length = {}
+    def makeLength(self, s):
+        rv = make()
+        self.Length[rv, s] = None
+        return rv
     Chr = {}
+    def makeChr(self, n):
+        rv = make()
+        self.Chr[rv, n] = None
+        return rv
     Cond = {}
+    def makeCond(self, t, c, o):
+        rv = make()
+        self.Cond[rv, t, c, o] = None
+        return rv
 class productionFunctor(object):
     def Con(self, ty, con, prods):
         return ty + u'.' + con + u'(' + u', '.join(prods) + u')'
@@ -130,8 +228,6 @@ class productionFunctor(object):
         return u'u' + unichr(39) + s + unichr(39)
     def List(self, prods):
         return u'[' + u', '.join(prods) + u']'
-    def Tuple(self, prods):
-        return u'(' + u', '.join(prods) + u')'
     def Length(self, s):
         return u'str(len(' + s + u')).decode("utf-8")'
     def Chr(self, n):
@@ -141,19 +237,71 @@ class productionFunctor(object):
 production = productionFunctor()
 class pegRels(object):
     NamePatt = {}
+    def makeNamePatt(self, name):
+        rv = make()
+        self.NamePatt[rv, name] = None
+        return rv
     TuplePatt = {}
+    def makeTuplePatt(self, ps):
+        rv = make()
+        self.TuplePatt[rv, ps] = None
+        return rv
     Null = make()
     Token = {}
+    def makeToken(self, s):
+        rv = make()
+        self.Token[rv, s] = None
+        return rv
     Call = {}
+    def makeCall(self, s):
+        rv = make()
+        self.Call[rv, s] = None
+        return rv
     Sequence = {}
+    def makeSequence(self, exprs):
+        rv = make()
+        self.Sequence[rv, exprs] = None
+        return rv
     Choice = {}
+    def makeChoice(self, this, that):
+        rv = make()
+        self.Choice[rv, this, that] = None
+        return rv
     Any = {}
+    def makeAny(self, expr):
+        rv = make()
+        self.Any[rv, expr] = None
+        return rv
     Some = {}
+    def makeSome(self, expr):
+        rv = make()
+        self.Some[rv, expr] = None
+        return rv
     Maybe = {}
+    def makeMaybe(self, expr):
+        rv = make()
+        self.Maybe[rv, expr] = None
+        return rv
     Positive = {}
+    def makePositive(self, expr):
+        rv = make()
+        self.Positive[rv, expr] = None
+        return rv
     Negative = {}
+    def makeNegative(self, expr):
+        rv = make()
+        self.Negative[rv, expr] = None
+        return rv
     Capture = {}
+    def makeCapture(self, expr, patt):
+        rv = make()
+        self.Capture[rv, expr, patt] = None
+        return rv
     Production = {}
+    def makeProduction(self, expr, prod):
+        rv = make()
+        self.Production[rv, expr, prod] = None
+        return rv
 save = py.Statement(u'st.append(i)')
 backup = py.Statement(u'i = st.pop()')
 boundcheck = py.RaiseIf(u'i >= len(self.s)')
@@ -189,43 +337,123 @@ class pegFunctor(object):
 peg = pegFunctor()
 class zephyrRels(object):
     Signature = {}
+    def makeSignature(self, name, tys):
+        rv = make()
+        self.Signature[rv, name, tys] = None
+        return rv
     Product = {}
+    def makeProduct(self, name, fs):
+        rv = make()
+        self.Product[rv, name, fs] = None
+        return rv
     Sum = {}
+    def makeSum(self, name, attrs, con, cons):
+        rv = make()
+        self.Sum[rv, name, attrs, con, cons] = None
+        return rv
     Con = {}
+    def makeCon(self, tag, args):
+        rv = make()
+        self.Con[rv, tag, args] = None
+        return rv
     Id = {}
+    def makeId(self, ty, name):
+        rv = make()
+        self.Id[rv, ty, name] = None
+        return rv
     Option = {}
+    def makeOption(self, ty, name):
+        rv = make()
+        self.Option[rv, ty, name] = None
+        return rv
     Sequence = {}
+    def makeSequence(self, ty, name):
+        rv = make()
+        self.Sequence[rv, ty, name] = None
+        return rv
 class zephyrFunctor(object):
     def Signature(self, name, tys):
         return [py.Compound(u'class ' + name + u'Rels(object)', flatten(tys))]
     def Product(self, name, fs):
         return [py.Statement(u'# product ' + name)]
     def Sum(self, name, attrs, con, cons):
-        return flatten([[con], cons])
+        return flatten([con, flatten(cons)])
     def Con(self, tag, args):
-        return (py.Statement(tag + u' = {}')) if args else (py.Statement(tag + u' = make()'))
+        return ([py.Statement(tag + u' = {}'), py.Compound(u'def make' + tag + u'(self, ' + u', '.join(args) + u')', [py.Statement(u'rv = make()'), py.Statement(u'self.' + tag + u'[rv, ' + u', '.join(args) + u'] = None'), py.Ret(u'rv')])]) if args else ([py.Statement(tag + u' = make()')])
     def Option(self, ty, name):
-        return u'option ' + name
+        return name
     def Sequence(self, ty, name):
-        return u'sequence ' + name
+        return name
     def Id(self, ty, name):
-        return u'id ' + name
+        return name
 zephyr = zephyrFunctor()
 class rulesRels(object):
     IgnorePatt = make()
     VarPatt = {}
+    def makeVarPatt(self, n):
+        rv = make()
+        self.VarPatt[rv, n] = None
+        return rv
     StrPatt = {}
+    def makeStrPatt(self, s):
+        rv = make()
+        self.StrPatt[rv, s] = None
+        return rv
     StructPatt = {}
+    def makeStructPatt(self, ns, func, vars):
+        rv = make()
+        self.StructPatt[rv, ns, func, vars] = None
+        return rv
     ListHeadPatt = {}
+    def makeListHeadPatt(self, head, ps):
+        rv = make()
+        self.ListHeadPatt[rv, head, ps] = None
+        return rv
     ListTailPatt = {}
+    def makeListTailPatt(self, tail, ps):
+        rv = make()
+        self.ListTailPatt[rv, tail, ps] = None
+        return rv
     ListMidPatt = {}
+    def makeListMidPatt(self, head, tail, ps):
+        rv = make()
+        self.ListMidPatt[rv, head, tail, ps] = None
+        return rv
     VarProd = {}
+    def makeVarProd(self, name):
+        rv = make()
+        self.VarProd[rv, name] = None
+        return rv
     StrProd = {}
+    def makeStrProd(self, s):
+        rv = make()
+        self.StrProd[rv, s] = None
+        return rv
     StructProd = {}
+    def makeStructProd(self, ns, func, ps):
+        rv = make()
+        self.StructProd[rv, ns, func, ps] = None
+        return rv
     ListHeadProd = {}
+    def makeListHeadProd(self, head, ps):
+        rv = make()
+        self.ListHeadProd[rv, head, ps] = None
+        return rv
     ListTailProd = {}
+    def makeListTailProd(self, tail, ps):
+        rv = make()
+        self.ListTailProd[rv, tail, ps] = None
+        return rv
     ListMidProd = {}
+    def makeListMidProd(self, head, tail, ps):
+        rv = make()
+        self.ListMidProd[rv, head, tail, ps] = None
+        return rv
     Rewrite = {}
+    def makeRewrite(self, name, ps, prods):
+        rv = make()
+        self.Rewrite[rv, name, ps, prods] = None
+        return rv
 class rulesFunctor(object):
     def Var(self, n):
         return n
@@ -271,10 +499,30 @@ rules = rulesFunctor()
 class charRels(object):
     Any = make()
     Exactly = {}
+    def makeExactly(self, c):
+        rv = make()
+        self.Exactly[rv, c] = None
+        return rv
     Range = {}
+    def makeRange(self, l, u):
+        rv = make()
+        self.Range[rv, l, u] = None
+        return rv
     Call = {}
+    def makeCall(self, n):
+        rv = make()
+        self.Call[rv, n] = None
+        return rv
     Complement = {}
+    def makeComplement(self, s):
+        rv = make()
+        self.Complement[rv, s] = None
+        return rv
     Either = {}
+    def makeEither(self, l, r):
+        rv = make()
+        self.Either[rv, l, r] = None
+        return rv
 class charFunctor(object):
     def Any(self):
         return u'True'
@@ -427,7 +675,7 @@ class ZADDYParser(object):
                 break
         rv = rvs
         tys = rv
-        rv = zephyr.Signature(name, tys)
+        rv = zephyr.Signature(name, flatten(tys))
         return i, rv
     @cached
     def parseZTY(self, i):
@@ -444,7 +692,7 @@ class ZADDYParser(object):
         try:
             i, rv = self.parseFIELDS(i)
             fs = rv
-            rv = zephyr.Product(name, fs)
+            rv = [zephyr.Product(name, fs)]
         except ParseError:
             i = st.pop()
             i, rv = self.parseZCON(i)
@@ -476,10 +724,10 @@ class ZADDYParser(object):
                 rv = u"attributes"; i += 10
                 i, rv = self.parseFIELDS(i)
                 attrs = rv
-                rv = zephyr.Sum(name, attrs, con, cons)
+                rv = [zephyr.Sum(name, attrs, con, cons)]
             except ParseError:
                 i = st.pop()
-                rv = zephyr.Sum(name, [], con, cons)
+                rv = [zephyr.Sum(name, [], con, cons)]
         return i, rv
     @cached
     def parseZCON(self, i):
@@ -1310,7 +1558,7 @@ class ZADDYParser(object):
                                 if self.s[i:i + 1] != u"]": raise ParseError()
                                 self.lastMatch.append((u"TOKEN ]", i, i + 1))
                                 rv = u"]"; i += 1
-                                rv = production.List([expr] + exprs)
+                                rv = production.List(flatten([[expr], exprs]))
                             except ParseError:
                                 i = st.pop()
                                 st.append(i)
@@ -1335,58 +1583,21 @@ class ZADDYParser(object):
                                             rv = production.Chr(n)
                                         except ParseError:
                                             i = st.pop()
-                                            st.append(i)
-                                            try:
-                                                if i >= len(self.s): raise ParseError()
-                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                if i >= len(self.s): raise ParseError()
-                                                if self.s[i:i + 1] != u"(": raise ParseError()
-                                                self.lastMatch.append((u"TOKEN (", i, i + 1))
-                                                rv = u"("; i += 1
-                                                i, rv = self.parsePROD1(i)
-                                                p = rv
-                                                rvs = []
-                                                while True:
-                                                    st.append(i)
-                                                    try:
-                                                        if i >= len(self.s): raise ParseError()
-                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                        if i >= len(self.s): raise ParseError()
-                                                        if self.s[i:i + 1] != u",": raise ParseError()
-                                                        self.lastMatch.append((u"TOKEN ,", i, i + 1))
-                                                        rv = u","; i += 1
-                                                        i, rv = self.parsePROD1(i)
-                                                        rvs.append(rv)
-                                                    except ParseError:
-                                                        i = st.pop()
-                                                        break
-                                                rv = rvs
-                                                if not rv: raise ParseError()
-                                                ps = rv
-                                                if i >= len(self.s): raise ParseError()
-                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                if i >= len(self.s): raise ParseError()
-                                                if self.s[i:i + 1] != u")": raise ParseError()
-                                                self.lastMatch.append((u"TOKEN )", i, i + 1))
-                                                rv = u")"; i += 1
-                                                rv = production.Tuple(flatten([[p], ps]))
-                                            except ParseError:
-                                                i = st.pop()
-                                                if i >= len(self.s): raise ParseError()
-                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                if i >= len(self.s): raise ParseError()
-                                                if self.s[i:i + 1] != u"(": raise ParseError()
-                                                self.lastMatch.append((u"TOKEN (", i, i + 1))
-                                                rv = u"("; i += 1
-                                                i, rv = self.parsePROD1(i)
-                                                prod = rv
-                                                if i >= len(self.s): raise ParseError()
-                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                if i >= len(self.s): raise ParseError()
-                                                if self.s[i:i + 1] != u")": raise ParseError()
-                                                self.lastMatch.append((u"TOKEN )", i, i + 1))
-                                                rv = u")"; i += 1
-                                                rv = prod
+                                            if i >= len(self.s): raise ParseError()
+                                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                            if i >= len(self.s): raise ParseError()
+                                            if self.s[i:i + 1] != u"(": raise ParseError()
+                                            self.lastMatch.append((u"TOKEN (", i, i + 1))
+                                            rv = u"("; i += 1
+                                            i, rv = self.parsePROD1(i)
+                                            prod = rv
+                                            if i >= len(self.s): raise ParseError()
+                                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                            if i >= len(self.s): raise ParseError()
+                                            if self.s[i:i + 1] != u")": raise ParseError()
+                                            self.lastMatch.append((u"TOKEN )", i, i + 1))
+                                            rv = u")"; i += 1
+                                            rv = prod
         return i, rv
     @cached
     def parseFUNCTOR(self, i):
@@ -2046,6 +2257,6 @@ class ZADDYParser(object):
         rv = rvs
         clss = rv
         i, rv = self.parseWS(i)
-        rv = flatten([[py.Statement(u'from rpython.rlib.rfile import create_stdio'), py.Statement(u'from rpython.rlib.objectmodel import specialize'), py.Compound(u'class Result(object)', []), py.Compound(u'class Failed(Result)', []), py.Statement(u'failed = Failed()'), py.Compound(u'def cached(f, cacheCount=[0])', [py.Statement(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement(u'name = f.__name__'), py.Statement(u'uname = unicode(name)'), py.Compound(u'class CacheResult(Result)', [py.Statement(u'def __init__(self, i, rv): setattr(self, attr, (i, rv))')]), py.Statement(u'cache = {}'), py.Compound(u'def deco(self, i)', [py.Statement(u'key = i'), py.RaiseIf(u'key in cache and cache[key] is failed'), py.Statement(u'elif key in cache: return getattr(cache[key], attr)'), py.Statement(u'cache[key] = failed'), py.Statement(u'i, rv = f(self, i)'), py.Statement(u'cache[key] = CacheResult(i, rv)'), py.Statement(u'self.lastMatch.append((uname, key, i))'), py.Ret(u'i, rv')]), py.Statement(u'deco.__name__ = name'), py.Ret(u'deco')]), py.Statement(u'@specialize.call_location()'), py.Compound(u'def flatten(xs)', [py.Statement(u'rv = []'), py.Statement(u'for x in xs: rv.extend(x)'), py.Ret(u'rv')]), py.Statement(u'uf = []'), py.Compound(u'def make()', [py.Statement(u'rv = len(uf)'), py.Statement(u'uf.append(rv)'), py.Ret(u'rv')]), py.Compound(u'def find(i)', [py.Statement(u'j = uf[i]'), py.Compound(u'while uf[j] != j', [py.Statement(u'uf[i], j, i = uf[j], uf[j], j')]), py.Ret(u'j')]), py.Compound(u'def union(i, j)', [py.Statement(u'i = find(i); j = find(j)'), py.Conditional(u'i != j', [py.Statement(u'uf[i] = j')]), py.Ret(u'j')]), py.Statement(u'regNone = make()'), py.Compound(u'class Builtin(object)', []), py.Compound(u'class Line(Builtin)', [py.Statement(u'def __init__(self, s): self.s = s'), py.Statement(u'def out(self, m): return [u" " * (m * 4) + self.s]')]), py.Compound(u'class Block(Builtin)', [py.Statement(u'def __init__(self, ls): self.ls = ls'), py.Statement(u'def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])')]), py.Compound(u'class Builder(object)', [py.Statement(u'def Line(self, s): return Line(s)'), py.Statement(u'def Block(self, ls): return Block(ls)')]), py.Statement(u'builtin = Builder()'), py.Compound(u'class ParseError(Exception)', []), py.Compound(u'def lineNumber(s, i)', [py.Ret(u's.count(unichr(10), 0, i)')]), py.Compound(u'def main(argv)', [py.Statement(u'stdin, stdout, stderr = create_stdio()'), py.Statement(u'parser = MainParser(stdin.read().decode("utf-8"))'), py.Handler([py.Statement(u'i, rules = parser.parse()'), py.Conditional(u'i != len(parser.s)', [py.Statement(u'stderr.write("Failed to consume all input\\n")'), py.Statement(u'raise ParseError()')]), py.Statement(u'buf = []'), py.Statement(u'for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement(u'stdout.write(u"\\n".join(buf).encode("utf-8"))'), py.Statement(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Ret(u'0')], [py.Statement(u'start = max(len(parser.lastMatch) - 25, 0)'), py.Statement(u'newlines = [0]'), py.Compound(u'for line in parser.s.split(u"\\n")', [py.Statement(u'newlines.append(newlines[-1] + len(line) + 1)')]), py.Compound(u'for k, start, stop in parser.lastMatch[start:]', [py.Statement(u'startLine = lineNumber(parser.s, start)'), py.Statement(u'startCol = start - newlines[startLine]'), py.Statement(u'stopLine = lineNumber(parser.s, stop)'), py.Statement(u'stopCol = stop - newlines[stopLine]'), py.Statement(u't = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement(u'stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))')]), py.Ret(u'1')])])], flatten(clss)])
+        rv = flatten([[py.Statement(u'from rpython.rlib.rfile import create_stdio'), py.Statement(u'from rpython.rlib.objectmodel import specialize'), py.Compound(u'class Result(object)', []), py.Compound(u'class Failed(Result)', []), py.Statement(u'failed = Failed()'), py.Compound(u'def cached(f, cacheCount=[0])', [py.Statement(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1'), py.Statement(u'name = f.__name__'), py.Statement(u'uname = unicode(name)'), py.Compound(u'class CacheResult(Result)', [py.Statement(u'def __init__(self, i, rv): setattr(self, attr, (i, rv))')]), py.Statement(u'cache = {}'), py.Compound(u'def deco(self, i)', [py.Statement(u'key = i'), py.RaiseIf(u'key in cache and cache[key] is failed'), py.Statement(u'elif key in cache: return getattr(cache[key], attr)'), py.Statement(u'cache[key] = failed'), py.Statement(u'i, rv = f(self, i)'), py.Statement(u'cache[key] = CacheResult(i, rv)'), py.Statement(u'self.lastMatch.append((uname, key, i))'), py.Ret(u'i, rv')]), py.Statement(u'deco.__name__ = name'), py.Ret(u'deco')]), py.Statement(u'@specialize.call_location()'), py.Compound(u'def flatten(xs)', [py.Statement(u'rv = []'), py.Statement(u'for x in xs: rv.extend(x)'), py.Ret(u'rv')]), py.Statement(u'uf = []'), py.Compound(u'def make()', [py.Statement(u'rv = len(uf)'), py.Statement(u'uf.append(rv)'), py.Ret(u'rv')]), py.Compound(u'def find(i)', [py.Statement(u'j = uf[i]'), py.Compound(u'while uf[j] != j', [py.Statement(u'uf[i], j, i = uf[j], uf[j], j')]), py.Ret(u'j')]), py.Compound(u'def union(i, j)', [py.Statement(u'i = find(i); j = find(j)'), py.Conditional(u'i != j', [py.Statement(u'uf[i] = j')]), py.Ret(u'j')]), py.Statement(u'regNone = make()'), py.Statement(u'interned = {}'), py.Compound(u'def makeStr(s)', [py.Statement(u'rv = make()'), py.Statement(u'interned[rv] = s'), py.Ret(u'rv')]), py.Statement(u'def findStr(i): return interned[find(i)]'), py.Statement(u'allLists = []'), py.Compound(u'def makeList(l)', [py.Statement(u'rv = make()'), py.Statement(u'allLists.append([rv] + l)'), py.Ret(u'rv')]), py.Compound(u'def findList(i)', [py.Statement(u'i = find(i)'), py.Ret(u'next([l[1:] for l in allLists if l[0] == i])')]), py.Compound(u'class Builtin(object)', []), py.Compound(u'class EmitLine(Builtin)', [py.Statement(u'def __init__(self, s): self.s = s'), py.Statement(u'def out(self, m): return [u" " * (m * 4) + self.s]')]), py.Compound(u'class EmitBlock(Builtin)', [py.Statement(u'def __init__(self, ls): self.ls = ls'), py.Statement(u'def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])')]), py.Compound(u'class Builder(object)', [py.Statement(u'def Line(self, s): return EmitLine(s)'), py.Statement(u'def Block(self, ls): return EmitBlock(ls)')]), py.Statement(u'builtin = Builder()'), py.Compound(u'class builtinRels', [py.Statement(u'Line = {}; Block = {}'), py.Compound(u'def makeLine(self, s)', [py.Statement(u'rv = make()'), py.Statement(u'self.Line[rv, s] = None'), py.Ret(u'rv')]), py.Compound(u'def findLine(self, i)', [py.Statement(u'ss = [s for (x, s) in self.Line if x == i]'), py.Ret(u'EmitLine(findStr(next(ss)))')]), py.Compound(u'def makeBlock(self, ls)', [py.Statement(u'rv = make()'), py.Statement(u'self.Block[rv, ls] = None'), py.Ret(u'rv')]), py.Compound(u'def findBlock(self, i)', [py.Statement(u'lss = [ls for (x, ls) in self.Block if x == i]'), py.Ret(u'EmitBlock([self.findbuiltin(x) for x in findList(next(lss))])')]), py.Compound(u'def findbuiltin(self, i)', [py.Compound(u'try', [py.Ret(u'self.findLine(i)')]), py.Compound(u'except StopIteration', [py.Ret(u'self.findBlock(i)')])])]), py.Compound(u'class ParseError(Exception)', []), py.Compound(u'def lineNumber(s, i)', [py.Ret(u's.count(unichr(10), 0, i)')]), py.Compound(u'def main(argv)', [py.Statement(u'stdin, stdout, stderr = create_stdio()'), py.Statement(u'parser = MainParser(stdin.read().decode("utf-8"))'), py.Handler([py.Statement(u'i, rules = parser.parse()'), py.Conditional(u'i != len(parser.s)', [py.Statement(u'stderr.write("Failed to consume all input\\n")'), py.Statement(u'raise ParseError()')]), py.Statement(u'buf = []'), py.Statement(u'for rule in flatten(rules): buf.extend(rule.out(0))'), py.Statement(u'stdout.write(u"\\n".join(buf).encode("utf-8"))'), py.Statement(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))'), py.Ret(u'0')], [py.Statement(u'start = max(len(parser.lastMatch) - 25, 0)'), py.Statement(u'newlines = [0]'), py.Compound(u'for line in parser.s.split(u"\\n")', [py.Statement(u'newlines.append(newlines[-1] + len(line) + 1)')]), py.Compound(u'for k, start, stop in parser.lastMatch[start:]', [py.Statement(u'startLine = lineNumber(parser.s, start)'), py.Statement(u'startCol = start - newlines[startLine]'), py.Statement(u'stopLine = lineNumber(parser.s, stop)'), py.Statement(u'stopCol = stop - newlines[stopLine]'), py.Statement(u't = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol'), py.Statement(u'stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))')]), py.Ret(u'1')])])], flatten(clss)])
         return i, rv
 MainParser = ZADDYParser
