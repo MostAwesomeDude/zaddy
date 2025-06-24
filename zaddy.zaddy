@@ -88,28 +88,28 @@ Token(s)                -> [boundcheck,
                             py.Statement('rv = u"' s '"; i += ' #s)] ;
 Call(s)                 -> [py.Statement('i, rv = self.parse' s '(i)')] ;
 Sequence(exprs)         -> *exprs ;
-Choice(this, that)      -> [save, py.Handler(this, [backup] that)] ;
+Choice(this, that)      -> [save, py.Handler(this, *[[backup], that])] ;
 Any(expr)               -> [py.Statement('rvs = []'),
                             py.Compound('while True',
                                 [save,
-                                 py.Handler(expr [py.Statement('rvs.append(rv)')],
+                                 py.Handler(*[expr, [py.Statement('rvs.append(rv)')]],
                                             [backup, py.Statement('break')])]),
                             py.Statement('rv = rvs')] ;
 Some(expr)              -> [py.Statement('rvs = []'),
                             py.Compound('while True',
                                 [save,
-                                 py.Handler(expr [py.Statement('rvs.append(rv)')],
+                                 py.Handler(*[expr, [py.Statement('rvs.append(rv)')]],
                                             [backup, py.Statement('break')])]),
                             py.Statement('rv = rvs'),
                             py.RaiseIf('not rv')] ;
 Maybe(expr)             -> [save, py.Handler(expr, [py.Statement('rv = peg.Null()'), backup])] ;
 Positive(expr)          -> [save,
-                            py.Handler(expr [py.Statement('rv = True')],
+                            py.Handler(*[expr, [py.Statement('rv = True')]],
                                        [py.Statement('rv = False')]),
                             backup,
                             py.RaiseIf('not rv')] ;
 Negative(expr)          -> [save,
-                            py.Handler(expr [py.Statement('rv = True')],
+                            py.Handler(*[expr, [py.Statement('rv = True')]],
                                        [py.Statement('rv = False')]),
                             backup,
                             py.RaiseIf('rv')] ;
@@ -130,7 +130,7 @@ field = Id(string ty, string name)
 
 Signature(name, tys)        -> [py.Compound('class ' name 'Rels(object)', *tys)] ;
 Product(name, fs)           -> [py.Statement('# product ' name)] ;
-Sum(name, attrs, con, cons) -> [con] cons ;
+Sum(name, attrs, con, cons) -> *[[con], cons] ;
 Con(tag, args)              -> .if (args)
                                .then py.Statement(tag ' = {}')
                                .else py.Statement(tag ' = make()') ;
@@ -234,7 +234,7 @@ ZTY := ID:name '='
           / -> zephyr.Sum(name, [], con, cons) ) ) ;
 ZCON := WS ( ZCId:tag FIELDS:args -> zephyr.Con(tag, args)
            / ZCId:tag -> zephyr.Con(tag, []) ) ;
-FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> [f] fs ;
+FIELDS := '(' FIELD:f ( ',' FIELD )*:fs ')' -> *[[f], fs] ;
 FIELD := WS ( ZTId:ty '?' ID:name -> zephyr.Option(ty, name)
             / ZTId:ty '*' ID:name -> zephyr.Sequence(ty, name)
             / ZTId:ty ID:name     -> zephyr.Id(ty, name) ) ;
@@ -242,7 +242,7 @@ FIELD := WS ( ZTId:ty '?' ID:name -> zephyr.Option(ty, name)
 RULES := '.rules' CHRULE*:hs -> *hs ;
 CHRULE := ID:name '@' CPATTS:ps '==>' CPRODS:prods ';'
        -> rules.Rewrite(name, ps, prods) ;
-CPATTS := WS CPATT:p ( ',' WS CPATT )*:ps -> [p] ps ;
+CPATTS := WS CPATT:p ( ',' WS CPATT )*:ps -> *[[p], ps] ;
 PATTDOTS := WS PVar:n Ellipsis -> n ;
 CPATT := '_'                                 -> rules.IgnorePatt
        / '[' PATTDOTS:head ',' CPATTS:ps ',' PATTDOTS:tail ']'
@@ -254,7 +254,7 @@ CPATT := '_'                                 -> rules.IgnorePatt
        / ID:ns '.' ID:func '(' CPATTS:ps ')' -> rules.StructPatt(ns, func, ps)
        / ID:ns '.' ID:func                   -> rules.StructPatt(ns, func, [])
        / PVar:name !Ellipsis                 -> rules.VarPatt(name) ;
-CPRODS := WS CPROD1:p ( ',' WS CPROD1 )*:ps -> [p] ps ;
+CPRODS := WS CPROD1:p ( ',' WS CPROD1 )*:ps -> *[[p], ps] ;
 CPROD1 := CPROD2+:ps -> ps % ' ' ;
 CPROD2 := STRING:s                            -> rules.StrProd(s)
         / '[' PATTDOTS:head ',' CPRODS:ps ',' PATTDOTS:tail ']'
@@ -284,12 +284,12 @@ PROD5 := ID:ty '.' ID:con
        / ID:s                                    -> production.Name(s)
        / STRING:s                                -> production.String(s)
        / WS Number:n                             -> production.Chr(n)
-       / '(' PROD1:p ( ',' PROD1 )+:ps ')'       -> production.Tuple([p] ps)
+       / '(' PROD1:p ( ',' PROD1 )+:ps ')'       -> production.Tuple(*[[p], ps])
        / '(' PROD1:prod ')'                      -> prod ;
 
 FUNCTOR := '.functor' ID:name FLET*:lets FRULE*:rules
-        -> lets [py.Compound('class ' name 'Functor(object)', rules),
-                 py.Statement(name ' = ' name 'Functor()')] ;
+        -> *[lets, [py.Compound('class ' name 'Functor(object)', rules),
+                 py.Statement(name ' = ' name 'Functor()')]] ;
 
 FLET := 'let' ID:name ':=' PROD1:prod ';' -> py.Statement(name ' = ' prod) ;
 
@@ -300,7 +300,7 @@ FRULE := ID:tag FPATTS:patts '->' PROD1:prod ';'
       -> py.Compound('def ' tag '(self)',
              [py.Ret(prod)]) ;
 
-FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> [p] ps ;
+FPATTS := '(' FPATT:p ( ',' FPATT )*:ps ')' -> *[[p], ps] ;
 FPATT := ID ;
 
 GRAMMAR := '.grammar' ID:name ( PCLASS / PTOKEN / PRULE )*:rules
@@ -308,11 +308,11 @@ GRAMMAR := '.grammar' ID:name ( PCLASS / PTOKEN / PRULE )*:rules
                [py.Statement('driver.exe_name = "' name '".lower() + "c"'),
                 py.Ret('main, None')]),
             py.Compound('class ' name 'Parser(object)',
-               [py.Compound('def __init__(self, s)',
+               *[[py.Compound('def __init__(self, s)',
                     [py.Statement('self.s = s; self.lastMatch = []')]),
                 py.Compound('def parse(self)',
-                    [py.Ret('self.parse' name '(0)')])]
-               *rules),
+                    [py.Ret('self.parse' name '(0)')])],
+               *rules]),
             py.Statement('MainParser = ' name 'Parser')] ;
 
 PCLASS := 'class' ID:name '=' CLASSEXPR1:c ';'
@@ -328,11 +328,11 @@ CLASSEXPR2 := '.any'                                    -> char.Any
 
 PTOKEN := 'token' ID:name '=' PSCAN+:scans ';'
        -> [py.Compound('def parse' name '(self, i)',
-                       [boundcheck, py.Statement('start = i')]
-                       *scans
+                       *[[boundcheck, py.Statement('start = i')],
+                       *scans,
                        [py.Statement('rv = self.s[start:i]'),
                         py.Statement('self.lastMatch.append((u"TOKEN ' name '", start, i))'),
-                        py.Ret('i, rv')])] ;
+                        py.Ret('i, rv')]])] ;
 PSCAN := ID:cls '*' -> [py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]
        / ID:cls '+' -> [py.RaiseIf('i >= len(self.s) or not self.cls' cls '(ord(self.s[i]))'),
                         py.Statement('while i < len(self.s) and self.cls' cls '(ord(self.s[i])): i += 1')]
@@ -342,7 +342,7 @@ PSCAN := ID:cls '*' -> [py.Statement('while i < len(self.s) and self.cls' cls '(
 PRULE := ID:name ':=' PEXPR1:expr ';'
        -> [py.Statement('@cached'),
            py.Compound('def parse' name '(self, i)',
-           [py.Statement('st = []')] expr [py.Ret('i, rv')])] ;
+           *[[py.Statement('st = []')], expr, [py.Ret('i, rv')]])] ;
 PEXPR1 := PEXPR2:this '/' PEXPR1:that -> peg.Choice(this, that)
         / PEXPR2 ;
 PEXPR2 := PEXPR3:exprs '->' PROD1:prod -> peg.Production(exprs, prod)
@@ -350,7 +350,7 @@ PEXPR2 := PEXPR3:exprs '->' PROD1:prod -> peg.Production(exprs, prod)
 PEXPR3 := PEXPR4*:exprs -> peg.Sequence(exprs) ;
 PEXPR4 := PEXPR5:expr ':' PPATT:p -> peg.Capture(expr, p)
         / PEXPR5 ;
-PPATT := '(' PPATT:p ( ',' PPATT )*:ps -> peg.TuplePatt([p] ps)
+PPATT := '(' PPATT:p ( ',' PPATT )*:ps -> peg.TuplePatt(*[[p], ps])
        / ID:name                       -> peg.NamePatt(name) ;
 PEXPR5 := '&' PEXPR6:expr -> peg.Positive(expr)
         / '!' PEXPR6:expr -> peg.Negative(expr)
@@ -364,7 +364,7 @@ PEXPR7 := '(' PEXPR1:expr ')'   -> expr
         / ID:name               -> peg.Call(name) ;
 
 ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
-      -> [py.Statement('from rpython.rlib.rfile import create_stdio'),
+      -> *[[py.Statement('from rpython.rlib.rfile import create_stdio'),
           py.Statement('from rpython.rlib.objectmodel import specialize'),
           py.Compound('class Result(object)', []),
           py.Compound('class Failed(Result)', []),
@@ -459,5 +459,5 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
                   ]),
                   py.Ret('1')
               ])
-          ])]
-         *clss ;
+          ])],
+         *clss] ;
