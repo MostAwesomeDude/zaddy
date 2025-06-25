@@ -147,42 +147,56 @@ patt = IgnorePatt
      | VarPatt(string n)
      | StrPatt(string s)
      | StructPatt(string ns, string func, patt* vars)
+     | ListPatt(patt* ps)
      | ListHeadPatt(patt head, patt* ps)
      | ListTailPatt(patt tail, patt* ps)
      | ListMidPatt(patt head, patt tail, patt* ps)
 production = VarProd(string name)
+           | ConstProd(string name)
            | StrProd(string s)
+           | CharProd(int n)
            | StructProd(string ns, string func, production* ps)
+           | ListProd(production* ps)
            | ListHeadProd(production head, production* ps)
            | ListTailProd(production tail, production* ps)
            | ListMidProd(production head, production tail, production* ps)
-rule = Rewrite(string name, patt* ps, production* prods)
+           | FlattenOp(production p)
+           | LengthOp(production p)
+           | JoinOp(string s, production p)
+           | ConcatOp(production* ps)
+rule = Rewrite(string name, patt root, production* prods)
+     | Let(string name, production p)
 
 .functor rules
 
-Var(n)                   -> n ;
-Const(n)                 -> n ;
-Literal(s)               -> 39 s 39 ;
-StarPatt(p)              -> p '*' ;
-PlusPatt(p)              -> p '+' ;
-Compound(ns, func, vars) -> ([ns func] vars) % '-' ;
 IgnorePatt                  -> '_' ;
 VarPatt(n)                  -> n ;
 StrPatt(s)                  -> 39 s 39 ;
 StructPatt(ns, func, vars)  -> ns '.' func '(' (vars % ', ') ')' ;
+ListPatt(ps)                -> ps % ', ' ;
 ListHeadPatt(head, ps)      -> 'listhead' head (ps % ', ') ;
 ListTailPatt(tail, ps)      -> 'listtail' tail (ps % ', ') ;
 ListMidPatt(head, tail, ps) -> 'listmid' head tail (ps % ', ') ;
-VarProd(name)               -> name ;
-StrProd(s)                  -> 39 s 39 ;
-StructProd(ns, func, ps)    -> ns '.' func '(' (ps % ', ') ')' ;
-ListHeadProd(head, ps)      -> 'listhead' head (ps % ', ') ;
+VarProd(name)               -> 'v' name ;
+ConstProd(name)             -> 'const' name ;
+StrProd(s)                  -> 'makeStr(' 39 s 39 ')' ;
+CharProd(n)                 -> 'makeStr(unichr(' n '))' ;
+StructProd(ns, func, ps)    -> ns 'Rels().make' func '(' (ps % ', ') ')' ;
+ListProd(ps)                -> .if (ps) .then 'makeList([' (ps % ', ') '])' .else 'emptyList' ;
+ListHeadProd(head, ps)      -> 'makeList(findList(' head ') + [' (ps % ', ') '])' ;
 ListTailProd(tail, ps)      -> 'listtail' tail (ps % ', ') ;
 ListMidProd(head, tail, ps) -> 'listmid' head tail (ps % ', ') ;
-Rewrite(name, ps, prods) -> [py.Compound('def ' name '()', [
-                             py.Statement('# ' (ps % ', ')),
-                             py.Statement('# ' (prods % ', ')),
-                             py.Statement('pass')])] ;
+FlattenOp(p)                -> 'flattenList(' p ')' ;
+LengthOp(p)                 -> 'makeStr(str(len(findStr(' p '))).encode("utf-8"))' ;
+JoinOp(s, p)                -> 'makeStr("' s '".join([findStr(x) for x in findList(' p ')]))' ;
+ConcatOp(ps)                -> 'makeStr(findStr(' (ps % ') + findStr(') '))' ;
+Rewrite(name, root, prods)  -> [py.Statement('@rewrite'), py.Compound('def ' name '()', [
+                                    py.Statement('count = 0'),
+                                    py.Statement('# ' root),
+                                    py.Statement('# unify(vRoot, ' (prods % ', ') ')' ),
+                                    py.Statement('# count += 1'),
+                                    py.Ret('count')])] ;
+Let(name, p)                -> [py.Statement('const' name ' = ' p)] ;
 
 .signature char
 
@@ -204,6 +218,120 @@ Either(l, r)  -> '(' l ') or (' r ')' ;
 
 .rules
 
+pyStatement @ py.Statement(L)       ==> [.line(L)] ;
+pyRet       @ py.Ret(E)             ==> [.line('return ' E)] ;
+pyRaiseIf   @ py.RaiseIf(T)         ==> [.line('if ' T ': raise ParseError()')] ;
+pyCompPass  @ py.Compound(H, [])    ==> [.line(H ': pass')] ;
+pyCompBlock @ py.Compound(H, B)     ==> [.line(H ':'), .block(B)] ;
+pyCondEmpty @ py.Conditional(T, []) ==> [] ;
+pyCondBlock @ py.Conditional(T, B)  ==> [.line('if ' T ':'), .block(B)] ;
+pyHandEmpty @ py.Handler(B, [])     ==> [] ;
+pyHandBlock @ py.Handler(B, H)      ==> [.line('try:'), .block(B), .line('except ParseError:'), .block(H)] ;
+
+
+prodCon  @ production.Con(T, C, Ps) ==> T '.' C '(' .join(Ps, ', ') ')' ;
+prodPlus @ production.PlusMany(Ps)  ==> .join(Ps, ' + ') ;
+prodMod  @ production.Mod(L, R)     ==> R '.join(' L ')' ;
+prodFlat @ production.Flatten(L)    ==> 'flatten(' L ')' ;
+prodName @ production.Name(S)       ==> S ;
+prodStr  @ production.String(S)     ==> 'u' 39 S 39 ;
+prodList @ production.List(Ps)      ==> '[' .join(Ps, ', ') ']' ;
+prodLen  @ production.Length(S)     ==> 'str(len(' S ')).decode("utf-8")' ;
+prodChr  @ production.Chr(N)        ==> 'unichr(' N ')' ;
+prodCond @ production.Cond(T, C, O) ==> '(' C ') if ' T ' else (' O ')' ;
+
+
+pegNamePatt @ peg.NamePatt(Name) ==> Name ;
+pegNamePatt @ peg.TuplePatt(Ps)  ==> '(' .join(Ps, ', ') ')' ;
+
+let save       := py.Statement('st.append(i)') ;
+let backup     := py.Statement('i = st.pop()') ;
+let boundcheck := py.RaiseIf('i >= len(self.s)') ;
+let skipws     := py.Statement('while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1') ;
+
+pegSeq      @ peg.Sequence(Es)     ==> *Es ;
+pegCap      @ peg.Capture(E, P)    ==> [E…, py.Statement(P ' = rv')] ;
+pegProd     @ peg.Production(E, P) ==> [E…, py.Statement('rv = ' P)] ;
+pegCall     @ peg.Call(S)          ==> [py.Statement('i, rv = self.parse' S '(i)')] ;
+pegChoice   @ peg.Choice(L, R)     ==> [save, py.Handler(L, [backup, R…])] ;
+pegToken    @ peg.Token(S)         ==> [skipws, boundcheck,
+                                        py.RaiseIf('self.s[i:i + ' #S '] != u"' S '"'),
+                                        py.Statement('self.lastMatch.append((u"TOKEN ' S '", i, i + ' #S '))'),
+                                        py.Statement('rv = u"' S '"; i += ' #S)] ;
+pegAny      @ peg.Any(E)           ==> [py.Statement('rvs = []'),
+                                        py.Compound('while True',
+                                            [save,
+                                             py.Handler([E…, py.Statement('rvs.append(rv)')],
+                                                        [backup, py.Statement('break')])]),
+                                        py.Statement('rv = rvs')] ;
+pegSome     @ peg.Some(E)          ==> *[peg.Any(E), [py.RaiseIf('not rv')]] ;
+
+pegMaybe    @ peg.Maybe(E)         ==> [save, py.Handler(E, [py.Statement('rv = peg.Null()'), backup])] ;
+pegPos      @ peg.Positive(E)      ==> [save,
+                                        py.Handler([E…, py.Statement('rv = True')],
+                                                   [py.Statement('rv = False')]),
+                                        backup,
+                                        py.RaiseIf('not rv')] ;
+pegNeg      @ peg.Negative(E)      ==> [save,
+                                        py.Handler([E…, py.Statement('rv = True')],
+                                                   [py.Statement('rv = False')]),
+                                        backup,
+                                        py.RaiseIf('rv')] ;
+
+
+zSig    @ zephyr.Signature(N, T)    ==> [py.Compound('class ' N 'Rels(object)', *T)] ;
+zProd   @ zephyr.Product(N, Fs)     ==> [py.Statement('# product ' N)] ;
+zSum    @ zephyr.Sum(N, A, C, Cs)   ==> *[con, *cons] ;
+zConT   @ zephyr.Con(T, [])         ==> [py.Statement(T ' = make()')] ;
+zConF   @ zephyr.Con(T, A)          ==> [py.Statement(T ' = {}'),
+                                         py.Compound('def make' T '(self, ' .join(A, ', ') ')', [
+                                             py.Statement('rv = make()'),
+                                             py.Statement('self.' T '[rv, ' .join(A, ', ') '] = None'),
+                                             py.Ret('rv')
+                                         ])
+                                     ] ;
+zOpt    @ zephyr.Option(T, N)       ==> N ;
+zSeq    @ zephyr.Sequence(T, N)     ==> N ;
+zId     @ zephyr.Id(T, N)           ==> N ;
+
+
+charAny     @ char.Any           ==> 'True' ;
+charExactly @ char.Exactly(C)    ==> 'c == ' C ;
+charRange   @ char.Range(L, U)   ==> L ' <= c <= ' U ;
+charCall    @ char.Call(N)       ==> 'self.cls' N '(c)' ;
+charComp    @ char.Complement(S) ==> 'not (' S ')' ;
+charEither  @ char.Either(L, R)  ==> '(' L ') or (' R ')' ;
+
+
+rPattIg @ rules.IgnorePatt                 ==> '_' ;
+rPattV  @ rules.VarPatt(N)                 ==> N ;
+rPattS  @ rules.StrPatt(S)                 ==> 39 S 39 ;
+rPattSt @ rules.StructPatt(Ns, F, Vs)      ==> Ns '.' F '(' .join(Vs, ', ') ')' ;
+rPattL  @ rules.ListPatt(Ps)               ==> .join(Ps, ', ') ;
+rPattLH @ rules.ListHeadPatt(H, Ps)        ==> 'listhead' H .join(Ps, ', ') ;
+rPattLT @ rules.ListTailPatt(T, Ps)        ==> 'listtail' T .join(Ps, ', ') ;
+rPattLM @ rules.ListMidPatt(H, T, Ps)      ==> 'listmid' H T .join(Ps, ', ') ;
+rProdV  @ rules.VarProd(Name)              ==> 'v' Name ;
+rProdC  @ rules.ConstProd(Name)            ==> 'const' Name ;
+rProdS  @ rules.StrProd(S)                 ==> 'makeStr(' 39 S 39 ')' ;
+rProdCh @ rules.CharProd(N)                ==> 'makeStr(unichr(' N '))' ;
+rProdSt @ rules.StructProd(Ns, F, Ps)      ==> Ns 'Rels().make' F '(' .join(ps, ', ') ')' ;
+rProdL  @ rules.ListProd(Ps)               ==> .join(ps, ', ') ;
+rProdLH @ rules.ListHeadProd(H, Ps)        ==> 'makeList(findList(' H ') + [' .join(Ps, ', ') '])' ;
+rProdLT @ rules.ListTailProd(T, Ps)        ==> 'listtail' T .join(Ps, ', ') ;
+rProdLM @ rules.ListMidProd(H, T, Ps)      ==> 'listmid' H T .join(Ps, ', ') ;
+rProdOF @ rules.FlattenOp(P)               ==> 'flattenList(' P ')' ;
+rProdOL @ rules.LengthOp(P)                ==> 'makeStr(str(len(findStr(' P '))).encode("utf-8"))' ;
+rProdOJ @ rules.JoinOp(S, P)               ==> 'makeStr("' S '".join([findStr(x) for x in findList(' P ')]))' ;
+rProdOC @ rules.ConcatOp(Ps)               ==> 'makeStr(findStr(' .join(Ps, ') + findStr(') '))' ;
+rRule   @ rules.Rewrite(Name, Root, Ps)    ==> [py.Compound('def ' Name '(vRoot)', [
+                                                    py.Statement('count = 0'),
+                                                    py.Statement('# ' Root),
+                                                    py.Statement('# unify(vRoot, ' .join(Ps, ', ') ')' ),
+                                                    py.Statement('# count += 1'),
+                                                    py.Ret('count')])] ;
+rLet    @ rules.Let(Name, P)               ==> [py.Statement('const' Name ' = ' P)] ;
+
 .grammar ZADDY
 
 class Whitespace = 9 | 10 | 13 | 32 ;
@@ -220,6 +348,7 @@ token WS = Whitespace* ;
 token Number = Digit+ ;
 token Id = Alpha Alphanumeric* ;
 token PVar = Upper Alphanumeric* ;
+token PConst = Lower+ ;
 token ZTId = Lower Alphanumeric* ;
 token ZCId = Upper Alphanumeric* ;
 token Quote = Quote ;
@@ -242,32 +371,44 @@ FIELD := WS ( ZTId:ty '?' ID:name -> zephyr.Option(ty, name)
             / ZTId:ty '*' ID:name -> zephyr.Sequence(ty, name)
             / ZTId:ty ID:name     -> zephyr.Id(ty, name) ) ;
 
-RULES := '.rules' CHRULE*:hs -> *hs ;
-CHRULE := ID:name '@' CPATTS:ps '==>' CPRODS:prods ';'
-       -> rules.Rewrite(name, ps, prods) ;
+RULES := '.rules' ( CHRULE / CHLET )*:hs -> *hs ;
+CHRULE := ID:name '@' WS CPATT:root '==>' CPRODS:prods ';'
+       -> rules.Rewrite(name, root, prods) ;
+CHLET := 'let' ID:name ':=' CPROD1:p ';' -> rules.Let(name, p) ;
 CPATTS := WS CPATT:p ( ',' WS CPATT )*:ps -> *[[p], ps] ;
 PATTDOTS := WS PVar:n Ellipsis -> n ;
 CPATT := '_'                                 -> rules.IgnorePatt
+       / '[]'                                -> rules.ListPatt([])
        / '[' PATTDOTS:head ',' CPATTS:ps ',' PATTDOTS:tail ']'
          -> rules.ListMidPatt(head, tail, ps)
        / '[' PATTDOTS:head ',' CPATTS:ps ']' -> rules.ListHeadPatt(head, ps)
        / '[' CPATTS:ps ',' PATTDOTS:tail ']' -> rules.ListTailPatt(tail, ps)
-       / '[' CPATTS:ps ']'                   -> rules.StructPatt('builtin', 'List', ps)
+       / '[' CPATTS:ps ']'                   -> rules.ListPatt(ps)
        / STRING:s                            -> rules.StrPatt(s)
        / ID:ns '.' ID:func '(' CPATTS:ps ')' -> rules.StructPatt(ns, func, ps)
        / ID:ns '.' ID:func                   -> rules.StructPatt(ns, func, [])
        / PVar:name !Ellipsis                 -> rules.VarPatt(name) ;
-CPRODS := WS CPROD1:p ( ',' WS CPROD1 )*:ps -> *[[p], ps] ;
-CPROD1 := CPROD2+:ps -> ps % ' ' ;
+CPRODS := CPROD1:p ( ',' CPROD1 )*:ps -> *[[p], ps] ;
+CPROD1 := WS CPROD2:p ( WS CPROD2 )*:ps
+       -> .if (ps) .then rules.ConcatOp(*[[p], ps]) .else p ;
 CPROD2 := STRING:s                            -> rules.StrProd(s)
+        / Number:n                            -> rules.CharProd(n)
+        / '#' CPROD2:p                        -> rules.LengthOp(p)
+        / '*' CPROD2:p                        -> rules.FlattenOp(p)
+        / '*(' CPROD1:p ')'                   -> rules.FlattenOp(p)
+        / '.line(' CPROD1:p ')'               -> rules.StructProd('builtin', 'Line', [p])
+        / '.block(' CPROD1:p ')'              -> rules.StructProd('builtin', 'Block', [p])
+        / '.join(' CPROD1:p ',' STRING:s ')'  -> rules.JoinOp(s, p)
+        / '[]'                                -> rules.ListProd([])
         / '[' PATTDOTS:head ',' CPRODS:ps ',' PATTDOTS:tail ']'
           -> rules.ListMidProd(head, tail, ps)
         / '[' PATTDOTS:head ',' CPRODS:ps ']' -> rules.ListHeadProd(head, ps)
         / '[' CPRODS:ps ',' PATTDOTS:tail ']' -> rules.ListTailProd(tail, ps)
-        / '[' CPRODS:ps ']'                   -> rules.StructProd('builtin', 'List', ps)
+        / '[' CPRODS:ps ']'                   -> rules.ListProd(ps)
+        / PVar:name !Ellipsis                 -> rules.VarProd(name)
+        / PConst:name !Ellipsis !'.'          -> rules.ConstProd(name)
         / ID:ns '.' ID:func '(' CPRODS:ps ')' -> rules.StructProd(ns, func, ps)
-        / ID:ns '.' ID:func                   -> rules.StructProd(ns, func, [])
-        / PVar:name !Ellipsis                 -> rules.VarProd(name) ;
+        / ID:ns '.' ID:func                   -> rules.StructProd(ns, func, []) ;
 
 PROD1 := '.if' PROD1:test '.then' PROD1:cons '.else' PROD1:other -> production.Cond(test, cons, other)
        / PROD2 ;
@@ -392,10 +533,27 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
               py.Statement('deco.__name__ = name'),
               py.Ret('deco')
           ]),
+          py.Statement('ruleNames = []'),
+          py.Compound('def rewrite(f)', [
+              py.Statement('ruleNames.append((f, f.__name__))'),
+              py.Ret('f')
+          ]),
           py.Statement('@specialize.call_location()'),
           py.Compound('def flatten(xs)', [
               py.Statement('rv = []'),
               py.Statement('for x in xs: rv.extend(x)'),
+              py.Ret('rv')
+          ]),
+          py.Compound('def flattenList(i)', [
+              py.Statement('rv = []'),
+              py.Statement('for x in findList(i): rv.extend(findList(x))'),
+              py.Ret('makeList(rv)')
+          ]),
+          py.Compound('def intersect(l, r)', [
+              py.Statement('rv = []'),
+              py.Compound('for x in r', [
+                  py.Statement('if x in l: rv.append(x)')
+              ]),
               py.Ret('rv')
           ]),
           py.Statement('uf = []'),
@@ -428,6 +586,7 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
               py.Statement('allLists.append([rv] + l)'),
               py.Ret('rv')
           ]),
+          py.Statement('emptyList = makeList([])'),
           py.Compound('def findList(i)', [
               py.Statement('i = find(i)'),
               py.Ret('next([l[1:] for l in allLists if l[0] == i])')
@@ -475,6 +634,7 @@ ZADDY := WS ( RULES / SIGNATURE / FUNCTOR / GRAMMAR )*:clss WS
           py.Compound('def lineNumber(s, i)', [py.Ret('s.count(unichr(10), 0, i)')]),
           py.Compound('def main(argv)', [
               py.Statement('stdin, stdout, stderr = create_stdio()'),
+              py.Statement('stderr.write("Registered %d rewrite rules\\n" % len(ruleNames))'),
               py.Statement('parser = MainParser(stdin.read().decode("utf-8"))'),
               py.Handler([
                   py.Statement('i, rules = parser.parse()'),
