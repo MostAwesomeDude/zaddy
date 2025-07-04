@@ -1,6 +1,7 @@
 .signature py
 
 statement = Statement(string line)
+          | Imp(string module, string names)
           | Ret(string expr)
           | RaiseIf(string test)
           | Compound(string head, statement* block)
@@ -73,14 +74,16 @@ set = Any
 .rules
 
 pyStatement @ py.Statement(L)       ==> [.line(L)] ;
+pyImp       @ py.Imp(M, Ns)         ==> [.line('from ' M ' import ' Ns)] ;
 pyRet       @ py.Ret(E)             ==> [.line('return ' E)] ;
 pyRaiseIf   @ py.RaiseIf(T)         ==> [.line('if ' T ': raise ParseError()')] ;
 pyCompPass  @ py.Compound(H, [])    ==> [.line(H ': pass')] ;
-pyCompBlock @ py.Compound(H, B)     ==> [.line(H ':'), .block(B)] ;
+pyCompBlock @ py.Compound(H, B)     ==> [.line(H ':'), .block(*[*B, [.line('pass')]])] ;
 pyCondEmpty @ py.Conditional(T, []) ==> [] ;
-pyCondBlock @ py.Conditional(T, B)  ==> [.line('if ' T ':'), .block(B)] ;
+pyCondBlock @ py.Conditional(T, B)  ==> [.line('if ' T ':'), .block(*B)] ;
 pyHandEmpty @ py.Handler(B, [])     ==> [] ;
-pyHandBlock @ py.Handler(B, H)      ==> [.line('try:'), .block(B), .line('except ParseError:'), .block(H)] ;
+pyHandBlock @ py.Handler(B, H)      ==> [.line('try:'), .block(*B),
+                                         .line('except ParseError:'), .block(*H)] ;
 
 
 pegNamePatt  @ peg.NamePatt(Name) ==> 'v' Name ;
@@ -100,14 +103,14 @@ pegToken    @ peg.Token(S)         ==> [skipws, boundcheck,
                                         py.Statement('assert i >= 0'),
                                         py.RaiseIf('self.s[i:i + ' #S '] != u"' S '"'),
                                         py.Statement('self.lastMatch.append((u"TOKEN ' S '", i, i + ' #S '))'),
-                                        py.Statement('rv = makeStr(u"' S '"); i += ' #S)] ;
+                                        py.Statement('rv = self.uf.makeStr(u"' S '"); i += ' #S)] ;
 pegAny      @ peg.Any(E)           ==> [py.Statement('rvs = []'),
                                         py.Compound('while True',
                                             [save,
                                              py.Handler([E…, py.Statement('rvs.append(rv)')],
                                                         [backup, py.Statement('break')])]),
-                                        py.Statement('rv = makeList(rvs)')] ;
-pegSome     @ peg.Some(E)          ==> *[peg.Any(E), [py.RaiseIf('not rv')]] ;
+                                        py.Statement('rv = rel.uf.makeList(rvs)')] ;
+pegSome     @ peg.Some(E)          ==> *[peg.Any(E), [py.RaiseIf('not len(rvs)')]] ;
 
 pegMaybe    @ peg.Maybe(E)         ==> [save, py.Handler(E, [py.Statement('rv = 0'), backup])] ;
 pegPos      @ peg.Positive(E)      ==> [save,
@@ -122,14 +125,35 @@ pegNeg      @ peg.Negative(E)      ==> [save,
                                         py.RaiseIf('rv')] ;
 
 
-zSig    @ zephyr.Signature(N, T)    ==> [py.Compound('class ' N 'Rels(object)', *T)] ;
+zSig    @ zephyr.Signature(N, T)    ==> [py.Statement(N 'Cons = []'),
+                                         py.Compound('class ' N 'Rels(Rels)', *[[
+                                             py.Statement('cons = ' N 'Cons'),
+                                             py.Compound('def __init__(self, uf)', [
+                                                py.Statement('self.uf = uf'),
+                                                py.Compound('for n in unrolled' N 'Cons', [
+                                                    py.Statement('setattr(self, n, {})'),
+                                                    py.Statement('setattr(self, "hash" + n, {})')
+                                                ])
+                                             ]),
+                                             py.Compound('def rebuild(self)', [
+                                                py.Compound('for n in unrolled' N 'Cons', [
+                                                    py.Statement('rebuildRel(self.uf, getattr(self, n))'),
+                                                    py.Statement('rebuildHash(self.uf, getattr(self, "hash" + n))')
+                                                ])
+                                             ])
+                                         ], *T]),
+                                         py.Statement('unrolled' N 'Cons = unrolling_iterable(' N 'Cons[:])'),
+                                         py.Statement('allRels.append(("' N '", ' N 'Rels))')] ;
 zProd   @ zephyr.Product(N, Fs)     ==> [py.Statement('# product ' N)] ;
 zSum    @ zephyr.Sum(N, A, C, Cs)   ==> *[C, *Cs] ;
-zConT   @ zephyr.Con(T, [])         ==> [py.Statement(T ' = make()')] ;
-zConF   @ zephyr.Con(T, A)          ==> [py.Statement(T ' = {}'),
+zConF   @ zephyr.Con(T, A)          ==> [py.Statement('cons.append("' T '")'),
                                          py.Compound('def make' T '(self, ' .join(A, ', ') ')', [
-                                             py.Statement('rv = make()'),
+                                             py.Statement('self.dirty' T ' = True'),
+                                             py.Statement('k = 0, ' .join(A, ', ')),
+                                             py.Statement('if k in self.hash' T ': return self.hash' T '[k]'),
+                                             py.Statement('rv = self.uf.make()'),
                                              py.Statement('self.' T '[rv, ' .join(A, ', ') '] = None'),
+                                             py.Statement('self.hash' T '[k] = rv'),
                                              py.Ret('rv')
                                          ])
                                      ] ;
@@ -150,37 +174,41 @@ rPattIg @ rules.IgnorePatt                 ==> '_' ;
 rPattV  @ rules.VarPatt(N)                 ==> 'v' N ;
 rPattS  @ rules.StrPatt(S)                 ==> 'u' 39 S 39 ;
 rPattSt @ rules.StructPatt(Ns, F, Vs)      ==> 'for (vRoot, ' .join(Vs, ', ') ') in rel.' Ns '.' F ;
-rPattL  @ rules.ListPatt(Ps)               ==> .join(Ps, ', ') ;
+rPattLE @ rules.ListPatt([])               ==> 'beEmpty' ;
+rPattLL @ rules.ListPatt(Ps)               ==> .join(Ps, ', ') ;
 rPattLH @ rules.ListHeadPatt(H, Ps)        ==> 'listhead' H .join(Ps, ', ') ;
 rPattLT @ rules.ListTailPatt(T, Ps)        ==> 'listtail' T .join(Ps, ', ') ;
 rPattLM @ rules.ListMidPatt(H, T, Ps)      ==> 'listmid' H T .join(Ps, ', ') ;
 rProdV  @ rules.VarProd(Name)              ==> 'v' Name ;
-rProdC  @ rules.ConstProd(Name)            ==> 'const' Name ;
-rProdS  @ rules.StrProd(S)                 ==> 'makeStr(u' 39 S 39 ')' ;
-rProdCh @ rules.CharProd(N)                ==> 'makeStr(unichr(' N '))' ;
-rProdSt @ rules.StructProd(Ns, F, [])      ==> 'rel.' Ns '.' F ;
+rProdC  @ rules.ConstProd(Name)            ==> 'rel.const' Name ;
+rProdS  @ rules.StrProd(S)                 ==> 'uf.makeStr(u' 39 S 39 ')' ;
+rProdCh @ rules.CharProd(N)                ==> 'uf.makeStr(unichr(' N '))' ;
 rProdSt @ rules.StructProd(Ns, F, Ps)      ==> 'rel.' Ns '.make' F '(' .join(Ps, ', ') ')' ;
-rProdL  @ rules.ListProd([])               ==> 'emptyList' ;
-rProdL  @ rules.ListProd(Ps)               ==> 'makeList([' .join(Ps, ', ') '])' ;
-rProdLH @ rules.ListHeadProd(H, Ps)        ==> 'makeList(findList(' H ') + [' .join(Ps, ', ') '])' ;
-rProdLT @ rules.ListTailProd(T, Ps)        ==> 'makeList([' .join(Ps, ', ') '] + findList(' T '))' ;
-rProdLM @ rules.ListMidProd(H, T, Ps)      ==> 'listmid' H T .join(Ps, ', ') ;
-rProdOF @ rules.FlattenOp(P)               ==> 'flattenList(' P ')' ;
-rProdOL @ rules.LengthOp(P)                ==> 'makeStr(str(len(findStr(' P '))).decode("utf-8"))' ;
-rProdOJ @ rules.JoinOp(S, P)               ==> 'makeStr(u"' S '".join([findStr(x) for x in findList(' P ')]))' ;
-rProdOC @ rules.ConcatOp(P, Ps)            ==> 'makeStr(findStr(' P ') + findStr(' .join(Ps, ') + findStr(') '))' ;
-rRule   @ rules.Rewrite(Name, Root, Ps)    ==> [py.Statement('@rewrite'), py.Compound('def ' Name '()', [
-                                                    py.Statement('count = 0'),
-                                                    py.Compound(Root, [
+rProdL  @ rules.ListProd(Ps)               ==> 'uf.makeList([' .join(Ps, ', ') '])' ;
+rProdLH @ rules.ListHeadProd(H, Ps)        ==> 'uf.makeList(uf.findList(' H ') + [' .join(Ps, ', ') '])' ;
+rProdLT @ rules.ListTailProd(T, Ps)        ==> 'uf.makeList([' .join(Ps, ', ') '] + uf.findList(' T '))' ;
+rProdLM @ rules.ListMidProd(H, T, Ps)      ==> 'uf.makeList(uf.findList(' H ') + [' .join(Ps, ', ') '] + uf.findList(' T '))' ;
+rProdOF @ rules.FlattenOp(P)               ==> 'rel.builtin.makeFlatten(' P ')' ;
+rProdOL @ rules.LengthOp(P)                ==> 'rel.builtin.makeLength(' P ')' ;
+rProdOJ @ rules.JoinOp(S, P)               ==> 'rel.builtin.makeJoin(uf.makeStr(u"' S '"), ' P ')' ;
+rProdOE @ rules.ConcatOp(P, [])            ==> P ;
+rProdOC @ rules.ConcatOp(P, Ps)            ==> 'rel.builtin.makeConcat(' P ', uf.makeList([' .join(Ps, ', ') ']))' ;
+rRule   @ rules.Rewrite(Name, RootFor, Ps) ==> [py.Statement('@rewrite("builtin", "py", "rules", "peg", "char", "zephyr")'),
+                                                py.Compound('def ' Name '(uf, rel)', [
+                                                    py.Statement('q = []'),
+                                                    py.Statement('beEmpty = uf.makeList([])'),
+                                                    py.Compound(RootFor, [
                                                         py.Compound('try', [
-                                                            py.Statement('target = ' .join(Ps, ', ')),
-                                                            py.Statement('union(vRoot, target)'),
-                                                            py.Statement('count += 1')
+                                                            py.Statement('if len(uf.findList(beEmpty)): continue'),
+                                                            py.Statement('uf.union(vRoot, ' .join(Ps, ', ') ')'),
+                                                            py.Statement('q.append(vRoot)')
                                                         ]),
                                                         py.Statement('except NoResults: continue')
                                                     ]),
-                                                    py.Ret('count')])] ;
-rLet    @ rules.Let(Name, P)               ==> [py.Statement('const' Name ' = ' P)] ;
+                                                    py.Ret('len(q)')
+                                                ])] ;
+rLet    @ rules.Let(Name, P)               ==> [py.Statement('@let'),
+                                                py.Statement('def let' Name '(uf, rel): rel.const' Name ' = ' P)] ;
 
 .grammar ZADDY
 
@@ -205,7 +233,7 @@ token Quote = Quote ;
 token Quoted = Quoted* ;
 token Ellipsis = Ellipsis ;
 
-STRING := WS Quote Quoted:q Quote -> q ;
+STRING := WS Quote Quoted:Q Quote -> Q ;
 ID := WS Id ;
 
 SIGNATURE := '.signature' ID:Name ZTY*:Tys -> zephyr.Signature(Name, *Tys) ;
@@ -226,11 +254,11 @@ CHRULE := ID:Name '@' WS CPATT:Root '==>' CPRODS:Prods ';'
        -> rules.Rewrite(Name, Root, Prods) ;
 CHLET := 'let' ID:Name ':=' CPROD1:P ';' -> rules.Let(Name, P) ;
 CPATTS := WS CPATT:P ( ',' WS CPATT )*:Ps -> *[[P], Ps] ;
-PATTDOTS := WS PVar:N Ellipsis -> N ;
+PATTDOTS := WS PVar:N Ellipsis -> rules.VarPatt(N) ;
 CPATT := '_'                                 -> rules.IgnorePatt
        / '[]'                                -> rules.ListPatt([])
        / '[' PATTDOTS:Head ',' CPATTS:Ps ',' PATTDOTS:Tail ']'
-         -> rules.ListMidPatt(Head, tail, ps)
+         -> rules.ListMidPatt(Head, Tail, Ps)
        / '[' PATTDOTS:Head ',' CPATTS:Ps ']' -> rules.ListHeadPatt(Head, Ps)
        / '[' CPATTS:Ps ',' PATTDOTS:Tail ']' -> rules.ListTailPatt(Tail, Ps)
        / '[' CPATTS:Ps ']'                   -> rules.ListPatt(Ps)
@@ -262,15 +290,19 @@ CPROD2 := STRING:S                            -> rules.StrProd(S)
 
 GRAMMAR := '.grammar' ID:Name ( PCLASS / PTOKEN / PRULE )*:Rules
         -> [py.Compound('def target(driver, *args)',
-               [py.Statement('driver.exe_name = "' name '".lower() + "c"'),
+               [py.Statement('driver.exe_name = "' Name '".lower() + "c"'),
                 py.Ret('main, None')]),
-            py.Compound('class ' name 'Parser(Object)',
-               *[[py.Compound('def __init__(self, s)',
-                    [py.Statement('self.s = s; self.lastMatch = []')]),
+            py.Compound('class ' Name 'Parser(object)',
+               *[[py.Compound('def __init__(self, s, uf)',
+                    [py.Statement('self.s = s; self.uf = uf'),
+                     py.Statement('self.lastMatch = []'),
+                     py.Statement('for name in unrolledRels: setattr(self, name, frozenRels[name](uf))'),
+                     py.Statement('for l in unrolledLets: l(uf, self)')
+                  ]),
                 py.Compound('def parse(self)',
-                    [py.Ret('self.parse' name '(0)')])],
-               *rules]),
-            py.Statement('MainParser = ' name 'Parser')] ;
+                    [py.Ret('self.parse' Name '(0)')])],
+               *Rules]),
+            py.Statement('MainParser = ' Name 'Parser')] ;
 
 PCLASS := 'class' ID:Name '=' CLASSEXPR1:C ';'
        -> [py.Compound('def cls' Name '(self, c)', [py.Ret(C)])] ;
@@ -284,10 +316,10 @@ CLASSEXPR2 := '.any'                                    -> char.Any
             / ID:N                                      -> char.Call(N) ;
 
 PTOKEN := 'token' ID:Name '=' PSCAN+:Scans ';'
-       -> [py.Compound('def parse' name '(self, i)',
+       -> [py.Compound('def parse' Name '(self, i)',
                        *[[boundcheck, py.Statement('start = i; assert start >= 0')],
-                       *scans,
-                       [py.Statement('rv = makeStr(self.s[start:i])'),
+                       *Scans,
+                       [py.Statement('rv = self.uf.makeStr(self.s[start:i])'),
                         py.Statement('self.lastMatch.append((u"TOKEN ' Name '", start, i))'),
                         py.Ret('i, rv')]])] ;
 PSCAN := ID:Cls '*' -> [py.Statement('while i < len(self.s) and self.cls' Cls '(ord(self.s[i])): i += 1')]
@@ -298,8 +330,8 @@ PSCAN := ID:Cls '*' -> [py.Statement('while i < len(self.s) and self.cls' Cls '(
 
 PRULE := ID:Name ':=' PEXPR1:Expr ';'
        -> [py.Statement('@cached'),
-           py.Compound('def parse' name '(self, i)',
-           *[[py.Statement('rel = self; st = []')], Expr, [py.Ret('i, rv')]])] ;
+           py.Compound('def parse' Name '(self, i)',
+           *[[py.Statement('rel = self; uf = self.uf; st = []')], Expr, [py.Ret('i, rv')]])] ;
 PEXPR1 := PEXPR2:This '/' PEXPR1:That -> peg.Choice(This, That)
         / PEXPR2 ;
 PEXPR2 := PEXPR3:Exprs '->' CPROD1:Prod -> peg.Production(Exprs, Prod)
@@ -321,8 +353,11 @@ PEXPR7 := '(' PEXPR1:Expr ')'   -> Expr
         / ID:Name               -> peg.Call(Name) ;
 
 ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
-      -> *[[py.Statement('from rpython.rlib.rfile import create_stdio'),
-          py.Statement('from rpython.rlib.objectmodel import specialize'),
+      -> *[[py.Imp('collections', 'defaultdict'),
+          py.Imp('rpython.rlib.rfile', 'create_stdio'),
+          py.Imp('rpython.rlib.objectmodel', 'specialize, r_dict'),
+          py.Imp('rpython.rlib.unroll', 'unrolling_iterable'),
+          py.Imp('rpython.rlib.listsort', 'make_timsort_class'),
           py.Compound('class Result(object)', []),
           py.Compound('class Failed(Result)', []),
           py.Statement('failed = Failed()'),
@@ -348,20 +383,26 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               py.Ret('deco')
           ]),
           py.Statement('ruleNames = []'),
-          py.Compound('def rewrite(f)', [
-              py.Statement('ruleNames.append((f, f.__name__))'),
+          py.Statement('letNames = []'),
+          py.Compound('def let(f)', [
+              py.Statement('letNames.append(f)'),
               py.Ret('f')
+          ]),
+          py.Statement('triggers = defaultdict(list)'),
+          py.Compound('def rewrite(*args)', [
+              py.Compound('def deco(f)', [
+                  py.Statement('name = f.__name__'),
+                  py.Statement('ruleNames.append((name, f))'),
+                  py.Statement('for rel in args: triggers[rel].append(name)'),
+                  py.Ret('f')
+              ]),
+              py.Ret('deco')
           ]),
           py.Statement('@specialize.call_location()'),
           py.Compound('def flatten(xs)', [
               py.Statement('rv = []'),
               py.Statement('for x in xs: rv.extend(x)'),
               py.Ret('rv')
-          ]),
-          py.Compound('def flattenList(i)', [
-              py.Statement('rv = []'),
-              py.Statement('for x in findList(i): rv.extend(findList(x))'),
-              py.Ret('makeList(rv)')
           ]),
           py.Compound('def intersect(l, r)', [
               py.Statement('rv = []'),
@@ -370,44 +411,87 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               ]),
               py.Ret('rv')
           ]),
-          py.Statement('uf = []'),
-          py.Compound('def make()', [
-              py.Statement('rv = len(uf)'),
-              py.Statement('uf.append(rv)'),
+          py.Statement('def listEq(l, r): return l == r'),
+          py.Compound('def listHash(l)', [
+              py.Statement('rv = 0'),
+              py.Statement('for x in l: rv += x'),
               py.Ret('rv')
           ]),
-          py.Compound('def find(i)', [
-              py.Statement('j = uf[i]'),
-              py.Compound('while uf[j] != j', [py.Statement('uf[i], j, i = uf[j], uf[j], j')]),
-              py.Ret('j')
-          ]),
-          py.Compound('def union(i, j)', [
-              py.Statement('i = find(i); j = find(j)'),
-              py.Conditional('i != j', [py.Statement('uf[i] = j')]),
-              py.Ret('j')
-          ]),
-          py.Statement('regNone = make()'),
-          py.Statement('interned = {}'),
-          py.Compound('def makeStr(s)', [
-              py.Statement('rv = make()'),
-              py.Statement('interned[rv] = s'),
-              py.Ret('rv')
-          ]),
-          py.Statement('def findStr(i): return interned[find(i)]'),
-          py.Statement('allLists = []'),
-          py.Compound('def makeList(l)', [
-              py.Statement('rv = make()'),
-              py.Statement('allLists.append([rv] + l)'),
-              py.Ret('rv')
-          ]),
-          py.Statement('emptyList = makeList([])'),
-          py.Compound('def findList(i)', [
-              py.Statement('i = find(i)'),
-              py.Compound('for l in allLists', [
-                  py.Statement('if l[0] != i: continue'),
-                  py.Ret('l[1:]')
+          py.Compound('class UF(object)', [
+              py.Compound('def __init__(self)', [
+                  py.Statement('self.uf = [0]'),
+                  py.Statement('self.handle2str = {}'),
+                  py.Statement('self.str2handle = {}'),
+                  py.Statement('self.handle2list = {}'),
+                  py.Statement('self.list2handle = r_dict(listEq, listHash)')
               ]),
-              py.Statement('raise NoResults()')
+              py.Compound('def make(self)', [
+                  py.Statement('rv = len(self.uf)'),
+                  py.Statement('self.uf.append(rv)'),
+                  py.Ret('rv')
+              ]),
+              py.Compound('def find(self, i)', [
+                  py.Statement('j = self.uf[i]'),
+                  py.Statement('while self.uf[j] != j: self.uf[i], j, i = self.uf[j], self.uf[j], j'),
+                  py.Ret('j')
+              ]),
+              py.Compound('def union(self, i, j)', [
+                  py.Statement('i = self.find(i); j = self.find(j)'),
+                  py.Statement('if i != j: self.uf[i] = j'),
+                  py.Ret('j')
+              ]),
+              py.Compound('def makeStr(self, s)', [
+                  py.Statement('if s in self.str2handle: return self.str2handle[s]'),
+                  py.Statement('rv = self.make()'),
+                  py.Statement('self.handle2str[rv] = s'),
+                  py.Statement('self.str2handle[s] = rv'),
+                  py.Ret('rv')
+              ]),
+              py.Compound('def findStr(self, i)', [
+                  py.Statement('try: return self.handle2str[self.find(i)]'),
+                  py.Statement('except KeyError: raise NoResults("findStr", i)')
+              ]),
+              py.Compound('def makeList(self, l)', [
+                  py.Statement('if l in self.list2handle: return self.list2handle[l]'),
+                  py.Statement('rv = self.make()'),
+                  py.Statement('self.handle2list[rv] = l'),
+                  py.Statement('self.list2handle[l] = rv'),
+                  py.Ret('rv')
+              ]),
+              py.Compound('def findList(self, i)', [
+                  py.Statement('try: return self.handle2list[self.find(i)]'),
+                  py.Statement('except KeyError: raise NoResults("findList", i)')
+              ]),
+              py.Compound('def rebuild(self)', [
+                  py.Compound('for (i, s) in self.handle2str.items()', [
+                      py.Statement('self.handle2str[self.find(i)] = s')
+                  ]),
+                  py.Statement('q = [(self.find(i), [self.find(x) for x in l]) for (i, l) in self.handle2list.items()]'),
+                  py.Statement('self.handle2list.clear()'),
+                  py.Statement('self.list2handle.clear()'),
+                  py.Compound('for i, l in q', [
+                      py.Statement('self.handle2list[i] = l'),
+                      py.Statement('self.list2handle[l] = i')
+                  ])
+              ])
+          ]),
+          py.Statement('@specialize.call_location()'),
+          py.Compound('def rebuildRel(uf, d)', [
+              py.Statement('q = []'),
+              py.Compound('for r in d', [
+                  py.Statement('if isinstance(r, int): q.append(uf.find(r))'),
+                  py.Statement('elif len(r) == 2: q.append((uf.find(r[0]), uf.find(r[1])))'),
+                  py.Statement('elif len(r) == 3: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2])))'),
+                  py.Statement('elif len(r) == 4: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3])))'),
+                  py.Statement('elif len(r) == 5: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3]), uf.find(r[4])))'),
+                  py.Statement('else: assert False, "bob"')
+              ]),
+              py.Statement('d.clear()'),
+              py.Statement('for r in q: d[r] = None')
+          ]),
+          py.Statement('@specialize.call_location()'),
+          py.Compound('def rebuildHash(uf, d)', [
+              py.Statement('for k, v in d.items(): d[k] = uf.find(v)')
           ]),
           py.Compound('class Builtin(object)', []),
           py.Compound('class EmitLine(Builtin)', [
@@ -416,78 +500,168 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
           ]),
           py.Compound('class EmitBlock(Builtin)', [
               py.Statement('def __init__(self, ls): self.ls = ls'),
-              py.Statement('def out(self, m): return flatten([l.out(m + 1) for l in flatten(self.ls)])')
+              py.Statement('def out(self, m): return flatten([l.out(m + 1) for l in self.ls])')
           ]),
+          py.Compound('class Rels(object)', [py.Statement('dirty = False')]),
+          py.Statement('allRels = []'),
           py.Compound('class Builder(object)', [
               py.Statement('def Line(self, s): return EmitLine(s)'),
               py.Statement('def Block(self, ls): return EmitBlock(ls)')
           ]),
           py.Statement('builtin = Builder()'),
-          py.Compound('class builtinRels', [
-              py.Statement('Line = {}; Block = {}'),
+          py.Compound('class builtinRels(Rels)', [
+              py.Compound('def __init__(self, uf)', [
+                  py.Statement('self.uf = uf'),
+                  py.Statement('self.Line = {}'),
+                  py.Statement('self.Block = {}'),
+                  py.Statement('self.Flatten = {}'),
+                  py.Statement('self.Length = {}'),
+                  py.Statement('self.Join = {}'),
+                  py.Statement('self.Concat = {}'),
+                  py.Statement('self.hashLine = {}'),
+                  py.Statement('self.hashBlock = {}'),
+                  py.Statement('self.hashFlatten = {}'),
+                  py.Statement('self.hashLength = {}'),
+                  py.Statement('self.hashJoin = {}'),
+                  py.Statement('self.hashConcat = {}')
+              ]),
+              py.Compound('def rebuild(self)', [
+                  py.Statement('rebuildRel(self.uf, self.Line)'),
+                  py.Statement('rebuildRel(self.uf, self.Block)'),
+                  py.Statement('rebuildRel(self.uf, self.Flatten)'),
+                  py.Statement('rebuildRel(self.uf, self.Length)'),
+                  py.Statement('rebuildRel(self.uf, self.Join)'),
+                  py.Statement('rebuildRel(self.uf, self.Concat)'),
+                  py.Statement('rebuildHash(self.uf, self.hashLine)'),
+                  py.Statement('rebuildHash(self.uf, self.hashBlock)'),
+                  py.Statement('rebuildHash(self.uf, self.hashFlatten)'),
+                  py.Statement('rebuildHash(self.uf, self.hashLength)'),
+                  py.Statement('rebuildHash(self.uf, self.hashJoin)'),
+                  py.Statement('rebuildHash(self.uf, self.hashConcat)')
+              ]),
               py.Compound('def makeLine(self, s)', [
-                  py.Statement('rv = make()'),
+                  py.Statement('rv = self.uf.make()'),
                   py.Statement('self.Line[rv, s] = None'),
                   py.Ret('rv')
               ]),
               py.Compound('def findLine(self, i)', [
                   py.Compound('for (x, s) in self.Line', [
                       py.Statement('if x != i: continue'),
-                      py.Ret('EmitLine(findStr(s))')
+                      py.Statement('try: return EmitLine(self.uf.findStr(s))'),
+                      py.Statement('except NoResults: continue')
                   ]),
-                  py.Statement('raise NoResults()')
+                  py.Statement('raise NoResults("findLine", i)')
               ]),
               py.Compound('def makeBlock(self, ls)', [
-                  py.Statement('rv = make()'),
+                  py.Statement('rv = self.uf.make()'),
                   py.Statement('self.Block[rv, ls] = None'),
                   py.Ret('rv')
               ]),
               py.Compound('def findBlock(self, i)', [
                   py.Compound('for (x, ls) in self.Block', [
                       py.Statement('if x != i: continue'),
-                      py.Ret('EmitBlock([self.findbuiltin(x) for x in findList(ls)])')
+                      py.Statement('try: return EmitBlock([self.findbuiltin(x) for x in self.uf.findList(ls)])'),
+                      py.Statement('except NoResults: continue')
                   ]),
-                  py.Statement('raise NoResults()')
+                  py.Statement('raise NoResults("findBlock", i)')
+              ]),
+              py.Compound('def makeFlatten(self, ls)', [
+                  py.Statement('k = ls'),
+                  py.Statement('if k in self.hashFlatten: return self.hashFlatten[k]'),
+                  py.Statement('self.dirty = True'),
+                  py.Statement('rv = self.uf.make()'),
+                  py.Statement('self.Flatten[rv, ls] = None'),
+                  py.Statement('self.hashFlatten[k] = rv'),
+                  py.Ret('rv')
+              ]),
+              py.Compound('def makeLength(self, s)', [
+                  py.Statement('k = s'),
+                  py.Statement('if k in self.hashLength: return self.hashLength[k]'),
+                  py.Statement('self.dirty = True'),
+                  py.Statement('rv = self.uf.make()'),
+                  py.Statement('self.Length[rv, s] = None'),
+                  py.Statement('self.hashLength[k] = rv'),
+                  py.Ret('rv')
+              ]),
+              py.Compound('def makeJoin(self, s, ps)', [
+                  py.Statement('k = s, ps'),
+                  py.Statement('if k in self.hashJoin: return self.hashJoin[k]'),
+                  py.Statement('self.dirty = True'),
+                  py.Statement('rv = self.uf.make()'),
+                  py.Statement('self.Join[rv, s, ps] = None'),
+                  py.Statement('self.hashJoin[k] = rv'),
+                  py.Ret('rv')
+              ]),
+              py.Compound('def makeConcat(self, p, ps)', [
+                  py.Statement('k = p, ps'),
+                  py.Statement('if k in self.hashConcat: return self.hashConcat[k]'),
+                  py.Statement('self.dirty = True'),
+                  py.Statement('rv = self.uf.make()'),
+                  py.Statement('self.Concat[rv, p, ps] = None'),
+                  py.Statement('self.hashConcat[k] = rv'),
+                  py.Ret('rv')
               ]),
               py.Compound('def findbuiltin(self, i)', [
                   py.Compound('try', [py.Ret('self.findLine(i)')]),
                   py.Compound('except NoResults', [py.Ret('self.findBlock(i)')])
               ])
           ]),
+          py.Statement('allRels.append(("builtin", builtinRels))'),
           py.Compound('class ParseError(Exception)', []),
-          py.Compound('class NoResults(Exception)', []),
+          py.Compound('class NoResults(Exception)', [
+              py.Compound('def __init__(self, message, handle)', [
+                  py.Statement('self.message = message; self.handle = handle')
+              ])
+          ]),
           py.Compound('def lineNumber(s, i)', [py.Statement('assert i >= 0'), py.Ret('s.count(unichr(10), 0, i)')]),
+          py.Statement('SortTraces = make_timsort_class(lt=lambda l, r: l[2] > r[2])'),
           py.Compound('def main(argv)', [
               py.Statement('stdin, stdout, stderr = create_stdio()'),
-              py.Statement('stderr.write("Registered %d rewrite rules\\n" % len(ruleNames))'),
-              py.Statement('parser = MainParser(stdin.read().decode("utf-8"))'),
+              py.Statement('stderr.write("Registered %d rewrite rules\\n" % len(frozenRules))'),
+              py.Statement('stderr.write("Registered %d rewrite triggers\\n" % len(frozenTriggers))'),
+              py.Statement('uf = UF()'),
+              py.Statement('parser = MainParser(stdin.read().decode("utf-8"), uf)'),
               py.Handler([
                   py.Statement('i, l = parser.parse()'),
                   py.Conditional('i != len(parser.s)', [
                       py.Statement('stderr.write("Failed to consume all input\\n")'),
                       py.Statement('raise ParseError()')
                   ]),
-                  py.Compound('for iteration in range(5)', [
+                  py.Statement('l = parser.builtin.makeFlatten(l)'),
+                  py.Compound('for iteration in range(25)', [
+                      py.Statement('rulesToTry = []'),
+                      py.Compound('for r in unrolledRels', [
+                          py.Statement('rel = getattr(parser, r)'),
+                          py.Statement('rulesToTry.extend(frozenTriggers.get(r, []))'),
+                          py.Statement('rel.rebuild()'),
+                          py.Statement('rel.dirty = False')
+                      ]),
+                      py.Statement('if not rulesToTry: break'),
+                      py.Statement('uf.rebuild()'),
+                      py.Statement('stderr.write("Iteration %d: Union/find: %d handles\\n" % (iteration, len(uf.uf)))'),
                       py.Statement('count = 0'),
-                      py.Compound('for rule, name in ruleNames', [
-                          py.Statement('stderr.write("Running rule %s\\n" % name)'),
-                          py.Statement('count += rule()')
+                      py.Statement('stderr.write("Iteration %d: %d rules to try\\n" % (iteration, len(rulesToTry)))'),
+                      py.Compound('for name in rulesToTry', [
+                          py.Statement('c = frozenRules[name](uf, parser)'),
+                          py.Statement('if c: stderr.write("Rule %s: %d transactions\\n" % (name, c))'),
+                          py.Statement('count += c')
                       ]),
                       py.Statement('stderr.write("Iteration %d: %d applications\\n" % (iteration, count))')
                   ]),
-                  py.Statement('rules = [builtinRels().findbuiltin(x) for x in findList(l)]'),
                   py.Statement('buf = []'),
-                  py.Statement('for rule in rules: buf.extend(rule.out(0))'),
+                  py.Statement('ls = uf.findList(l)'),
+                  py.Statement('stderr.write("Optimized to %d builtin blocks\\n" % len(ls))'),
+                  py.Statement('for rule in ls: buf.extend(parser.builtin.findbuiltin(rule).out(0))'),
                   py.Statement('stdout.write(u"\\n".join(buf).encode("utf-8"))'),
                   py.Statement('stderr.write("Wrote %d lines to stdout\\n" % len(buf))'),
                   py.Ret('0')
               ], [
-                  py.Statement('start = max(len(parser.lastMatch) - 25, 0)'),
+                  py.Statement('SortTraces(parser.lastMatch).sort()'),
                   py.Statement('newlines = [0]'),
                   py.Compound('for line in parser.s.split(u"\\n")', [
                       py.Statement('newlines.append(newlines[-1] + len(line) + 1)')
                   ]),
-                  py.Compound('for k, start, stop in parser.lastMatch[start:]', [
+                  py.Compound('for k, start, stop in parser.lastMatch[:10]', [
                       py.Statement('startLine = lineNumber(parser.s, start)'),
                       py.Statement('startCol = start - newlines[startLine]'),
                       py.Statement('stopLine = lineNumber(parser.s, stop)'),
@@ -497,9 +671,82 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
                   ]),
                   py.Ret('1')
               ]),
-              py.Compound('except NoResults', [
-                  py.Statement('stderr.write("No rewrite results could be printed\\n")'),
+              py.Compound('except NoResults as nr', [
+                  py.Statement('stderr.write("No results: %s\\n" % nr.message)'),
                   py.Ret('1')
               ])
-          ])],
-         *clss] ;
+          ])], *Clss, [
+          py.Statement('@rewrite("builtin")'),
+          py.Compound('def builtinFlatten(uf, rel)', [
+              py.Statement('q = []'),
+              py.Compound('for (vRoot, vLs) in rel.builtin.Flatten', [
+                  py.Compound('try', [
+                      py.Statement('ls = uf.findList(vLs)'),
+                      py.Statement('if len(ls) == 1: target = ls[0]'),
+                      py.Statement('else: target = uf.makeList(flatten([uf.findList(l) for l in ls]))'),
+                      py.Statement('uf.union(vRoot, target)'),
+                      py.Statement('q.append((vRoot, vLs))')
+                  ]),
+                  py.Statement('except NoResults: continue')
+              ]),
+              py.Statement('for k in q: del rel.builtin.Flatten[k]'),
+              py.Ret('len(q)')
+          ]),
+          py.Statement('@rewrite("builtin")'),
+          py.Compound('def builtinLength(uf, rel)', [
+              py.Statement('q = []'),
+              py.Compound('for (vRoot, vS) in rel.builtin.Length', [
+                  py.Compound('try', [
+                      py.Statement('s = uf.findStr(vS)'),
+                      py.Statement('target = uf.makeStr(str(len(s)).decode("utf-8"))'),
+                      py.Statement('uf.union(vRoot, target)'),
+                      py.Statement('q.append((vRoot, vS))')
+                  ]),
+                  py.Statement('except NoResults: continue')
+              ]),
+              py.Statement('for k in q: del rel.builtin.Length[k]'),
+              py.Ret('len(q)')
+          ]),
+          py.Statement('@rewrite("builtin")'),
+          py.Compound('def builtinJoin(uf, rel)', [
+              py.Statement('q = []'),
+              py.Compound('for (vRoot, vS, vPs) in rel.builtin.Join', [
+                  py.Compound('try', [
+                      py.Statement('s = uf.findStr(vS)'),
+                      py.Statement('ps = [uf.findStr(i) for i in uf.findList(vPs)]'),
+                      py.Statement('target = uf.makeStr(s.join(ps))'),
+                      py.Statement('uf.union(vRoot, target)'),
+                      py.Statement('q.append((vRoot, vS, vPs))')
+                  ]),
+                  py.Statement('except NoResults: continue')
+              ]),
+              py.Statement('for k in q: del rel.builtin.Join[k]'),
+              py.Ret('len(q)')
+          ]),
+          py.Statement('@rewrite("builtin")'),
+          py.Compound('def builtinConcat(uf, rel)', [
+              py.Statement('q = []'),
+              py.Compound('for (vRoot, vS, vPs) in rel.builtin.Concat', [
+                  py.Compound('try', [
+                      py.Statement('ps = [uf.findStr(i) for i in uf.findList(vPs)]'),
+                      py.Conditional('len(ps)', [
+                          py.Statement('s = uf.findStr(vS)'),
+                          py.Statement('target = uf.makeStr(s + u"".join(ps))')
+                      ]),
+                      py.Statement('else: target = vS'),
+                      py.Statement('uf.union(vRoot, target)'),
+                      py.Statement('q.append((vRoot, vS, vPs))')
+                  ]),
+                  py.Statement('except NoResults: continue')
+              ]),
+              py.Statement('for k in q: del rel.builtin.Concat[k]'),
+              py.Ret('len(q)')
+          ]),
+          py.Statement('frozenRels = dict(allRels)'),
+          py.Statement('unrolledRels = unrolling_iterable(frozenRels)'),
+          py.Statement('frozenRules = dict(ruleNames)'),
+          py.Statement('unrolledRules = unrolling_iterable(frozenRules)'),
+          py.Statement('frozenLets = letNames[:]'),
+          py.Statement('unrolledLets = unrolling_iterable(frozenLets)'),
+          py.Statement('frozenTriggers = dict(triggers)')
+          ]] ;
