@@ -3,57 +3,44 @@
 statement = Include(string h)
           | Statement(string l)
           | Block(string head, statement* cs)
-
-.functor c
-
-Include(h)      -> [.line('#include ' h)] ;
-Statement(l)    -> [.line(l ';')] ;
-Block(head, cs) -> [.line(head ' {'), .block(cs), .line('}')] ;
+program = Main(statement* cs)
 
 .signature bf
 
-program = Program(program* ps)
+program = Zero
         | Right(int n)
         | Left(int n)
         | Plus(int n)
         | Minus(int n)
-        | Zero
         | Set(int n)
         | ScaleAdd(int n, int k)
         | Output | Input
         | Loop(program* exprs)
 
-.functor bf
-
-Right(n)       -> [c.Statement('ptr += ' n)] ;
-Left(n)        -> [c.Statement('ptr -= ' n)] ;
-Plus(n)        -> [c.Statement('*ptr += ' n)] ;
-Minus(n)       -> [c.Statement('*ptr -= ' n)] ;
-Zero           -> [c.Statement('*ptr = 0')] ;
-Set(n)         -> [c.Statement('*ptr = ' n)] ;
-ScaleAdd(n, k) -> [c.Statement('*(ptr + ' n ') += *ptr * ' k)] bf.Zero ;
-Output         -> [c.Statement('putchar(*ptr)')] ;
-Input          -> [c.Statement('*ptr = getchar()')] ;
-Loop(exprs)    -> [c.Block('while (*ptr)', exprs)] ;
-Program(p)     -> [c.Include('<stdio.h>'),
-                   c.Include('<stdlib.h>'),
-                   c.Block('int main(int argc, char **argv)', [
-                       c.Statement('unsigned char arr[30 * 1024] = { 0 }'),
-                       c.Statement('unsigned char *ptr = arr')
-                   ] p [c.Statement('return 0')])] ;
-
 .rules
 
-zeroZero @ [Xs…, bf.Zero, bf.Zero, Ys…] ==> [Xs…, bf.Zero, Ys…] ;
-zeroPlus @ [Xs…, bf.Zero, bf.Plus(N), Ys…] ==> [Xs…, bf.Set(N), Ys…] ;
+cInc    @ c.Include(H)      ==> [.line('#include ' H)] ;
+cStat   @ c.Statement(L)    ==> [.line(L ';')] ;
+cBlock  @ c.Block(Head, Cs) ==> [.line(Head ' {'), .block(*Cs), .line('}')] ;
+cMain   @ c.Main(Cs)        ==> [c.Include('<stdio.h>'),
+                                 c.Include('<stdlib.h>'),
+                                 c.Block('int main(int argc, char **argv)', *[[
+                                     c.Statement('unsigned char arr[30 * 1024] = { 0 }'),
+                                     c.Statement('unsigned char *ptr = arr')
+                                 ], Cs, [c.Statement('return 0')]])] ;
 
-scaleAddDec @ bf.Loop([bf.Minus('1'), bf.Right(N), bf.Plus(K), bf.Left(N)])
-          ==> bf.ScaleAdd(N, K) ;
-scaleAddInc @ bf.Loop([bf.Right(N), bf.Plus(K), bf.Left(N), bf.Minus('1')])
-          ==> bf.ScaleAdd(N, K) ;
+let zero := c.Statement('*ptr = 0') ;
 
-loopMinusZero @ bf.Loop([bf.Minus('1')]) ==> bf.Zero ;
-loopPlusZero  @ bf.Loop([bf.Plus('1')])  ==> bf.Zero ;
+bfRight @ bf.Right(N)       ==> [c.Statement('ptr += ' N)] ;
+bfLeft  @ bf.Left(N)        ==> [c.Statement('ptr -= ' N)] ;
+bfPlus  @ bf.Plus(N)        ==> [c.Statement('*ptr += ' N)] ;
+bfMinus @ bf.Minus(N)       ==> [c.Statement('*ptr -= ' N)] ;
+bfZero  @ bf.Zero           ==> [zero] ;
+bfSet   @ bf.Set(N)         ==> [c.Statement('*ptr = ' n)] ;
+bfSAdd  @ bf.ScaleAdd(N, K) ==> [c.Statement('*(ptr + ' n ') += *ptr * ' K), zero] ;
+bfOut   @ bf.Output         ==> [c.Statement('putchar(*ptr)')] ;
+bfIn    @ bf.Input          ==> [c.Statement('*ptr = getchar()')] ;
+bfLoop  @ bf.Loop(Exprs)    ==> [c.Block('while (*ptr)', *Exprs)] ;
 
 .grammar BF
 
@@ -77,12 +64,12 @@ token LoopOpen = Comment* LoopOpen ;
 token LoopClose = Comment* LoopClose ;
 token Comment = Comment* ;
 
-BF := SQN:p Comment -> bf.Program(p) ;
-SQN := OP*:ops -> *ops ;
-OP := Comment Right:cs             -> bf.Right(#cs)
-    / Comment Left:cs              -> bf.Left(#cs)
-    / Comment Plus:cs              -> bf.Plus(#cs)
-    / Comment Minus:cs             -> bf.Minus(#cs)
+BF := SQN:P Comment -> c.Main(*P) ;
+SQN := OP*:Ops -> Ops ;
+OP := Comment Right:Cs             -> bf.Right(#Cs)
+    / Comment Left:Cs              -> bf.Left(#Cs)
+    / Comment Plus:Cs              -> bf.Plus(#Cs)
+    / Comment Minus:Cs             -> bf.Minus(#Cs)
     / Output                       -> bf.Output
     / Input                        -> bf.Input
-    / LoopOpen SQN:exprs LoopClose -> bf.Loop(exprs) ;
+    / LoopOpen SQN:Exprs LoopClose -> bf.Loop(Exprs) ;
