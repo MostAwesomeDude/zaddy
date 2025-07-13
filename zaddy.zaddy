@@ -42,6 +42,7 @@ patt = IgnorePatt
      | VarPatt(string n)
      | StrPatt(string s)
      | StructPatt(string ns, string func, patt* vars)
+     | EmptyListPatt
      | ListPatt(patt* ps)
      | ListHeadPatt(patt head, patt* ps)
      | ListTailPatt(patt tail, patt* ps)
@@ -149,10 +150,10 @@ zSum    @ zephyr.Sum(N, A, C, Cs)   ==> *[C, *Cs] ;
 zConF   @ zephyr.Con(T, A)          ==> [py.Statement('cons.append("' T '")'),
                                          py.Compound('def make' T '(self, ' .join(A, ', ') ')', [
                                              py.Statement('self.dirty' T ' = True'),
-                                             py.Statement('k = 0, ' .join(A, ', ')),
+                                             py.Statement('k = (' .join(A, ', ') ')'),
                                              py.Statement('if k in self.hash' T ': return self.hash' T '[k]'),
                                              py.Statement('rv = self.uf.make()'),
-                                             py.Statement('self.' T '[rv, ' .join(A, ', ') '] = None'),
+                                             py.Statement('self.' T '[(rv, ' .join(A, ', ') ')] = None'),
                                              py.Statement('self.hash' T '[k] = rv'),
                                              py.Ret('rv')
                                          ])
@@ -174,7 +175,7 @@ rPattIg @ rules.IgnorePatt                 ==> '_' ;
 rPattV  @ rules.VarPatt(N)                 ==> 'v' N ;
 rPattS  @ rules.StrPatt(S)                 ==> 'u' 39 S 39 ;
 rPattSt @ rules.StructPatt(Ns, F, Vs)      ==> 'for (vRoot, ' .join(Vs, ', ') ') in rel.' Ns '.' F ;
-rPattLE @ rules.ListPatt([])               ==> 'beEmpty' ;
+rPattLE @ rules.EmptyListPatt              ==> 'beEmpty' ;
 rPattLL @ rules.ListPatt(Ps)               ==> .join(Ps, ', ') ;
 rPattLH @ rules.ListHeadPatt(H, Ps)        ==> 'listhead' H .join(Ps, ', ') ;
 rPattLT @ rules.ListTailPatt(T, Ps)        ==> 'listtail' T .join(Ps, ', ') ;
@@ -256,7 +257,7 @@ CHLET := 'let' ID:Name ':=' CPROD1:P ';' -> rules.Let(Name, P) ;
 CPATTS := WS CPATT:P ( ',' WS CPATT )*:Ps -> *[[P], Ps] ;
 PATTDOTS := WS PVar:N Ellipsis -> rules.VarPatt(N) ;
 CPATT := '_'                                 -> rules.IgnorePatt
-       / '[]'                                -> rules.ListPatt([])
+       / '[]'                                -> rules.EmptyListPatt
        / '[' PATTDOTS:Head ',' CPATTS:Ps ',' PATTDOTS:Tail ']'
          -> rules.ListMidPatt(Head, Tail, Ps)
        / '[' PATTDOTS:Head ',' CPATTS:Ps ']' -> rules.ListHeadPatt(Head, Ps)
@@ -480,6 +481,7 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               py.Statement('q = []'),
               py.Compound('for r in d', [
                   py.Statement('if isinstance(r, int): q.append(uf.find(r))'),
+                  py.Statement('elif len(r) == 1: q.append((uf.find(r[0]),))'),
                   py.Statement('elif len(r) == 2: q.append((uf.find(r[0]), uf.find(r[1])))'),
                   py.Statement('elif len(r) == 3: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2])))'),
                   py.Statement('elif len(r) == 4: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3])))'),
