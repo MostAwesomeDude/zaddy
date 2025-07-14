@@ -77,14 +77,14 @@ set = Any
 pyStatement @ py.Statement(L)       ==> [.line(L)] ;
 pyImp       @ py.Imp(M, Ns)         ==> [.line('from ' M ' import ' Ns)] ;
 pyRet       @ py.Ret(E)             ==> [.line('return ' E)] ;
-pyRaiseIf   @ py.RaiseIf(T)         ==> [.line('if ' T ': raise ParseError()')] ;
+pyRaiseIf   @ py.RaiseIf(T)         ==> [.line('if ' T ': raise ParseError("no reason")')] ;
 pyCompPass  @ py.Compound(H, [])    ==> [.line(H ': pass')] ;
 pyCompBlock @ py.Compound(H, B)     ==> [.line(H ':'), .block(*[*B, [.line('pass')]])] ;
 pyCondEmpty @ py.Conditional(T, []) ==> [] ;
 pyCondBlock @ py.Conditional(T, B)  ==> [.line('if ' T ':'), .block(*B)] ;
 pyHandEmpty @ py.Handler(B, [])     ==> [] ;
 pyHandBlock @ py.Handler(B, H)      ==> [.line('try:'), .block(*B),
-                                         .line('except ParseError:'), .block(*H)] ;
+                                         .line('except ParseError as pe:'), .block(*H)] ;
 
 
 pegNamePatt  @ peg.NamePatt(Name) ==> 'v' Name ;
@@ -609,7 +609,9 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               ])
           ]),
           py.Statement('allRels.append(("builtin", builtinRels))'),
-          py.Compound('class ParseError(Exception)', []),
+          py.Compound('class ParseError(Exception)', [
+              py.Statement('def __init__(self, reason): self.reason = reason')
+          ]),
           py.Compound('class NoResults(Exception)', [
               py.Compound('def __init__(self, message, handle)', [
                   py.Statement('self.message = message; self.handle = handle')
@@ -626,8 +628,7 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               py.Handler([
                   py.Statement('i, l = parser.parse()'),
                   py.Conditional('i != len(parser.s)', [
-                      py.Statement('stderr.write("Failed to consume all input\\n")'),
-                      py.Statement('raise ParseError()')
+                      py.Statement('raise ParseError("Failed to consume all input")')
                   ]),
                   py.Statement('l = parser.builtin.makeFlatten(l)'),
                   py.Compound('for iteration in range(25)', [
@@ -658,6 +659,7 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
                   py.Statement('stderr.write("Wrote %d lines to stdout\\n" % len(buf))'),
                   py.Ret('0')
               ], [
+                  py.Statement('stderr.write("Parse error: %s\\n" % pe.reason)'),
                   py.Statement('SortTraces(parser.lastMatch).sort()'),
                   py.Statement('newlines = [0]'),
                   py.Compound('for line in parser.s.split(u"\\n")', [
