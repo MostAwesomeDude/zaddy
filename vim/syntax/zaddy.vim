@@ -11,7 +11,7 @@ syn iskeyword .,48-57,65-90,97-122
 
 syn keyword zHeader .signature .rules
 syn keyword zForm .range .join .any
-syn keyword zBuiltin .line .block
+syn keyword zBuiltin .line .block .gensym
 syn keyword zDecl let class token
 
 syn region zStr start='\'' end='\''

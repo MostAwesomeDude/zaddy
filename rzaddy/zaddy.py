@@ -286,7 +286,7 @@ def main(argv):
         if i != len(parser.s):
             raise ParseError("Failed to consume all input")
         l = parser.builtin.makeFlatten(l)
-        for iteration in range(25):
+        for iteration in range(15):
             rulesToTry = []
             for r in unrolledRels:
                 rel = getattr(parser, r)
@@ -388,6 +388,16 @@ class pyRels(Rels):
         rv = self.uf.make()
         self.RaiseIf[(rv, test)] = None
         self.hashRaiseIf[k] = rv
+        return rv
+        pass
+    cons.append("ContIf")
+    def makeContIf(self, test):
+        self.dirtyContIf = True
+        k = (test)
+        if k in self.hashContIf: return self.hashContIf[k]
+        rv = self.uf.make()
+        self.ContIf[(rv, test)] = None
+        self.hashContIf[k] = rv
         return rv
         pass
     cons.append("Compound")
@@ -907,6 +917,16 @@ class rulesRels(Rels):
         self.hashConcatOp[k] = rv
         return rv
         pass
+    cons.append("GenSym")
+    def makeGenSym(self, s):
+        self.dirtyGenSym = True
+        k = (s)
+        if k in self.hashGenSym: return self.hashGenSym[k]
+        rv = self.uf.make()
+        self.GenSym[(rv, s)] = None
+        self.hashGenSym[k] = rv
+        return rv
+        pass
     cons.append("Rewrite")
     def makeRewrite(self, name, root, prods):
         self.dirtyRewrite = True
@@ -1009,6 +1029,192 @@ class charRels(Rels):
     pass
 unrolledcharCons = unrolling_iterable(charCons[:])
 allRels.append(("char", charRels))
+opsCons = []
+class opsRels(Rels):
+    cons = opsCons
+    def __init__(self, uf):
+        self.uf = uf
+        for n in unrolledopsCons:
+            setattr(self, n, {})
+            setattr(self, "hash" + n, {})
+            pass
+        pass
+    def rebuild(self):
+        for n in unrolledopsCons:
+            rebuildRel(self.uf, getattr(self, n))
+            rebuildHash(self.uf, getattr(self, "hash" + n))
+            pass
+        pass
+    pass
+unrolledopsCons = unrolling_iterable(opsCons[:])
+allRels.append(("ops", opsRels))
+dsCons = []
+class dsRels(Rels):
+    cons = dsCons
+    def __init__(self, uf):
+        self.uf = uf
+        for n in unrolleddsCons:
+            setattr(self, n, {})
+            setattr(self, "hash" + n, {})
+            pass
+        pass
+    def rebuild(self):
+        for n in unrolleddsCons:
+            rebuildRel(self.uf, getattr(self, n))
+            rebuildHash(self.uf, getattr(self, "hash" + n))
+            pass
+        pass
+    cons.append("Make")
+    def makeMake(self, ):
+        self.dirtyMake = True
+        k = ()
+        if k in self.hashMake: return self.hashMake[k]
+        rv = self.uf.make()
+        self.Make[(rv, )] = None
+        self.hashMake[k] = rv
+        return rv
+        pass
+    cons.append("Union")
+    def makeUnion(self, l, r):
+        self.dirtyUnion = True
+        k = (l, r)
+        if k in self.hashUnion: return self.hashUnion[k]
+        rv = self.uf.make()
+        self.Union[(rv, l, r)] = None
+        self.hashUnion[k] = rv
+        return rv
+        pass
+    cons.append("Find")
+    def makeFind(self, handle):
+        self.dirtyFind = True
+        k = (handle)
+        if k in self.hashFind: return self.hashFind[k]
+        rv = self.uf.make()
+        self.Find[(rv, handle)] = None
+        self.hashFind[k] = rv
+        return rv
+        pass
+    cons.append("MakeStr")
+    def makeMakeStr(self, s):
+        self.dirtyMakeStr = True
+        k = (s)
+        if k in self.hashMakeStr: return self.hashMakeStr[k]
+        rv = self.uf.make()
+        self.MakeStr[(rv, s)] = None
+        self.hashMakeStr[k] = rv
+        return rv
+        pass
+    cons.append("MakeList")
+    def makeMakeList(self, handles):
+        self.dirtyMakeList = True
+        k = (handles)
+        if k in self.hashMakeList: return self.hashMakeList[k]
+        rv = self.uf.make()
+        self.MakeList[(rv, handles)] = None
+        self.hashMakeList[k] = rv
+        return rv
+        pass
+    cons.append("FindStr")
+    def makeFindStr(self, handle):
+        self.dirtyFindStr = True
+        k = (handle)
+        if k in self.hashFindStr: return self.hashFindStr[k]
+        rv = self.uf.make()
+        self.FindStr[(rv, handle)] = None
+        self.hashFindStr[k] = rv
+        return rv
+        pass
+    cons.append("FindList")
+    def makeFindList(self, handle):
+        self.dirtyFindList = True
+        k = (handle)
+        if k in self.hashFindList: return self.hashFindList[k]
+        rv = self.uf.make()
+        self.FindList[(rv, handle)] = None
+        self.hashFindList[k] = rv
+        return rv
+        pass
+    pass
+unrolleddsCons = unrolling_iterable(dsCons[:])
+allRels.append(("ds", dsRels))
+cqCons = []
+class cqRels(Rels):
+    cons = cqCons
+    def __init__(self, uf):
+        self.uf = uf
+        for n in unrolledcqCons:
+            setattr(self, n, {})
+            setattr(self, "hash" + n, {})
+            pass
+        pass
+    def rebuild(self):
+        for n in unrolledcqCons:
+            rebuildRel(self.uf, getattr(self, n))
+            rebuildHash(self.uf, getattr(self, "hash" + n))
+            pass
+        pass
+    cons.append("Query")
+    def makeQuery(self, head, body):
+        self.dirtyQuery = True
+        k = (head, body)
+        if k in self.hashQuery: return self.hashQuery[k]
+        rv = self.uf.make()
+        self.Query[(rv, head, body)] = None
+        self.hashQuery[k] = rv
+        return rv
+        pass
+    cons.append("Relation")
+    def makeRelation(self, ns, table, vars):
+        self.dirtyRelation = True
+        k = (ns, table, vars)
+        if k in self.hashRelation: return self.hashRelation[k]
+        rv = self.uf.make()
+        self.Relation[(rv, ns, table, vars)] = None
+        self.hashRelation[k] = rv
+        return rv
+        pass
+    cons.append("Var")
+    def makeVar(self, name):
+        self.dirtyVar = True
+        k = (name)
+        if k in self.hashVar: return self.hashVar[k]
+        rv = self.uf.make()
+        self.Var[(rv, name)] = None
+        self.hashVar[k] = rv
+        return rv
+        pass
+    pass
+unrolledcqCons = unrolling_iterable(cqCons[:])
+allRels.append(("cq", cqRels))
+gjCons = []
+class gjRels(Rels):
+    cons = gjCons
+    def __init__(self, uf):
+        self.uf = uf
+        for n in unrolledgjCons:
+            setattr(self, n, {})
+            setattr(self, "hash" + n, {})
+            pass
+        pass
+    def rebuild(self):
+        for n in unrolledgjCons:
+            rebuildRel(self.uf, getattr(self, n))
+            rebuildHash(self.uf, getattr(self, "hash" + n))
+            pass
+        pass
+    cons.append("EmptySub")
+    def makeEmptySub(self, ):
+        self.dirtyEmptySub = True
+        k = ()
+        if k in self.hashEmptySub: return self.hashEmptySub[k]
+        rv = self.uf.make()
+        self.EmptySub[(rv, )] = None
+        self.hashEmptySub[k] = rv
+        return rv
+        pass
+    pass
+unrolledgjCons = unrolling_iterable(gjCons[:])
+allRels.append(("gj", gjRels))
 @rewrite("builtin", "py", "rules", "peg", "char", "zephyr")
 def pyStatement(uf, rel):
     q = []
@@ -1059,6 +1265,20 @@ def pyRaiseIf(uf, rel):
         try:
             if len(uf.findList(beEmpty)): continue
             uf.union(vRoot, uf.makeList([rel.builtin.makeLine(rel.builtin.makeConcat(uf.makeStr(u'if '), uf.makeList([vT, uf.makeStr(u': raise ParseError("no reason")')])))]))
+            q.append(vRoot)
+            pass
+        except NoResults: continue
+        pass
+    return len(q)
+    pass
+@rewrite("builtin", "py", "rules", "peg", "char", "zephyr")
+def pyContIf(uf, rel):
+    q = []
+    beEmpty = uf.makeList([])
+    for (vRoot, vT) in rel.py.ContIf:
+        try:
+            if len(uf.findList(beEmpty)): continue
+            uf.union(vRoot, uf.makeList([rel.builtin.makeLine(rel.builtin.makeConcat(uf.makeStr(u'if '), uf.makeList([vT, uf.makeStr(u': continue')])))]))
             q.append(vRoot)
             pass
         except NoResults: continue
@@ -1844,13 +2064,27 @@ def rProdOC(uf, rel):
     return len(q)
     pass
 @rewrite("builtin", "py", "rules", "peg", "char", "zephyr")
+def rGenSym(uf, rel):
+    q = []
+    beEmpty = uf.makeList([])
+    for (vRoot, vS) in rel.rules.GenSym:
+        try:
+            if len(uf.findList(beEmpty)): continue
+            uf.union(vRoot, rel.builtin.makeConcat(uf.makeStr(u'uf.makeStr(rel.gensym('), uf.makeList([vS, uf.makeStr(u'))')])))
+            q.append(vRoot)
+            pass
+        except NoResults: continue
+        pass
+    return len(q)
+    pass
+@rewrite("builtin", "py", "rules", "peg", "char", "zephyr")
 def rRule(uf, rel):
     q = []
     beEmpty = uf.makeList([])
     for (vRoot, vName, vRootFor, vPs) in rel.rules.Rewrite:
         try:
             if len(uf.findList(beEmpty)): continue
-            uf.union(vRoot, uf.makeList([rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin", "py", "rules", "peg", "char", "zephyr")')), rel.py.makeCompound(rel.builtin.makeConcat(uf.makeStr(u'def '), uf.makeList([vName, uf.makeStr(u'(uf, rel)')])), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeStatement(uf.makeStr(u'beEmpty = uf.makeList([])')), rel.py.makeCompound(vRootFor, uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if len(uf.findList(beEmpty)): continue')), rel.py.makeStatement(rel.builtin.makeConcat(uf.makeStr(u'uf.union(vRoot, '), uf.makeList([rel.builtin.makeJoin(uf.makeStr(u", "), vPs), uf.makeStr(u')')]))), rel.py.makeStatement(uf.makeStr(u'q.append(vRoot)'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeRet(uf.makeStr(u'len(q)'))]))]))
+            uf.union(vRoot, uf.makeList([rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin", "py", "rules", "peg", "char", "zephyr")')), rel.py.makeCompound(rel.builtin.makeConcat(uf.makeStr(u'def '), uf.makeList([vName, uf.makeStr(u'(uf, rel)')])), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeStatement(uf.makeStr(u'beEmpty = uf.makeList([])')), rel.py.makeCompound(vRootFor, uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeContIf(uf.makeStr(u'len(uf.findList(beEmpty))')), rel.py.makeStatement(rel.builtin.makeConcat(uf.makeStr(u'uf.union(vRoot, '), uf.makeList([rel.builtin.makeJoin(uf.makeStr(u", "), vPs), uf.makeStr(u')')]))), rel.py.makeStatement(uf.makeStr(u'q.append(vRoot)'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeRet(uf.makeStr(u'len(q)'))]))]))
             q.append(vRoot)
             pass
         except NoResults: continue
@@ -1881,6 +2115,11 @@ class ZADDYParser(object):
         self.lastMatch = []
         for name in unrolledRels: setattr(self, name, frozenRels[name](uf))
         for l in unrolledLets: l(uf, self)
+        pass
+    gs = 0
+    def gensym(self, s):
+        self.gs += 1
+        return s + str(self.gs).decode("utf-8")
         pass
     def parse(self):
         return self.parseZADDY(0)
@@ -2599,12 +2838,18 @@ class ZADDYParser(object):
                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                     if i >= len(self.s): raise ParseError("no reason")
                     assert i >= 0
-                    if self.s[i:i + 1] != u"#": raise ParseError("no reason")
-                    self.lastMatch.append((u"TOKEN #", i, i + 1))
-                    rv = self.uf.makeStr(u"#"); i += 1
-                    i, rv = self.parseCPROD2(i)
-                    vP = rv
-                    rv = rel.rules.makeLengthOp(vP)
+                    if self.s[i:i + 8] != u".gensym(": raise ParseError("no reason")
+                    self.lastMatch.append((u"TOKEN .gensym(", i, i + 8))
+                    rv = self.uf.makeStr(u".gensym("); i += 8
+                    i, rv = self.parseSTRING(i)
+                    vS = rv
+                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                    if i >= len(self.s): raise ParseError("no reason")
+                    assert i >= 0
+                    if self.s[i:i + 1] != u")": raise ParseError("no reason")
+                    self.lastMatch.append((u"TOKEN )", i, i + 1))
+                    rv = self.uf.makeStr(u")"); i += 1
+                    rv = rel.rules.makeGenSym(vS)
                 except ParseError as pe:
                     i = st.pop()
                     st.append(i)
@@ -2612,12 +2857,10 @@ class ZADDYParser(object):
                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                         if i >= len(self.s): raise ParseError("no reason")
                         assert i >= 0
-                        if self.s[i:i + 1] != u"*": raise ParseError("no reason")
-                        self.lastMatch.append((u"TOKEN *", i, i + 1))
-                        rv = self.uf.makeStr(u"*"); i += 1
-                        i, rv = self.parseCPROD2(i)
-                        vP = rv
-                        rv = rel.rules.makeFlattenOp(vP)
+                        if self.s[i:i + 7] != u".gensym": raise ParseError("no reason")
+                        self.lastMatch.append((u"TOKEN .gensym", i, i + 7))
+                        rv = self.uf.makeStr(u".gensym"); i += 7
+                        rv = rel.rules.makeGenSym(uf.makeStr(u'gs'))
                     except ParseError as pe:
                         i = st.pop()
                         st.append(i)
@@ -2625,18 +2868,12 @@ class ZADDYParser(object):
                             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                             if i >= len(self.s): raise ParseError("no reason")
                             assert i >= 0
-                            if self.s[i:i + 2] != u"*(": raise ParseError("no reason")
-                            self.lastMatch.append((u"TOKEN *(", i, i + 2))
-                            rv = self.uf.makeStr(u"*("); i += 2
-                            i, rv = self.parseCPROD1(i)
+                            if self.s[i:i + 1] != u"#": raise ParseError("no reason")
+                            self.lastMatch.append((u"TOKEN #", i, i + 1))
+                            rv = self.uf.makeStr(u"#"); i += 1
+                            i, rv = self.parseCPROD2(i)
                             vP = rv
-                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                            if i >= len(self.s): raise ParseError("no reason")
-                            assert i >= 0
-                            if self.s[i:i + 1] != u")": raise ParseError("no reason")
-                            self.lastMatch.append((u"TOKEN )", i, i + 1))
-                            rv = self.uf.makeStr(u")"); i += 1
-                            rv = rel.rules.makeFlattenOp(vP)
+                            rv = rel.rules.makeLengthOp(vP)
                         except ParseError as pe:
                             i = st.pop()
                             st.append(i)
@@ -2644,18 +2881,12 @@ class ZADDYParser(object):
                                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                 if i >= len(self.s): raise ParseError("no reason")
                                 assert i >= 0
-                                if self.s[i:i + 6] != u".line(": raise ParseError("no reason")
-                                self.lastMatch.append((u"TOKEN .line(", i, i + 6))
-                                rv = self.uf.makeStr(u".line("); i += 6
-                                i, rv = self.parseCPROD1(i)
+                                if self.s[i:i + 1] != u"*": raise ParseError("no reason")
+                                self.lastMatch.append((u"TOKEN *", i, i + 1))
+                                rv = self.uf.makeStr(u"*"); i += 1
+                                i, rv = self.parseCPROD2(i)
                                 vP = rv
-                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                if i >= len(self.s): raise ParseError("no reason")
-                                assert i >= 0
-                                if self.s[i:i + 1] != u")": raise ParseError("no reason")
-                                self.lastMatch.append((u"TOKEN )", i, i + 1))
-                                rv = self.uf.makeStr(u")"); i += 1
-                                rv = rel.rules.makeStructProd(uf.makeStr(u'builtin'), uf.makeStr(u'Line'), uf.makeList([vP]))
+                                rv = rel.rules.makeFlattenOp(vP)
                             except ParseError as pe:
                                 i = st.pop()
                                 st.append(i)
@@ -2663,9 +2894,9 @@ class ZADDYParser(object):
                                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                     if i >= len(self.s): raise ParseError("no reason")
                                     assert i >= 0
-                                    if self.s[i:i + 7] != u".block(": raise ParseError("no reason")
-                                    self.lastMatch.append((u"TOKEN .block(", i, i + 7))
-                                    rv = self.uf.makeStr(u".block("); i += 7
+                                    if self.s[i:i + 2] != u"*(": raise ParseError("no reason")
+                                    self.lastMatch.append((u"TOKEN *(", i, i + 2))
+                                    rv = self.uf.makeStr(u"*("); i += 2
                                     i, rv = self.parseCPROD1(i)
                                     vP = rv
                                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
@@ -2674,7 +2905,7 @@ class ZADDYParser(object):
                                     if self.s[i:i + 1] != u")": raise ParseError("no reason")
                                     self.lastMatch.append((u"TOKEN )", i, i + 1))
                                     rv = self.uf.makeStr(u")"); i += 1
-                                    rv = rel.rules.makeStructProd(uf.makeStr(u'builtin'), uf.makeStr(u'Block'), uf.makeList([vP]))
+                                    rv = rel.rules.makeFlattenOp(vP)
                                 except ParseError as pe:
                                     i = st.pop()
                                     st.append(i)
@@ -2682,26 +2913,18 @@ class ZADDYParser(object):
                                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                         if i >= len(self.s): raise ParseError("no reason")
                                         assert i >= 0
-                                        if self.s[i:i + 6] != u".join(": raise ParseError("no reason")
-                                        self.lastMatch.append((u"TOKEN .join(", i, i + 6))
-                                        rv = self.uf.makeStr(u".join("); i += 6
+                                        if self.s[i:i + 6] != u".line(": raise ParseError("no reason")
+                                        self.lastMatch.append((u"TOKEN .line(", i, i + 6))
+                                        rv = self.uf.makeStr(u".line("); i += 6
                                         i, rv = self.parseCPROD1(i)
                                         vP = rv
-                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                        if i >= len(self.s): raise ParseError("no reason")
-                                        assert i >= 0
-                                        if self.s[i:i + 1] != u",": raise ParseError("no reason")
-                                        self.lastMatch.append((u"TOKEN ,", i, i + 1))
-                                        rv = self.uf.makeStr(u","); i += 1
-                                        i, rv = self.parseSTRING(i)
-                                        vS = rv
                                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                         if i >= len(self.s): raise ParseError("no reason")
                                         assert i >= 0
                                         if self.s[i:i + 1] != u")": raise ParseError("no reason")
                                         self.lastMatch.append((u"TOKEN )", i, i + 1))
                                         rv = self.uf.makeStr(u")"); i += 1
-                                        rv = rel.rules.makeJoinOp(vS, vP)
+                                        rv = rel.rules.makeStructProd(uf.makeStr(u'builtin'), uf.makeStr(u'Line'), uf.makeList([vP]))
                                     except ParseError as pe:
                                         i = st.pop()
                                         st.append(i)
@@ -2709,10 +2932,18 @@ class ZADDYParser(object):
                                             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                             if i >= len(self.s): raise ParseError("no reason")
                                             assert i >= 0
-                                            if self.s[i:i + 2] != u"[]": raise ParseError("no reason")
-                                            self.lastMatch.append((u"TOKEN []", i, i + 2))
-                                            rv = self.uf.makeStr(u"[]"); i += 2
-                                            rv = rel.rules.makeListProd(uf.makeList([]))
+                                            if self.s[i:i + 7] != u".block(": raise ParseError("no reason")
+                                            self.lastMatch.append((u"TOKEN .block(", i, i + 7))
+                                            rv = self.uf.makeStr(u".block("); i += 7
+                                            i, rv = self.parseCPROD1(i)
+                                            vP = rv
+                                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                            if i >= len(self.s): raise ParseError("no reason")
+                                            assert i >= 0
+                                            if self.s[i:i + 1] != u")": raise ParseError("no reason")
+                                            self.lastMatch.append((u"TOKEN )", i, i + 1))
+                                            rv = self.uf.makeStr(u")"); i += 1
+                                            rv = rel.rules.makeStructProd(uf.makeStr(u'builtin'), uf.makeStr(u'Block'), uf.makeList([vP]))
                                         except ParseError as pe:
                                             i = st.pop()
                                             st.append(i)
@@ -2720,34 +2951,26 @@ class ZADDYParser(object):
                                                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                                 if i >= len(self.s): raise ParseError("no reason")
                                                 assert i >= 0
-                                                if self.s[i:i + 1] != u"[": raise ParseError("no reason")
-                                                self.lastMatch.append((u"TOKEN [", i, i + 1))
-                                                rv = self.uf.makeStr(u"["); i += 1
-                                                i, rv = self.parsePATTDOTS(i)
-                                                vHead = rv
+                                                if self.s[i:i + 6] != u".join(": raise ParseError("no reason")
+                                                self.lastMatch.append((u"TOKEN .join(", i, i + 6))
+                                                rv = self.uf.makeStr(u".join("); i += 6
+                                                i, rv = self.parseCPROD1(i)
+                                                vP = rv
                                                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                                 if i >= len(self.s): raise ParseError("no reason")
                                                 assert i >= 0
                                                 if self.s[i:i + 1] != u",": raise ParseError("no reason")
                                                 self.lastMatch.append((u"TOKEN ,", i, i + 1))
                                                 rv = self.uf.makeStr(u","); i += 1
-                                                i, rv = self.parseCPRODS(i)
-                                                vPs = rv
+                                                i, rv = self.parseSTRING(i)
+                                                vS = rv
                                                 while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                                 if i >= len(self.s): raise ParseError("no reason")
                                                 assert i >= 0
-                                                if self.s[i:i + 1] != u",": raise ParseError("no reason")
-                                                self.lastMatch.append((u"TOKEN ,", i, i + 1))
-                                                rv = self.uf.makeStr(u","); i += 1
-                                                i, rv = self.parsePATTDOTS(i)
-                                                vTail = rv
-                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                if i >= len(self.s): raise ParseError("no reason")
-                                                assert i >= 0
-                                                if self.s[i:i + 1] != u"]": raise ParseError("no reason")
-                                                self.lastMatch.append((u"TOKEN ]", i, i + 1))
-                                                rv = self.uf.makeStr(u"]"); i += 1
-                                                rv = rel.rules.makeListMidProd(vHead, vTail, vPs)
+                                                if self.s[i:i + 1] != u")": raise ParseError("no reason")
+                                                self.lastMatch.append((u"TOKEN )", i, i + 1))
+                                                rv = self.uf.makeStr(u")"); i += 1
+                                                rv = rel.rules.makeJoinOp(vS, vP)
                                             except ParseError as pe:
                                                 i = st.pop()
                                                 st.append(i)
@@ -2755,26 +2978,10 @@ class ZADDYParser(object):
                                                     while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
                                                     if i >= len(self.s): raise ParseError("no reason")
                                                     assert i >= 0
-                                                    if self.s[i:i + 1] != u"[": raise ParseError("no reason")
-                                                    self.lastMatch.append((u"TOKEN [", i, i + 1))
-                                                    rv = self.uf.makeStr(u"["); i += 1
-                                                    i, rv = self.parsePATTDOTS(i)
-                                                    vHead = rv
-                                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                    if i >= len(self.s): raise ParseError("no reason")
-                                                    assert i >= 0
-                                                    if self.s[i:i + 1] != u",": raise ParseError("no reason")
-                                                    self.lastMatch.append((u"TOKEN ,", i, i + 1))
-                                                    rv = self.uf.makeStr(u","); i += 1
-                                                    i, rv = self.parseCPRODS(i)
-                                                    vPs = rv
-                                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                    if i >= len(self.s): raise ParseError("no reason")
-                                                    assert i >= 0
-                                                    if self.s[i:i + 1] != u"]": raise ParseError("no reason")
-                                                    self.lastMatch.append((u"TOKEN ]", i, i + 1))
-                                                    rv = self.uf.makeStr(u"]"); i += 1
-                                                    rv = rel.rules.makeListHeadProd(vHead, vPs)
+                                                    if self.s[i:i + 2] != u"[]": raise ParseError("no reason")
+                                                    self.lastMatch.append((u"TOKEN []", i, i + 2))
+                                                    rv = self.uf.makeStr(u"[]"); i += 2
+                                                    rv = rel.rules.makeListProd(uf.makeList([]))
                                                 except ParseError as pe:
                                                     i = st.pop()
                                                     st.append(i)
@@ -2785,6 +2992,14 @@ class ZADDYParser(object):
                                                         if self.s[i:i + 1] != u"[": raise ParseError("no reason")
                                                         self.lastMatch.append((u"TOKEN [", i, i + 1))
                                                         rv = self.uf.makeStr(u"["); i += 1
+                                                        i, rv = self.parsePATTDOTS(i)
+                                                        vHead = rv
+                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                        if i >= len(self.s): raise ParseError("no reason")
+                                                        assert i >= 0
+                                                        if self.s[i:i + 1] != u",": raise ParseError("no reason")
+                                                        self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                                                        rv = self.uf.makeStr(u","); i += 1
                                                         i, rv = self.parseCPRODS(i)
                                                         vPs = rv
                                                         while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
@@ -2801,7 +3016,7 @@ class ZADDYParser(object):
                                                         if self.s[i:i + 1] != u"]": raise ParseError("no reason")
                                                         self.lastMatch.append((u"TOKEN ]", i, i + 1))
                                                         rv = self.uf.makeStr(u"]"); i += 1
-                                                        rv = rel.rules.makeListTailProd(vTail, vPs)
+                                                        rv = rel.rules.makeListMidProd(vHead, vTail, vPs)
                                                     except ParseError as pe:
                                                         i = st.pop()
                                                         st.append(i)
@@ -2812,6 +3027,14 @@ class ZADDYParser(object):
                                                             if self.s[i:i + 1] != u"[": raise ParseError("no reason")
                                                             self.lastMatch.append((u"TOKEN [", i, i + 1))
                                                             rv = self.uf.makeStr(u"["); i += 1
+                                                            i, rv = self.parsePATTDOTS(i)
+                                                            vHead = rv
+                                                            while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                            if i >= len(self.s): raise ParseError("no reason")
+                                                            assert i >= 0
+                                                            if self.s[i:i + 1] != u",": raise ParseError("no reason")
+                                                            self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                                                            rv = self.uf.makeStr(u","); i += 1
                                                             i, rv = self.parseCPRODS(i)
                                                             vPs = rv
                                                             while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
@@ -2820,92 +3043,138 @@ class ZADDYParser(object):
                                                             if self.s[i:i + 1] != u"]": raise ParseError("no reason")
                                                             self.lastMatch.append((u"TOKEN ]", i, i + 1))
                                                             rv = self.uf.makeStr(u"]"); i += 1
-                                                            rv = rel.rules.makeListProd(vPs)
+                                                            rv = rel.rules.makeListHeadProd(vHead, vPs)
                                                         except ParseError as pe:
                                                             i = st.pop()
                                                             st.append(i)
                                                             try:
-                                                                i, rv = self.parsePVar(i)
-                                                                vName = rv
-                                                                st.append(i)
-                                                                try:
-                                                                    i, rv = self.parseEllipsis(i)
-                                                                    rv = True
-                                                                except ParseError as pe:
-                                                                    rv = False
-                                                                i = st.pop()
-                                                                if rv: raise ParseError("no reason")
-                                                                rv = rel.rules.makeVarProd(vName)
+                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                assert i >= 0
+                                                                if self.s[i:i + 1] != u"[": raise ParseError("no reason")
+                                                                self.lastMatch.append((u"TOKEN [", i, i + 1))
+                                                                rv = self.uf.makeStr(u"["); i += 1
+                                                                i, rv = self.parseCPRODS(i)
+                                                                vPs = rv
+                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                assert i >= 0
+                                                                if self.s[i:i + 1] != u",": raise ParseError("no reason")
+                                                                self.lastMatch.append((u"TOKEN ,", i, i + 1))
+                                                                rv = self.uf.makeStr(u","); i += 1
+                                                                i, rv = self.parsePATTDOTS(i)
+                                                                vTail = rv
+                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                assert i >= 0
+                                                                if self.s[i:i + 1] != u"]": raise ParseError("no reason")
+                                                                self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                                                                rv = self.uf.makeStr(u"]"); i += 1
+                                                                rv = rel.rules.makeListTailProd(vTail, vPs)
                                                             except ParseError as pe:
                                                                 i = st.pop()
                                                                 st.append(i)
                                                                 try:
-                                                                    i, rv = self.parsePConst(i)
-                                                                    vName = rv
-                                                                    st.append(i)
-                                                                    try:
-                                                                        i, rv = self.parseEllipsis(i)
-                                                                        rv = True
-                                                                    except ParseError as pe:
-                                                                        rv = False
-                                                                    i = st.pop()
-                                                                    if rv: raise ParseError("no reason")
-                                                                    st.append(i)
-                                                                    try:
-                                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                                        if i >= len(self.s): raise ParseError("no reason")
-                                                                        assert i >= 0
-                                                                        if self.s[i:i + 1] != u".": raise ParseError("no reason")
-                                                                        self.lastMatch.append((u"TOKEN .", i, i + 1))
-                                                                        rv = self.uf.makeStr(u"."); i += 1
-                                                                        rv = True
-                                                                    except ParseError as pe:
-                                                                        rv = False
-                                                                    i = st.pop()
-                                                                    if rv: raise ParseError("no reason")
-                                                                    rv = rel.rules.makeConstProd(vName)
+                                                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                    if i >= len(self.s): raise ParseError("no reason")
+                                                                    assert i >= 0
+                                                                    if self.s[i:i + 1] != u"[": raise ParseError("no reason")
+                                                                    self.lastMatch.append((u"TOKEN [", i, i + 1))
+                                                                    rv = self.uf.makeStr(u"["); i += 1
+                                                                    i, rv = self.parseCPRODS(i)
+                                                                    vPs = rv
+                                                                    while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                    if i >= len(self.s): raise ParseError("no reason")
+                                                                    assert i >= 0
+                                                                    if self.s[i:i + 1] != u"]": raise ParseError("no reason")
+                                                                    self.lastMatch.append((u"TOKEN ]", i, i + 1))
+                                                                    rv = self.uf.makeStr(u"]"); i += 1
+                                                                    rv = rel.rules.makeListProd(vPs)
                                                                 except ParseError as pe:
                                                                     i = st.pop()
                                                                     st.append(i)
                                                                     try:
-                                                                        i, rv = self.parseID(i)
-                                                                        vNs = rv
-                                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                                        if i >= len(self.s): raise ParseError("no reason")
-                                                                        assert i >= 0
-                                                                        if self.s[i:i + 1] != u".": raise ParseError("no reason")
-                                                                        self.lastMatch.append((u"TOKEN .", i, i + 1))
-                                                                        rv = self.uf.makeStr(u"."); i += 1
-                                                                        i, rv = self.parseID(i)
-                                                                        vFunc = rv
-                                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                                        if i >= len(self.s): raise ParseError("no reason")
-                                                                        assert i >= 0
-                                                                        if self.s[i:i + 1] != u"(": raise ParseError("no reason")
-                                                                        self.lastMatch.append((u"TOKEN (", i, i + 1))
-                                                                        rv = self.uf.makeStr(u"("); i += 1
-                                                                        i, rv = self.parseCPRODS(i)
-                                                                        vPs = rv
-                                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                                        if i >= len(self.s): raise ParseError("no reason")
-                                                                        assert i >= 0
-                                                                        if self.s[i:i + 1] != u")": raise ParseError("no reason")
-                                                                        self.lastMatch.append((u"TOKEN )", i, i + 1))
-                                                                        rv = self.uf.makeStr(u")"); i += 1
-                                                                        rv = rel.rules.makeStructProd(vNs, vFunc, vPs)
+                                                                        i, rv = self.parsePVar(i)
+                                                                        vName = rv
+                                                                        st.append(i)
+                                                                        try:
+                                                                            i, rv = self.parseEllipsis(i)
+                                                                            rv = True
+                                                                        except ParseError as pe:
+                                                                            rv = False
+                                                                        i = st.pop()
+                                                                        if rv: raise ParseError("no reason")
+                                                                        rv = rel.rules.makeVarProd(vName)
                                                                     except ParseError as pe:
                                                                         i = st.pop()
-                                                                        i, rv = self.parseID(i)
-                                                                        vNs = rv
-                                                                        while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
-                                                                        if i >= len(self.s): raise ParseError("no reason")
-                                                                        assert i >= 0
-                                                                        if self.s[i:i + 1] != u".": raise ParseError("no reason")
-                                                                        self.lastMatch.append((u"TOKEN .", i, i + 1))
-                                                                        rv = self.uf.makeStr(u"."); i += 1
-                                                                        i, rv = self.parseID(i)
-                                                                        vFunc = rv
-                                                                        rv = rel.rules.makeStructProd(vNs, vFunc, uf.makeList([]))
+                                                                        st.append(i)
+                                                                        try:
+                                                                            i, rv = self.parsePConst(i)
+                                                                            vName = rv
+                                                                            st.append(i)
+                                                                            try:
+                                                                                i, rv = self.parseEllipsis(i)
+                                                                                rv = True
+                                                                            except ParseError as pe:
+                                                                                rv = False
+                                                                            i = st.pop()
+                                                                            if rv: raise ParseError("no reason")
+                                                                            st.append(i)
+                                                                            try:
+                                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                                assert i >= 0
+                                                                                if self.s[i:i + 1] != u".": raise ParseError("no reason")
+                                                                                self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                                                                rv = self.uf.makeStr(u"."); i += 1
+                                                                                rv = True
+                                                                            except ParseError as pe:
+                                                                                rv = False
+                                                                            i = st.pop()
+                                                                            if rv: raise ParseError("no reason")
+                                                                            rv = rel.rules.makeConstProd(vName)
+                                                                        except ParseError as pe:
+                                                                            i = st.pop()
+                                                                            st.append(i)
+                                                                            try:
+                                                                                i, rv = self.parseID(i)
+                                                                                vNs = rv
+                                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                                assert i >= 0
+                                                                                if self.s[i:i + 1] != u".": raise ParseError("no reason")
+                                                                                self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                                                                rv = self.uf.makeStr(u"."); i += 1
+                                                                                i, rv = self.parseID(i)
+                                                                                vFunc = rv
+                                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                                assert i >= 0
+                                                                                if self.s[i:i + 1] != u"(": raise ParseError("no reason")
+                                                                                self.lastMatch.append((u"TOKEN (", i, i + 1))
+                                                                                rv = self.uf.makeStr(u"("); i += 1
+                                                                                i, rv = self.parseCPRODS(i)
+                                                                                vPs = rv
+                                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                                assert i >= 0
+                                                                                if self.s[i:i + 1] != u")": raise ParseError("no reason")
+                                                                                self.lastMatch.append((u"TOKEN )", i, i + 1))
+                                                                                rv = self.uf.makeStr(u")"); i += 1
+                                                                                rv = rel.rules.makeStructProd(vNs, vFunc, vPs)
+                                                                            except ParseError as pe:
+                                                                                i = st.pop()
+                                                                                i, rv = self.parseID(i)
+                                                                                vNs = rv
+                                                                                while i < len(self.s) and ord(self.s[i]) in [9, 10, 13, 32]: i += 1
+                                                                                if i >= len(self.s): raise ParseError("no reason")
+                                                                                assert i >= 0
+                                                                                if self.s[i:i + 1] != u".": raise ParseError("no reason")
+                                                                                self.lastMatch.append((u"TOKEN .", i, i + 1))
+                                                                                rv = self.uf.makeStr(u"."); i += 1
+                                                                                i, rv = self.parseID(i)
+                                                                                vFunc = rv
+                                                                                rv = rel.rules.makeStructProd(vNs, vFunc, uf.makeList([]))
         return i, rv
         pass
     @cached
@@ -2941,7 +3210,7 @@ class ZADDYParser(object):
             pass
         rv = rel.uf.makeList(rvs)
         vRules = rv
-        rv = uf.makeList([rel.py.makeCompound(uf.makeStr(u'def target(driver, *args)'), uf.makeList([rel.py.makeStatement(rel.builtin.makeConcat(uf.makeStr(u'driver.exe_name = "'), uf.makeList([vName, uf.makeStr(u'".lower() + "c"')]))), rel.py.makeRet(uf.makeStr(u'main, None'))])), rel.py.makeCompound(rel.builtin.makeConcat(uf.makeStr(u'class '), uf.makeList([vName, uf.makeStr(u'Parser(object)')])), rel.builtin.makeFlatten(uf.makeList([uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self, s, uf)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.s = s; self.uf = uf')), rel.py.makeStatement(uf.makeStr(u'self.lastMatch = []')), rel.py.makeStatement(uf.makeStr(u'for name in unrolledRels: setattr(self, name, frozenRels[name](uf))')), rel.py.makeStatement(uf.makeStr(u'for l in unrolledLets: l(uf, self)'))])), rel.py.makeCompound(uf.makeStr(u'def parse(self)'), uf.makeList([rel.py.makeRet(rel.builtin.makeConcat(uf.makeStr(u'self.parse'), uf.makeList([vName, uf.makeStr(u'(0)')])))]))]), rel.builtin.makeFlatten(vRules)]))), rel.py.makeStatement(rel.builtin.makeConcat(uf.makeStr(u'MainParser = '), uf.makeList([vName, uf.makeStr(u'Parser')])))])
+        rv = uf.makeList([rel.py.makeCompound(uf.makeStr(u'def target(driver, *args)'), uf.makeList([rel.py.makeStatement(rel.builtin.makeConcat(uf.makeStr(u'driver.exe_name = "'), uf.makeList([vName, uf.makeStr(u'".lower() + "c"')]))), rel.py.makeRet(uf.makeStr(u'main, None'))])), rel.py.makeCompound(rel.builtin.makeConcat(uf.makeStr(u'class '), uf.makeList([vName, uf.makeStr(u'Parser(object)')])), rel.builtin.makeFlatten(uf.makeList([uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self, s, uf)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.s = s; self.uf = uf')), rel.py.makeStatement(uf.makeStr(u'self.lastMatch = []')), rel.py.makeStatement(uf.makeStr(u'for name in unrolledRels: setattr(self, name, frozenRels[name](uf))')), rel.py.makeStatement(uf.makeStr(u'for l in unrolledLets: l(uf, self)'))])), rel.py.makeStatement(uf.makeStr(u'gs = 0')), rel.py.makeCompound(uf.makeStr(u'def gensym(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.gs += 1')), rel.py.makeRet(uf.makeStr(u's + str(self.gs).decode("utf-8")'))])), rel.py.makeCompound(uf.makeStr(u'def parse(self)'), uf.makeList([rel.py.makeRet(rel.builtin.makeConcat(uf.makeStr(u'self.parse'), uf.makeList([vName, uf.makeStr(u'(0)')])))]))]), rel.builtin.makeFlatten(vRules)]))), rel.py.makeStatement(rel.builtin.makeConcat(uf.makeStr(u'MainParser = '), uf.makeList([vName, uf.makeStr(u'Parser')])))])
         return i, rv
         pass
     @cached
@@ -3434,7 +3703,7 @@ class ZADDYParser(object):
         rv = rel.uf.makeList(rvs)
         vClss = rv
         i, rv = self.parseWS(i)
-        rv = rel.builtin.makeFlatten(uf.makeList([uf.makeList([rel.py.makeImp(uf.makeStr(u'collections'), uf.makeStr(u'defaultdict')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.rfile'), uf.makeStr(u'create_stdio')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.objectmodel'), uf.makeStr(u'specialize, r_dict')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.unroll'), uf.makeStr(u'unrolling_iterable')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.listsort'), uf.makeStr(u'make_timsort_class')), rel.py.makeCompound(uf.makeStr(u'class Result(object)'), uf.makeList([])), rel.py.makeCompound(uf.makeStr(u'class Failed(Result)'), uf.makeList([])), rel.py.makeStatement(uf.makeStr(u'failed = Failed()')), rel.py.makeCompound(uf.makeStr(u'def cached(f, cacheCount=[0])'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1')), rel.py.makeStatement(uf.makeStr(u'name = f.__name__')), rel.py.makeStatement(uf.makeStr(u'uname = unicode(name)')), rel.py.makeCompound(uf.makeStr(u'class CacheResult(Result)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, i, rv): setattr(self, attr, (i, rv))'))])), rel.py.makeStatement(uf.makeStr(u'cache = {}')), rel.py.makeCompound(uf.makeStr(u'def deco(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'key = i')), rel.py.makeRaiseIf(uf.makeStr(u'key in cache and cache[key] is failed')), rel.py.makeStatement(uf.makeStr(u'elif key in cache: return getattr(cache[key], attr)')), rel.py.makeStatement(uf.makeStr(u'cache[key] = failed')), rel.py.makeStatement(uf.makeStr(u'i, rv = f(self, i)')), rel.py.makeStatement(uf.makeStr(u'cache[key] = CacheResult(i, rv)')), rel.py.makeStatement(uf.makeStr(u'self.lastMatch.append((uname, key, i))')), rel.py.makeRet(uf.makeStr(u'i, rv'))])), rel.py.makeStatement(uf.makeStr(u'deco.__name__ = name')), rel.py.makeRet(uf.makeStr(u'deco'))])), rel.py.makeStatement(uf.makeStr(u'ruleNames = []')), rel.py.makeStatement(uf.makeStr(u'letNames = []')), rel.py.makeCompound(uf.makeStr(u'def let(f)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'letNames.append(f)')), rel.py.makeRet(uf.makeStr(u'f'))])), rel.py.makeStatement(uf.makeStr(u'triggers = defaultdict(list)')), rel.py.makeCompound(uf.makeStr(u'def rewrite(*args)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def deco(f)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'name = f.__name__')), rel.py.makeStatement(uf.makeStr(u'ruleNames.append((name, f))')), rel.py.makeStatement(uf.makeStr(u'for rel in args: triggers[rel].append(name)')), rel.py.makeRet(uf.makeStr(u'f'))])), rel.py.makeRet(uf.makeStr(u'deco'))])), rel.py.makeStatement(uf.makeStr(u'@specialize.call_location()')), rel.py.makeCompound(uf.makeStr(u'def flatten(xs)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = []')), rel.py.makeStatement(uf.makeStr(u'for x in xs: rv.extend(x)')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def intersect(l, r)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = []')), rel.py.makeCompound(uf.makeStr(u'for x in r'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if x in l: rv.append(x)'))])), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeStatement(uf.makeStr(u'def listEq(l, r): return l == r')), rel.py.makeCompound(uf.makeStr(u'def listHash(l)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = 0')), rel.py.makeStatement(uf.makeStr(u'for x in l: rv += x')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'class UF(object)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.uf = [0]')), rel.py.makeStatement(uf.makeStr(u'self.handle2str = {}')), rel.py.makeStatement(uf.makeStr(u'self.str2handle = {}')), rel.py.makeStatement(uf.makeStr(u'self.handle2list = {}')), rel.py.makeStatement(uf.makeStr(u'self.list2handle = r_dict(listEq, listHash)'))])), rel.py.makeCompound(uf.makeStr(u'def make(self)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = len(self.uf)')), rel.py.makeStatement(uf.makeStr(u'self.uf.append(rv)')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def find(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'j = self.uf[i]')), rel.py.makeStatement(uf.makeStr(u'while self.uf[j] != j: self.uf[i], j, i = self.uf[j], self.uf[j], j')), rel.py.makeRet(uf.makeStr(u'j'))])), rel.py.makeCompound(uf.makeStr(u'def union(self, i, j)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'i = self.find(i); j = self.find(j)')), rel.py.makeStatement(uf.makeStr(u'if i != j: self.uf[i] = j')), rel.py.makeRet(uf.makeStr(u'j'))])), rel.py.makeCompound(uf.makeStr(u'def makeStr(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if s in self.str2handle: return self.str2handle[s]')), rel.py.makeStatement(uf.makeStr(u'rv = self.make()')), rel.py.makeStatement(uf.makeStr(u'self.handle2str[rv] = s')), rel.py.makeStatement(uf.makeStr(u'self.str2handle[s] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findStr(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'try: return self.handle2str[self.find(i)]')), rel.py.makeStatement(uf.makeStr(u'except KeyError: raise NoResults("findStr", i)'))])), rel.py.makeCompound(uf.makeStr(u'def makeList(self, l)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if l in self.list2handle: return self.list2handle[l]')), rel.py.makeStatement(uf.makeStr(u'rv = self.make()')), rel.py.makeStatement(uf.makeStr(u'self.handle2list[rv] = l')), rel.py.makeStatement(uf.makeStr(u'self.list2handle[l] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findList(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'try: return self.handle2list[self.find(i)]')), rel.py.makeStatement(uf.makeStr(u'except KeyError: raise NoResults("findList", i)'))])), rel.py.makeCompound(uf.makeStr(u'def rebuild(self)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'for (i, s) in self.handle2str.items()'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.handle2str[self.find(i)] = s'))])), rel.py.makeStatement(uf.makeStr(u'q = [(self.find(i), [self.find(x) for x in l]) for (i, l) in self.handle2list.items()]')), rel.py.makeStatement(uf.makeStr(u'self.handle2list.clear()')), rel.py.makeStatement(uf.makeStr(u'self.list2handle.clear()')), rel.py.makeCompound(uf.makeStr(u'for i, l in q'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.handle2list[i] = l')), rel.py.makeStatement(uf.makeStr(u'self.list2handle[l] = i'))]))]))])), rel.py.makeStatement(uf.makeStr(u'@specialize.call_location()')), rel.py.makeCompound(uf.makeStr(u'def rebuildRel(uf, d)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for r in d'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if isinstance(r, int): q.append(uf.find(r))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 1: q.append((uf.find(r[0]),))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 2: q.append((uf.find(r[0]), uf.find(r[1])))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 3: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2])))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 4: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3])))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 5: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3]), uf.find(r[4])))')), rel.py.makeStatement(uf.makeStr(u'else: assert False, "bob"'))])), rel.py.makeStatement(uf.makeStr(u'd.clear()')), rel.py.makeStatement(uf.makeStr(u'for r in q: d[r] = None'))])), rel.py.makeStatement(uf.makeStr(u'@specialize.call_location()')), rel.py.makeCompound(uf.makeStr(u'def rebuildHash(uf, d)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'for k, v in d.items(): d[k] = uf.find(v)'))])), rel.py.makeCompound(uf.makeStr(u'class Builtin(object)'), uf.makeList([])), rel.py.makeCompound(uf.makeStr(u'class EmitLine(Builtin)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, s): self.s = s')), rel.py.makeStatement(uf.makeStr(u'def out(self, m): return [u" " * (m * 4) + self.s]'))])), rel.py.makeCompound(uf.makeStr(u'class EmitBlock(Builtin)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, ls): self.ls = ls')), rel.py.makeStatement(uf.makeStr(u'def out(self, m): return flatten([l.out(m + 1) for l in self.ls])'))])), rel.py.makeCompound(uf.makeStr(u'class Rels(object)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'dirty = False'))])), rel.py.makeStatement(uf.makeStr(u'allRels = []')), rel.py.makeCompound(uf.makeStr(u'class Builder(object)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def Line(self, s): return EmitLine(s)')), rel.py.makeStatement(uf.makeStr(u'def Block(self, ls): return EmitBlock(ls)'))])), rel.py.makeStatement(uf.makeStr(u'builtin = Builder()')), rel.py.makeCompound(uf.makeStr(u'class builtinRels(Rels)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self, uf)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.uf = uf')), rel.py.makeStatement(uf.makeStr(u'self.Line = {}')), rel.py.makeStatement(uf.makeStr(u'self.Block = {}')), rel.py.makeStatement(uf.makeStr(u'self.Flatten = {}')), rel.py.makeStatement(uf.makeStr(u'self.Length = {}')), rel.py.makeStatement(uf.makeStr(u'self.Join = {}')), rel.py.makeStatement(uf.makeStr(u'self.Concat = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashLine = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashBlock = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashFlatten = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashLength = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashJoin = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashConcat = {}'))])), rel.py.makeCompound(uf.makeStr(u'def rebuild(self)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Line)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Block)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Flatten)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Length)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Join)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Concat)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashLine)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashBlock)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashFlatten)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashLength)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashJoin)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashConcat)'))])), rel.py.makeCompound(uf.makeStr(u'def makeLine(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Line[rv, s] = None')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findLine(self, i)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'for (x, s) in self.Line'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if x != i: continue')), rel.py.makeStatement(uf.makeStr(u'try: return EmitLine(self.uf.findStr(s))')), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'raise NoResults("findLine", i)'))])), rel.py.makeCompound(uf.makeStr(u'def makeBlock(self, ls)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Block[rv, ls] = None')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findBlock(self, i)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'for (x, ls) in self.Block'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if x != i: continue')), rel.py.makeStatement(uf.makeStr(u'try: return EmitBlock([self.findbuiltin(x) for x in self.uf.findList(ls)])')), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'raise NoResults("findBlock", i)'))])), rel.py.makeCompound(uf.makeStr(u'def makeFlatten(self, ls)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = ls')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashFlatten: return self.hashFlatten[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Flatten[rv, ls] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashFlatten[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def makeLength(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = s')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashLength: return self.hashLength[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Length[rv, s] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashLength[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def makeJoin(self, s, ps)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = s, ps')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashJoin: return self.hashJoin[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Join[rv, s, ps] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashJoin[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def makeConcat(self, p, ps)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = p, ps')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashConcat: return self.hashConcat[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Concat[rv, p, ps] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashConcat[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findbuiltin(self, i)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeRet(uf.makeStr(u'self.findLine(i)'))])), rel.py.makeCompound(uf.makeStr(u'except NoResults'), uf.makeList([rel.py.makeRet(uf.makeStr(u'self.findBlock(i)'))]))]))])), rel.py.makeStatement(uf.makeStr(u'allRels.append(("builtin", builtinRels))')), rel.py.makeCompound(uf.makeStr(u'class ParseError(Exception)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, reason): self.reason = reason'))])), rel.py.makeCompound(uf.makeStr(u'class NoResults(Exception)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self, message, handle)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.message = message; self.handle = handle'))]))])), rel.py.makeCompound(uf.makeStr(u'def lineNumber(s, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'assert i >= 0')), rel.py.makeRet(uf.makeStr(u's.count(unichr(10), 0, i)'))])), rel.py.makeStatement(uf.makeStr(u'SortTraces = make_timsort_class(lt=lambda l, r: l[2] > r[2])')), rel.py.makeCompound(uf.makeStr(u'def main(argv)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'stdin, stdout, stderr = create_stdio()')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Registered %d rewrite rules\\n" % len(frozenRules))')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Registered %d rewrite triggers\\n" % len(frozenTriggers))')), rel.py.makeStatement(uf.makeStr(u'uf = UF()')), rel.py.makeStatement(uf.makeStr(u'parser = MainParser(stdin.read().decode("utf-8"), uf)')), rel.py.makeHandler(uf.makeList([rel.py.makeStatement(uf.makeStr(u'i, l = parser.parse()')), rel.py.makeConditional(uf.makeStr(u'i != len(parser.s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'raise ParseError("Failed to consume all input")'))])), rel.py.makeStatement(uf.makeStr(u'l = parser.builtin.makeFlatten(l)')), rel.py.makeCompound(uf.makeStr(u'for iteration in range(25)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rulesToTry = []')), rel.py.makeCompound(uf.makeStr(u'for r in unrolledRels'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rel = getattr(parser, r)')), rel.py.makeStatement(uf.makeStr(u'rulesToTry.extend(frozenTriggers.get(r, []))')), rel.py.makeStatement(uf.makeStr(u'rel.rebuild()')), rel.py.makeStatement(uf.makeStr(u'rel.dirty = False'))])), rel.py.makeStatement(uf.makeStr(u'if not rulesToTry: break')), rel.py.makeStatement(uf.makeStr(u'uf.rebuild()')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Iteration %d: Union/find: %d handles\\n" % (iteration, len(uf.uf)))')), rel.py.makeStatement(uf.makeStr(u'count = 0')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Iteration %d: %d rules to try\\n" % (iteration, len(rulesToTry)))')), rel.py.makeCompound(uf.makeStr(u'for name in rulesToTry'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'c = frozenRules[name](uf, parser)')), rel.py.makeStatement(uf.makeStr(u'if c: stderr.write("Rule %s: %d transactions\\n" % (name, c))')), rel.py.makeStatement(uf.makeStr(u'count += c'))])), rel.py.makeStatement(uf.makeStr(u'stderr.write("Iteration %d: %d applications\\n" % (iteration, count))'))])), rel.py.makeStatement(uf.makeStr(u'buf = []')), rel.py.makeStatement(uf.makeStr(u'ls = uf.findList(l)')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Optimized to %d builtin blocks\\n" % len(ls))')), rel.py.makeStatement(uf.makeStr(u'for rule in ls: buf.extend(parser.builtin.findbuiltin(rule).out(0))')), rel.py.makeStatement(uf.makeStr(u'stdout.write(u"\\n".join(buf).encode("utf-8"))')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))')), rel.py.makeRet(uf.makeStr(u'0'))]), uf.makeList([rel.py.makeStatement(uf.makeStr(u'stderr.write("Parse error: %s\\n" % pe.reason)')), rel.py.makeStatement(uf.makeStr(u'SortTraces(parser.lastMatch).sort()')), rel.py.makeStatement(uf.makeStr(u'newlines = [0]')), rel.py.makeCompound(uf.makeStr(u'for line in parser.s.split(u"\\n")'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'newlines.append(newlines[-1] + len(line) + 1)'))])), rel.py.makeCompound(uf.makeStr(u'for k, start, stop in parser.lastMatch[:10]'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'startLine = lineNumber(parser.s, start)')), rel.py.makeStatement(uf.makeStr(u'startCol = start - newlines[startLine]')), rel.py.makeStatement(uf.makeStr(u'stopLine = lineNumber(parser.s, stop)')), rel.py.makeStatement(uf.makeStr(u'stopCol = stop - newlines[stopLine]')), rel.py.makeStatement(uf.makeStr(u't = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol')), rel.py.makeStatement(uf.makeStr(u'stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'))])), rel.py.makeRet(uf.makeStr(u'1'))])), rel.py.makeCompound(uf.makeStr(u'except NoResults as nr'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'stderr.write("No results: %s\\n" % nr.message)')), rel.py.makeRet(uf.makeStr(u'1'))]))]))]), rel.builtin.makeFlatten(vClss), uf.makeList([rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinFlatten(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vLs) in rel.builtin.Flatten'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'ls = uf.findList(vLs)')), rel.py.makeStatement(uf.makeStr(u'if len(ls) == 1: target = ls[0]')), rel.py.makeStatement(uf.makeStr(u'else: target = uf.makeList(flatten([uf.findList(l) for l in ls]))')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vLs))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Flatten[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinLength(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vS) in rel.builtin.Length'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u's = uf.findStr(vS)')), rel.py.makeStatement(uf.makeStr(u'target = uf.makeStr(str(len(s)).decode("utf-8"))')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vS))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Length[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinJoin(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vS, vPs) in rel.builtin.Join'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u's = uf.findStr(vS)')), rel.py.makeStatement(uf.makeStr(u'ps = [uf.findStr(i) for i in uf.findList(vPs)]')), rel.py.makeStatement(uf.makeStr(u'target = uf.makeStr(s.join(ps))')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vS, vPs))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Join[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinConcat(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vS, vPs) in rel.builtin.Concat'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'ps = [uf.findStr(i) for i in uf.findList(vPs)]')), rel.py.makeConditional(uf.makeStr(u'len(ps)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u's = uf.findStr(vS)')), rel.py.makeStatement(uf.makeStr(u'target = uf.makeStr(s + u"".join(ps))'))])), rel.py.makeStatement(uf.makeStr(u'else: target = vS')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vS, vPs))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Concat[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'frozenRels = dict(allRels)')), rel.py.makeStatement(uf.makeStr(u'unrolledRels = unrolling_iterable(frozenRels)')), rel.py.makeStatement(uf.makeStr(u'frozenRules = dict(ruleNames)')), rel.py.makeStatement(uf.makeStr(u'unrolledRules = unrolling_iterable(frozenRules)')), rel.py.makeStatement(uf.makeStr(u'frozenLets = letNames[:]')), rel.py.makeStatement(uf.makeStr(u'unrolledLets = unrolling_iterable(frozenLets)')), rel.py.makeStatement(uf.makeStr(u'frozenTriggers = dict(triggers)'))])]))
+        rv = rel.builtin.makeFlatten(uf.makeList([uf.makeList([rel.py.makeImp(uf.makeStr(u'collections'), uf.makeStr(u'defaultdict')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.rfile'), uf.makeStr(u'create_stdio')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.objectmodel'), uf.makeStr(u'specialize, r_dict')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.unroll'), uf.makeStr(u'unrolling_iterable')), rel.py.makeImp(uf.makeStr(u'rpython.rlib.listsort'), uf.makeStr(u'make_timsort_class')), rel.py.makeCompound(uf.makeStr(u'class Result(object)'), uf.makeList([])), rel.py.makeCompound(uf.makeStr(u'class Failed(Result)'), uf.makeList([])), rel.py.makeStatement(uf.makeStr(u'failed = Failed()')), rel.py.makeCompound(uf.makeStr(u'def cached(f, cacheCount=[0])'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'attr = "t" + str(cacheCount[0]); cacheCount[0] += 1')), rel.py.makeStatement(uf.makeStr(u'name = f.__name__')), rel.py.makeStatement(uf.makeStr(u'uname = unicode(name)')), rel.py.makeCompound(uf.makeStr(u'class CacheResult(Result)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, i, rv): setattr(self, attr, (i, rv))'))])), rel.py.makeStatement(uf.makeStr(u'cache = {}')), rel.py.makeCompound(uf.makeStr(u'def deco(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'key = i')), rel.py.makeRaiseIf(uf.makeStr(u'key in cache and cache[key] is failed')), rel.py.makeStatement(uf.makeStr(u'elif key in cache: return getattr(cache[key], attr)')), rel.py.makeStatement(uf.makeStr(u'cache[key] = failed')), rel.py.makeStatement(uf.makeStr(u'i, rv = f(self, i)')), rel.py.makeStatement(uf.makeStr(u'cache[key] = CacheResult(i, rv)')), rel.py.makeStatement(uf.makeStr(u'self.lastMatch.append((uname, key, i))')), rel.py.makeRet(uf.makeStr(u'i, rv'))])), rel.py.makeStatement(uf.makeStr(u'deco.__name__ = name')), rel.py.makeRet(uf.makeStr(u'deco'))])), rel.py.makeStatement(uf.makeStr(u'ruleNames = []')), rel.py.makeStatement(uf.makeStr(u'letNames = []')), rel.py.makeCompound(uf.makeStr(u'def let(f)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'letNames.append(f)')), rel.py.makeRet(uf.makeStr(u'f'))])), rel.py.makeStatement(uf.makeStr(u'triggers = defaultdict(list)')), rel.py.makeCompound(uf.makeStr(u'def rewrite(*args)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def deco(f)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'name = f.__name__')), rel.py.makeStatement(uf.makeStr(u'ruleNames.append((name, f))')), rel.py.makeStatement(uf.makeStr(u'for rel in args: triggers[rel].append(name)')), rel.py.makeRet(uf.makeStr(u'f'))])), rel.py.makeRet(uf.makeStr(u'deco'))])), rel.py.makeStatement(uf.makeStr(u'@specialize.call_location()')), rel.py.makeCompound(uf.makeStr(u'def flatten(xs)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = []')), rel.py.makeStatement(uf.makeStr(u'for x in xs: rv.extend(x)')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def intersect(l, r)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = []')), rel.py.makeCompound(uf.makeStr(u'for x in r'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if x in l: rv.append(x)'))])), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeStatement(uf.makeStr(u'def listEq(l, r): return l == r')), rel.py.makeCompound(uf.makeStr(u'def listHash(l)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = 0')), rel.py.makeStatement(uf.makeStr(u'for x in l: rv += x')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'class UF(object)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.uf = [0]')), rel.py.makeStatement(uf.makeStr(u'self.handle2str = {}')), rel.py.makeStatement(uf.makeStr(u'self.str2handle = {}')), rel.py.makeStatement(uf.makeStr(u'self.handle2list = {}')), rel.py.makeStatement(uf.makeStr(u'self.list2handle = r_dict(listEq, listHash)'))])), rel.py.makeCompound(uf.makeStr(u'def make(self)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = len(self.uf)')), rel.py.makeStatement(uf.makeStr(u'self.uf.append(rv)')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def find(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'j = self.uf[i]')), rel.py.makeStatement(uf.makeStr(u'while self.uf[j] != j: self.uf[i], j, i = self.uf[j], self.uf[j], j')), rel.py.makeRet(uf.makeStr(u'j'))])), rel.py.makeCompound(uf.makeStr(u'def union(self, i, j)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'i = self.find(i); j = self.find(j)')), rel.py.makeStatement(uf.makeStr(u'if i != j: self.uf[i] = j')), rel.py.makeRet(uf.makeStr(u'j'))])), rel.py.makeCompound(uf.makeStr(u'def makeStr(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if s in self.str2handle: return self.str2handle[s]')), rel.py.makeStatement(uf.makeStr(u'rv = self.make()')), rel.py.makeStatement(uf.makeStr(u'self.handle2str[rv] = s')), rel.py.makeStatement(uf.makeStr(u'self.str2handle[s] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findStr(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'try: return self.handle2str[self.find(i)]')), rel.py.makeStatement(uf.makeStr(u'except KeyError: raise NoResults("findStr", i)'))])), rel.py.makeCompound(uf.makeStr(u'def makeList(self, l)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if l in self.list2handle: return self.list2handle[l]')), rel.py.makeStatement(uf.makeStr(u'rv = self.make()')), rel.py.makeStatement(uf.makeStr(u'self.handle2list[rv] = l')), rel.py.makeStatement(uf.makeStr(u'self.list2handle[l] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findList(self, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'try: return self.handle2list[self.find(i)]')), rel.py.makeStatement(uf.makeStr(u'except KeyError: raise NoResults("findList", i)'))])), rel.py.makeCompound(uf.makeStr(u'def rebuild(self)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'for (i, s) in self.handle2str.items()'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.handle2str[self.find(i)] = s'))])), rel.py.makeStatement(uf.makeStr(u'q = [(self.find(i), [self.find(x) for x in l]) for (i, l) in self.handle2list.items()]')), rel.py.makeStatement(uf.makeStr(u'self.handle2list.clear()')), rel.py.makeStatement(uf.makeStr(u'self.list2handle.clear()')), rel.py.makeCompound(uf.makeStr(u'for i, l in q'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.handle2list[i] = l')), rel.py.makeStatement(uf.makeStr(u'self.list2handle[l] = i'))]))]))])), rel.py.makeStatement(uf.makeStr(u'@specialize.call_location()')), rel.py.makeCompound(uf.makeStr(u'def rebuildRel(uf, d)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for r in d'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'if isinstance(r, int): q.append(uf.find(r))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 1: q.append((uf.find(r[0]),))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 2: q.append((uf.find(r[0]), uf.find(r[1])))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 3: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2])))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 4: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3])))')), rel.py.makeStatement(uf.makeStr(u'elif len(r) == 5: q.append((uf.find(r[0]), uf.find(r[1]), uf.find(r[2]), uf.find(r[3]), uf.find(r[4])))')), rel.py.makeStatement(uf.makeStr(u'else: assert False, "bob"'))])), rel.py.makeStatement(uf.makeStr(u'd.clear()')), rel.py.makeStatement(uf.makeStr(u'for r in q: d[r] = None'))])), rel.py.makeStatement(uf.makeStr(u'@specialize.call_location()')), rel.py.makeCompound(uf.makeStr(u'def rebuildHash(uf, d)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'for k, v in d.items(): d[k] = uf.find(v)'))])), rel.py.makeCompound(uf.makeStr(u'class Builtin(object)'), uf.makeList([])), rel.py.makeCompound(uf.makeStr(u'class EmitLine(Builtin)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, s): self.s = s')), rel.py.makeStatement(uf.makeStr(u'def out(self, m): return [u" " * (m * 4) + self.s]'))])), rel.py.makeCompound(uf.makeStr(u'class EmitBlock(Builtin)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, ls): self.ls = ls')), rel.py.makeStatement(uf.makeStr(u'def out(self, m): return flatten([l.out(m + 1) for l in self.ls])'))])), rel.py.makeCompound(uf.makeStr(u'class Rels(object)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'dirty = False'))])), rel.py.makeStatement(uf.makeStr(u'allRels = []')), rel.py.makeCompound(uf.makeStr(u'class Builder(object)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def Line(self, s): return EmitLine(s)')), rel.py.makeStatement(uf.makeStr(u'def Block(self, ls): return EmitBlock(ls)'))])), rel.py.makeStatement(uf.makeStr(u'builtin = Builder()')), rel.py.makeCompound(uf.makeStr(u'class builtinRels(Rels)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self, uf)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.uf = uf')), rel.py.makeStatement(uf.makeStr(u'self.Line = {}')), rel.py.makeStatement(uf.makeStr(u'self.Block = {}')), rel.py.makeStatement(uf.makeStr(u'self.Flatten = {}')), rel.py.makeStatement(uf.makeStr(u'self.Length = {}')), rel.py.makeStatement(uf.makeStr(u'self.Join = {}')), rel.py.makeStatement(uf.makeStr(u'self.Concat = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashLine = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashBlock = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashFlatten = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashLength = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashJoin = {}')), rel.py.makeStatement(uf.makeStr(u'self.hashConcat = {}'))])), rel.py.makeCompound(uf.makeStr(u'def rebuild(self)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Line)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Block)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Flatten)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Length)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Join)')), rel.py.makeStatement(uf.makeStr(u'rebuildRel(self.uf, self.Concat)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashLine)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashBlock)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashFlatten)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashLength)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashJoin)')), rel.py.makeStatement(uf.makeStr(u'rebuildHash(self.uf, self.hashConcat)'))])), rel.py.makeCompound(uf.makeStr(u'def makeLine(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Line[rv, s] = None')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findLine(self, i)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'for (x, s) in self.Line'), uf.makeList([rel.py.makeContIf(uf.makeStr(u'x != i')), rel.py.makeStatement(uf.makeStr(u'try: return EmitLine(self.uf.findStr(s))')), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'raise NoResults("findLine", i)'))])), rel.py.makeCompound(uf.makeStr(u'def makeBlock(self, ls)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Block[rv, ls] = None')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findBlock(self, i)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'for (x, ls) in self.Block'), uf.makeList([rel.py.makeContIf(uf.makeStr(u'x != i')), rel.py.makeStatement(uf.makeStr(u'try: return EmitBlock([self.findbuiltin(x) for x in self.uf.findList(ls)])')), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'raise NoResults("findBlock", i)'))])), rel.py.makeCompound(uf.makeStr(u'def makeFlatten(self, ls)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = ls')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashFlatten: return self.hashFlatten[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Flatten[rv, ls] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashFlatten[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def makeLength(self, s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = s')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashLength: return self.hashLength[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Length[rv, s] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashLength[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def makeJoin(self, s, ps)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = s, ps')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashJoin: return self.hashJoin[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Join[rv, s, ps] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashJoin[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def makeConcat(self, p, ps)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'k = p, ps')), rel.py.makeStatement(uf.makeStr(u'if k in self.hashConcat: return self.hashConcat[k]')), rel.py.makeStatement(uf.makeStr(u'self.dirty = True')), rel.py.makeStatement(uf.makeStr(u'rv = self.uf.make()')), rel.py.makeStatement(uf.makeStr(u'self.Concat[rv, p, ps] = None')), rel.py.makeStatement(uf.makeStr(u'self.hashConcat[k] = rv')), rel.py.makeRet(uf.makeStr(u'rv'))])), rel.py.makeCompound(uf.makeStr(u'def findbuiltin(self, i)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeRet(uf.makeStr(u'self.findLine(i)'))])), rel.py.makeCompound(uf.makeStr(u'except NoResults'), uf.makeList([rel.py.makeRet(uf.makeStr(u'self.findBlock(i)'))]))]))])), rel.py.makeStatement(uf.makeStr(u'allRels.append(("builtin", builtinRels))')), rel.py.makeCompound(uf.makeStr(u'class ParseError(Exception)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'def __init__(self, reason): self.reason = reason'))])), rel.py.makeCompound(uf.makeStr(u'class NoResults(Exception)'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'def __init__(self, message, handle)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'self.message = message; self.handle = handle'))]))])), rel.py.makeCompound(uf.makeStr(u'def lineNumber(s, i)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'assert i >= 0')), rel.py.makeRet(uf.makeStr(u's.count(unichr(10), 0, i)'))])), rel.py.makeStatement(uf.makeStr(u'SortTraces = make_timsort_class(lt=lambda l, r: l[2] > r[2])')), rel.py.makeCompound(uf.makeStr(u'def main(argv)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'stdin, stdout, stderr = create_stdio()')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Registered %d rewrite rules\\n" % len(frozenRules))')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Registered %d rewrite triggers\\n" % len(frozenTriggers))')), rel.py.makeStatement(uf.makeStr(u'uf = UF()')), rel.py.makeStatement(uf.makeStr(u'parser = MainParser(stdin.read().decode("utf-8"), uf)')), rel.py.makeHandler(uf.makeList([rel.py.makeStatement(uf.makeStr(u'i, l = parser.parse()')), rel.py.makeConditional(uf.makeStr(u'i != len(parser.s)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'raise ParseError("Failed to consume all input")'))])), rel.py.makeStatement(uf.makeStr(u'l = parser.builtin.makeFlatten(l)')), rel.py.makeCompound(uf.makeStr(u'for iteration in range(15)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rulesToTry = []')), rel.py.makeCompound(uf.makeStr(u'for r in unrolledRels'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'rel = getattr(parser, r)')), rel.py.makeStatement(uf.makeStr(u'rulesToTry.extend(frozenTriggers.get(r, []))')), rel.py.makeStatement(uf.makeStr(u'rel.rebuild()')), rel.py.makeStatement(uf.makeStr(u'rel.dirty = False'))])), rel.py.makeStatement(uf.makeStr(u'if not rulesToTry: break')), rel.py.makeStatement(uf.makeStr(u'uf.rebuild()')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Iteration %d: Union/find: %d handles\\n" % (iteration, len(uf.uf)))')), rel.py.makeStatement(uf.makeStr(u'count = 0')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Iteration %d: %d rules to try\\n" % (iteration, len(rulesToTry)))')), rel.py.makeCompound(uf.makeStr(u'for name in rulesToTry'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'c = frozenRules[name](uf, parser)')), rel.py.makeStatement(uf.makeStr(u'if c: stderr.write("Rule %s: %d transactions\\n" % (name, c))')), rel.py.makeStatement(uf.makeStr(u'count += c'))])), rel.py.makeStatement(uf.makeStr(u'stderr.write("Iteration %d: %d applications\\n" % (iteration, count))'))])), rel.py.makeStatement(uf.makeStr(u'buf = []')), rel.py.makeStatement(uf.makeStr(u'ls = uf.findList(l)')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Optimized to %d builtin blocks\\n" % len(ls))')), rel.py.makeStatement(uf.makeStr(u'for rule in ls: buf.extend(parser.builtin.findbuiltin(rule).out(0))')), rel.py.makeStatement(uf.makeStr(u'stdout.write(u"\\n".join(buf).encode("utf-8"))')), rel.py.makeStatement(uf.makeStr(u'stderr.write("Wrote %d lines to stdout\\n" % len(buf))')), rel.py.makeRet(uf.makeStr(u'0'))]), uf.makeList([rel.py.makeStatement(uf.makeStr(u'stderr.write("Parse error: %s\\n" % pe.reason)')), rel.py.makeStatement(uf.makeStr(u'SortTraces(parser.lastMatch).sort()')), rel.py.makeStatement(uf.makeStr(u'newlines = [0]')), rel.py.makeCompound(uf.makeStr(u'for line in parser.s.split(u"\\n")'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'newlines.append(newlines[-1] + len(line) + 1)'))])), rel.py.makeCompound(uf.makeStr(u'for k, start, stop in parser.lastMatch[:10]'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'startLine = lineNumber(parser.s, start)')), rel.py.makeStatement(uf.makeStr(u'startCol = start - newlines[startLine]')), rel.py.makeStatement(uf.makeStr(u'stopLine = lineNumber(parser.s, stop)')), rel.py.makeStatement(uf.makeStr(u'stopCol = stop - newlines[stopLine]')), rel.py.makeStatement(uf.makeStr(u't = k.encode("utf-8"), startLine + 1, startCol, stopLine + 1, stopCol')), rel.py.makeStatement(uf.makeStr(u'stderr.write(("Trail: %s (%d:%d - %d:%d)" % t) + chr(10))'))])), rel.py.makeRet(uf.makeStr(u'1'))])), rel.py.makeCompound(uf.makeStr(u'except NoResults as nr'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'stderr.write("No results: %s\\n" % nr.message)')), rel.py.makeRet(uf.makeStr(u'1'))]))]))]), rel.builtin.makeFlatten(vClss), uf.makeList([rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinFlatten(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vLs) in rel.builtin.Flatten'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'ls = uf.findList(vLs)')), rel.py.makeStatement(uf.makeStr(u'if len(ls) == 1: target = ls[0]')), rel.py.makeStatement(uf.makeStr(u'else: target = uf.makeList(flatten([uf.findList(l) for l in ls]))')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vLs))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Flatten[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinLength(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vS) in rel.builtin.Length'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u's = uf.findStr(vS)')), rel.py.makeStatement(uf.makeStr(u'target = uf.makeStr(str(len(s)).decode("utf-8"))')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vS))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Length[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinJoin(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vS, vPs) in rel.builtin.Join'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u's = uf.findStr(vS)')), rel.py.makeStatement(uf.makeStr(u'ps = [uf.findStr(i) for i in uf.findList(vPs)]')), rel.py.makeStatement(uf.makeStr(u'target = uf.makeStr(s.join(ps))')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vS, vPs))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Join[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'@rewrite("builtin")')), rel.py.makeCompound(uf.makeStr(u'def builtinConcat(uf, rel)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'q = []')), rel.py.makeCompound(uf.makeStr(u'for (vRoot, vS, vPs) in rel.builtin.Concat'), uf.makeList([rel.py.makeCompound(uf.makeStr(u'try'), uf.makeList([rel.py.makeStatement(uf.makeStr(u'ps = [uf.findStr(i) for i in uf.findList(vPs)]')), rel.py.makeConditional(uf.makeStr(u'len(ps)'), uf.makeList([rel.py.makeStatement(uf.makeStr(u's = uf.findStr(vS)')), rel.py.makeStatement(uf.makeStr(u'target = uf.makeStr(s + u"".join(ps))'))])), rel.py.makeStatement(uf.makeStr(u'else: target = vS')), rel.py.makeStatement(uf.makeStr(u'uf.union(vRoot, target)')), rel.py.makeStatement(uf.makeStr(u'q.append((vRoot, vS, vPs))'))])), rel.py.makeStatement(uf.makeStr(u'except NoResults: continue'))])), rel.py.makeStatement(uf.makeStr(u'for k in q: del rel.builtin.Concat[k]')), rel.py.makeRet(uf.makeStr(u'len(q)'))])), rel.py.makeStatement(uf.makeStr(u'frozenRels = dict(allRels)')), rel.py.makeStatement(uf.makeStr(u'unrolledRels = unrolling_iterable(frozenRels)')), rel.py.makeStatement(uf.makeStr(u'frozenRules = dict(ruleNames)')), rel.py.makeStatement(uf.makeStr(u'unrolledRules = unrolling_iterable(frozenRules)')), rel.py.makeStatement(uf.makeStr(u'frozenLets = letNames[:]')), rel.py.makeStatement(uf.makeStr(u'unrolledLets = unrolling_iterable(frozenLets)')), rel.py.makeStatement(uf.makeStr(u'frozenTriggers = dict(triggers)'))])]))
         return i, rv
         pass
     pass

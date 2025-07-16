@@ -4,6 +4,7 @@ statement = Statement(string line)
           | Imp(string module, string names)
           | Ret(string expr)
           | RaiseIf(string test)
+          | ContIf(string test)
           | Compound(string head, statement* block)
           | Conditional(string test, statement* block)
           | Handler(statement* block, statement* handler)
@@ -60,6 +61,7 @@ production = VarProd(string name)
            | LengthOp(production p)
            | JoinOp(string s, production p)
            | ConcatOp(production p, production* ps)
+           | GenSym(string s)
 rule = Rewrite(string name, patt root, production* prods)
      | Let(string name, production p)
 
@@ -72,12 +74,35 @@ set = Any
     | Complement(set s)
     | Either(set l, set r)
 
+.signature ops
+
+.signature ds
+
+rep = Make
+    | Union(rep l, rep r)
+    | Find(rep handle)
+    | MakeStr(str s)
+    | MakeList(rep* handles)
+str = FindStr(rep handle)
+list = FindList(rep handle)
+
+.signature cq
+
+query = Query(var* head, rel* body)
+rel = Relation(string ns, string table, var* vars)
+var = Var(string name)
+
+.signature gj
+
+sub = EmptySub
+
 .rules
 
 pyStatement @ py.Statement(L)       ==> [.line(L)] ;
 pyImp       @ py.Imp(M, Ns)         ==> [.line('from ' M ' import ' Ns)] ;
 pyRet       @ py.Ret(E)             ==> [.line('return ' E)] ;
 pyRaiseIf   @ py.RaiseIf(T)         ==> [.line('if ' T ': raise ParseError("no reason")')] ;
+pyContIf    @ py.ContIf(T)          ==> [.line('if ' T ': continue')] ;
 pyCompPass  @ py.Compound(H, [])    ==> [.line(H ': pass')] ;
 pyCompBlock @ py.Compound(H, B)     ==> [.line(H ':'), .block(*[*B, [.line('pass')]])] ;
 pyCondEmpty @ py.Conditional(T, []) ==> [] ;
@@ -194,13 +219,14 @@ rProdOL @ rules.LengthOp(P)                ==> 'rel.builtin.makeLength(' P ')' ;
 rProdOJ @ rules.JoinOp(S, P)               ==> 'rel.builtin.makeJoin(uf.makeStr(u"' S '"), ' P ')' ;
 rProdOE @ rules.ConcatOp(P, [])            ==> P ;
 rProdOC @ rules.ConcatOp(P, Ps)            ==> 'rel.builtin.makeConcat(' P ', uf.makeList([' .join(Ps, ', ') ']))' ;
+rGenSym @ rules.GenSym(S)                  ==> 'uf.makeStr(rel.gensym(' S '))' ;
 rRule   @ rules.Rewrite(Name, RootFor, Ps) ==> [py.Statement('@rewrite("builtin", "py", "rules", "peg", "char", "zephyr")'),
                                                 py.Compound('def ' Name '(uf, rel)', [
                                                     py.Statement('q = []'),
                                                     py.Statement('beEmpty = uf.makeList([])'),
                                                     py.Compound(RootFor, [
                                                         py.Compound('try', [
-                                                            py.Statement('if len(uf.findList(beEmpty)): continue'),
+                                                            py.ContIf('len(uf.findList(beEmpty))'),
                                                             py.Statement('uf.union(vRoot, ' .join(Ps, ', ') ')'),
                                                             py.Statement('q.append(vRoot)')
                                                         ]),
@@ -272,6 +298,8 @@ CPROD1 := WS CPROD2:P ( WS CPROD2 )+:Ps -> rules.ConcatOp(P, Ps)
         / WS CPROD2 ;
 CPROD2 := STRING:S                            -> rules.StrProd(S)
         / Number:N                            -> rules.CharProd(N)
+        / '.gensym(' STRING:S ')'             -> rules.GenSym(S)
+        / '.gensym'                           -> rules.GenSym('gs')
         / '#' CPROD2:P                        -> rules.LengthOp(P)
         / '*' CPROD2:P                        -> rules.FlattenOp(P)
         / '*(' CPROD1:P ')'                   -> rules.FlattenOp(P)
@@ -300,6 +328,11 @@ GRAMMAR := '.grammar' ID:Name ( PCLASS / PTOKEN / PRULE )*:Rules
                      py.Statement('for name in unrolledRels: setattr(self, name, frozenRels[name](uf))'),
                      py.Statement('for l in unrolledLets: l(uf, self)')
                   ]),
+                py.Statement('gs = 0'),
+                py.Compound('def gensym(self, s)', [
+                    py.Statement('self.gs += 1'),
+                    py.Ret('s + str(self.gs).decode("utf-8")')
+                ]),
                 py.Compound('def parse(self)',
                     [py.Ret('self.parse' Name '(0)')])],
                *Rules]),
@@ -548,7 +581,7 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               ]),
               py.Compound('def findLine(self, i)', [
                   py.Compound('for (x, s) in self.Line', [
-                      py.Statement('if x != i: continue'),
+                      py.ContIf('x != i'),
                       py.Statement('try: return EmitLine(self.uf.findStr(s))'),
                       py.Statement('except NoResults: continue')
                   ]),
@@ -561,7 +594,7 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
               ]),
               py.Compound('def findBlock(self, i)', [
                   py.Compound('for (x, ls) in self.Block', [
-                      py.Statement('if x != i: continue'),
+                      py.ContIf('x != i'),
                       py.Statement('try: return EmitBlock([self.findbuiltin(x) for x in self.uf.findList(ls)])'),
                       py.Statement('except NoResults: continue')
                   ]),
@@ -631,7 +664,7 @@ ZADDY := WS ( RULES / SIGNATURE / GRAMMAR )*:Clss WS
                       py.Statement('raise ParseError("Failed to consume all input")')
                   ]),
                   py.Statement('l = parser.builtin.makeFlatten(l)'),
-                  py.Compound('for iteration in range(25)', [
+                  py.Compound('for iteration in range(15)', [
                       py.Statement('rulesToTry = []'),
                       py.Compound('for r in unrolledRels', [
                           py.Statement('rel = getattr(parser, r)'),
